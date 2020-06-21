@@ -1,0 +1,31 @@
+#!/usr/bin/python3
+import argparse
+import sys
+from transcode.config.ebml import ConfigElement
+from PyQt5.QtWidgets import QApplication
+import transcode.pyqtgui.qencodewidget
+
+parser = argparse.ArgumentParser(description="Encoder.")
+parser.add_argument("file", action='store', help="Config file")
+parser.add_argument("-n", action='store', help="Select stream to transcode.", default=0, type=int)
+parser.add_argument("--pass", "-p", dest="p", action='append', help="Encode pass", default=[], type=int)
+parser.add_argument("--quit-on-complete", "-q", dest="q", action='store_true', help="Exit on complete")
+args = parser.parse_args()
+config = ConfigElement.load(args.file)
+config.output_files[args.n].targetsize = 692.625*1024**2
+ConfigElement.save(config, args.file)
+logfile = open(f"{config.configstem}-{args.n}.log", "a")
+
+if len(args.p) == 0:
+    args.p.append(0)
+
+for k, pass_ in enumerate(args.p):
+    app = QApplication(sys.argv)
+    dlg = transcode.pyqtgui.qencodewidget.QEncodeDialog(config.output_files[args.n], pass_=pass_, logfile=logfile)
+    dlg.autoClose.setChecked(k < len(args.p) - 1 or args.q)
+
+    if not dlg.exec_():
+        logfile.close()
+        sys.exit(1)
+
+logfile.close()
