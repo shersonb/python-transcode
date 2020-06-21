@@ -19,8 +19,9 @@ logfile = open(f"{config.configstem}-{args.n}.log", "a")
 if len(args.p) == 0:
     args.p.append(0)
 
+app = QApplication(sys.argv)
+
 for k, pass_ in enumerate(args.p):
-    app = QApplication(sys.argv)
     dlg = transcode.pyqtgui.qencodewidget.QEncodeDialog(config.output_files[args.n], pass_=pass_, logfile=logfile)
     dlg.autoClose.setChecked(k < len(args.p) - 1 or args.q)
 
