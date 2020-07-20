@@ -21,17 +21,6 @@ class Track(basereader.Track):
         self.durations = state.get("durations")
         super().__setstate__(state)
 
-    #@property
-    #def defaultDuration(self):
-        #if isinstance(self.trackEntry.defaultDuration, int):
-            #q, r = divmod(self.trackEntry.defaultDuration, 1000)
-
-            #if r % 111 in (0, 1):
-                #"""Possible repeating digit. Will assume as such."""
-                #return 1000*q + r + QQ(r//111, 9)
-
-            #return self.trackEntry.defaultDuration
-
     @property
     def extradata(self):
         sections = []
