@@ -13,7 +13,7 @@ class BaseFilter(object):
     """
     from copy import deepcopy as copy
 
-    def __init__(self, prev=None, next=None, parent=None, notify_input=None, notify_output=None, time_base=None):
+    def __init__(self, prev=None, next=None, parent=None, notify_input=None, notify_output=None):
         self.next = next
         self.prev = prev
         self.parent = parent
@@ -66,16 +66,6 @@ class BaseFilter(object):
     def time_base(self):
         del self._time_base
 
-    @property
-    def layout(self):
-        if self.prev is not None:
-            return self.prev.layout
-
-    @property
-    def channels(self):
-        if self.prev is not None:
-            return self.prev.channels
-
     @cached
     def pts_time(self):
         if self.prev is not None:
@@ -95,16 +85,6 @@ class BaseFilter(object):
             return self.prev.defaultDuration
 
     @property
-    def rate(self):
-        if self.defaultDuration and self.time_base:
-            return 1/(self.time_base*self.defaultDuration)
-
-    @property
-    def format(self):
-        if self.prev:
-            return self.prev.format
-
-    @property
     def prev(self):
         return self._prev
 
@@ -121,12 +101,15 @@ class BaseFilter(object):
         elif isinstance(self.prev, BaseVideoFilter):
             return self.prev.src
 
+    @cached
+    def duration(self):
+        return self.prev.duration
+
     def reset_cache(self, start=0, end=None):
         del self.framecount
         del self.duration
         del self.indexMap
         del self.reverseIndexMap
-        #del self.pts_time
 
         if self.next is not None:
             self.next.reset_cache(start, end)
@@ -142,10 +125,6 @@ class BaseFilter(object):
     @framecount.deleter
     def framecount(self):
         del self.duration
-
-    @cached
-    def duration(self):
-        return self.prev.duration
 
     def frameIndexFromPts(self, pts, dir="+"):
         return transcode.util.search(self.pts, pts, dir)

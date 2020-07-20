@@ -9,14 +9,57 @@ from transcode.encoders.video.base import VideoEncoderContext
 from itertools import zip_longest
 import json
 import numpy
-from collections import OrderedDict
+from collections import OrderedDict, UserList
 import ebml.ndarray
+import abc
 #from transcode.encoders.audio.base import AudioEncoderContext
 
 class TrackStats(ebml.ndarray.EBMLNDArray):
     ebmlID = b"\x19\x14\xdc\x87"
 
-class Track(object):
+class TrackList(UserList):
+    def __init__(self, items=[], container=None):
+        self.data = list(items)
+        self.container = container
+
+    @property
+    def container(self):
+        return self._container
+
+    @container.setter
+    def container(self, value):
+        for item in self:
+            item.container = value
+
+        self._container = value
+
+    def append(self, item):
+        item.container = self.container
+        super().append(item)
+
+    def insert(self, index, item):
+        item.container = self.container
+        super().insert(index, item)
+
+    def extend(self, items):
+        k = len(self)
+        super().extend(items)
+        for item in self[k:]:
+            item.container = self.container
+
+    def __reduce__(self):
+        state = self.__getstate__()
+
+        if state:
+            return self.__class__, (), state, iter(self)
+
+        return self.__class__, (), None, iter(self)
+
+    def __getstate__(self):
+        return
+
+class Track(abc.ABC):
+    """Base class for output tracks."""
     from copy import deepcopy as copy
 
     def __init__(self, source, encoder=None, filters=None, name=None, language=None, delay=0, container=None):
@@ -36,12 +79,18 @@ class Track(object):
     def __reduce__(self):
         state = self.__getstate__()
         if state:
-            return type(self), (self.source, self.encoder, self.filters), state
+            return type(self), (self.source,), state
 
-        return type(self), (self.source, self.encoder, self.filters)
+        return type(self), (self.source,)
 
     def __getstate__(self):
         state = OrderedDict()
+
+        if self.encoder:
+            state["encoder"] = self.encoder
+
+        if self.filters:
+            state["filters"] = self.filters
 
         if self.name:
             state["name"] = self.name
@@ -55,6 +104,8 @@ class Track(object):
         return state
 
     def __setstate__(self, state):
+        self.encoder = state.get("encoder")
+        self.filters = state.get("filters")
         self.name = state.get("name")
         self.language = state.get("language")
         self.delay = state.get("delay", 0)
@@ -123,10 +174,10 @@ class Track(object):
                 yield exc
 
             else:
-                if isinstance(self.sizeStats, numpy.ndarray) and self.sizeStats.shape[1] == len(self._sizes):
+                try:
                     self.sizeStats = numpy.concatenate((self.sizeStats, (self._sizes,)))
 
-                else:
+                except:
                     self.sizeStats = numpy.array((self._sizes,))
 
             if not exit:
@@ -137,10 +188,7 @@ class Track(object):
             print(f"Track {self.track_index}: {len(self._sizes)} packets, {sum(self._sizes)} bytes", file=logfile)
             packets.close()
 
-    def _handlePacket(self, packet):
-        return packet
-
-    def prepare(self, duration=None, logfile=None, **kwargs):
+    def _prepare(self, duration=None, logfile=None, **kwargs):
         if self.type == "video":
             print(f"Track {self.track_index}: Video, {self.width}x{self.height}, {1/self.defaultDuration/self.time_base} fps, {self.format}", file=logfile)
 
@@ -170,15 +218,19 @@ class Track(object):
         else:
             packets = self.openpackets(duration=duration, logfile=logfile)
 
-        self._prepare(packets=packets, logfile=logfile)
+        self._prepareentry(packets=packets, logfile=logfile)
 
         if self.encoder:
             return self._iterPackets(packets, logfile=logfile)
 
         return self._iterPackets(packets, duration=duration, logfile=logfile)
 
-    def _prepare(self, packets, logfile=None, **kwargs):
-        pass
+    @abc.abstractmethod
+    def _prepareentry(self, packets, logfile=None, **kwargs):
+        """
+        Prepares track entry, specifically handing the private codec data and adding
+        track entry to container headers.
+        """
 
     @property
     def type(self):
@@ -335,18 +387,6 @@ class Track(object):
     @property
     def framecount(self):
         return len(self.pts)
-        #if self.encoder:
-            #if self.type in ("video", "subtitle"):
-                #if self.filters:
-                    #return self.filters.framecount
-
-                #return self.source.framecount
-
-            #elif self.type == "audio":
-                #return int(self.duration/self.defaultDuration) + bool(self.duration % self.defaultDuration > 0)
-
-        #else:
-            #return self.source.framecount
 
     @property
     def durations(self):
@@ -376,7 +416,74 @@ class Track(object):
     def frameIndexFromPts(self, pts, dir="+"):
         return transcode.util.search(self.pts, pts, dir)
 
-class BaseWriter(object):
+class BaseWriter(abc.ABC):
+    """
+    Base class for output containers.
+
+    Methods self._preparefile, self._mux, and self._finalize MUST be implemented,
+    while self._excepthandler MAY be implemented, but is not required.
+
+    Class variable 'trackclass' SHOULD be set to an accompanying subclass
+    of 'Track.'
+
+    Class variable 'fmtname' MAY be set to identify the name of the
+    the container format.
+
+    Class variable 'extensions' MAY be set to identify file extensions used by
+    the container format.
+
+    When subclassing, keep the following function/method call order in mind:
+
+    self.transcode()
+        ├─ self.loadOverhead() (populates self.vtrack.sizeStats if data is available)
+        ├─ notifystats(self.vtrack.sizeStats) (if notifystats is provided and self.track
+        │          is not None)
+        ├─ self.open()
+        │   └─ self._open() (OVERRIDE this method in subclass)
+        ├─ self._iterators = self._prepare()
+        │   ├─ self._preparefile() (OVERRIDE this method in subclass)
+        │   └─ self._preparetracks()
+        │       ├─ self.bitrateFromTargetSize() (if self.vtrack is not None)
+        │       └─ track._prepare() (for track in self.tracks, NOTE: notifyvencode is
+        │           │       passed down to this method if track == self.vtrack)
+        │           ├─ track._prepareentry() (OVERRIDE this method in subclass of Track)
+        │           ├─ packets = track.openencoder() (if track.encoder is not None,
+        │           │       handles notifyvencode if provided)
+        │           ├─ packets = track.openpackets() (if track.encoder is None)
+        │           └─ track._iterPackets(packets)
+        ├─ self._multiplex()
+        │   └─ for packet in self._iterPackets():
+        │       ├─ self._mux(packet) (OVERRIDE in subclass)
+        │       └─ notifymux(packet) (if notifymux is provided)
+        ├─ self._closepackets(self._iterators)
+        │   └─ iterator.close() (for iterator in self._iterators)
+        └─ self._wrapup()
+            ├─ if self.multiplex() completes without interruption:
+            │   ├─ self._finalize() (if self.multiplex() completes without interruption,
+            │   │           OVERRIDE this method in subclass)
+            │   ├─ self.saveOverhead() (if self.multiplex() completes without interruption)
+            │   └─ notifyfinish() (if self.multiplex() completes without interruption
+            │          and notifyfinish is provided)
+            └─ if self.multiplex() is interrupted with either
+                │          self.stopTranscode() or KeyboardInterrupt:
+                └─ notifycancelled() (if notifycancelled is provided)
+
+    If an exception is encountered in self.multiplex():
+
+    self.transcode()
+        ├─ self._closepackets(self._iterators)
+        │   └─ iterator.close() (for iterator in self._iterators)
+        └─ self.excepthandler()
+            ├─ self._excepthandler() (OVERRIDE this method in subclass)
+            └─ notifyerror() (if notifyerror is provided)
+
+    If an exception is encountered elsewhere:
+
+    self.transcode()
+        └─ self.excepthandler()
+            ├─ self._excepthandler() (OVERRIDE this method in subclass)
+            └─ notifyerror() (if notifyerror is provided)
+    """
     from copy import deepcopy as copy
     trackclass = Track
 
@@ -395,6 +502,19 @@ class BaseWriter(object):
         self.loadOverhead()
         self.newoverhead = {}
         self._transcodeThread = None
+
+    @property
+    def tracks(self):
+        return self._tracks
+
+    @tracks.setter
+    def tracks(self, value):
+
+        if not isinstance(value, TrackList):
+            value = TrackList(value)
+
+        value.container = self
+        self._tracks = value
 
     @property
     def transcode_started(self):
@@ -489,7 +609,7 @@ class BaseWriter(object):
             except:
                 track.sizeStats = None
 
-    def _multiplex(self, *iterators):
+    def _iterPackets(self, *iterators):
         iterators = list(iterators)
         packets = [None]*len(iterators)
 
@@ -529,11 +649,6 @@ class BaseWriter(object):
             if packet is not None:
                 yield packet
 
-    def createTranscodeThread(self, pass_=0, encoderoverrides=[], logfile=None, notifystats=None,
-                notifymux=None, notifyfinish=None, notifyerror=None, notifyvencode=None, autostart=True):
-        return threading.Thread(target=self.transcode, args=(pass_, encoderoverrides, logfile,
-                                            notifystats, notifymux, notifyfinish, notifyerror, notifyvencode))
-
     def _closepackets(self, iterators, logfile=None):
         print(f"--- Summary ---", file=logfile)
         for k, iterator in enumerate(iterators):
@@ -545,17 +660,19 @@ class BaseWriter(object):
                 cls, exc, tb = sys.exc_info()
                 self._printexeption(exc, tb, logfile)
 
-    def stopTranscode(self):
-        self._unpaused.set()
-        self._stop.set()
-
-        if self._transcodeThread:
-            self._transcodeThread.join()
-
-        self._stop.clear()
+    def createTranscodeThread(self, pass_=0, encoderoverrides=[], logfile=None, notifystats=None,
+                notifymux=None, notifyfinish=None, notifycancelled=None, notifyerror=None,
+                notifyvencode=None, autostart=True):
+        return threading.Thread(target=self.transcode, args=(pass_, encoderoverrides, logfile,
+                                            notifystats, notifymux, notifyfinish, notifycancelled, notifyerror, notifyvencode))
 
     def transcode(self, pass_=0, encoderoverrides=[], logfile=None, notifystats=None,
-                  notifymux=None, notifyfinish=None, notifyerror=None, notifyvencode=None):
+                  notifymux=None, notifyfinish=None, notifycancelled=None, notifyerror=None,
+                  notifyvencode=None):
+        """
+        Start transcode. If it is desired to run this method in a separate thread, 
+        self.createTranscodeThread() is provided.
+        """
         self._unpaused.set()
 
         self._transcodeThread = threading.currentThread()
@@ -576,11 +693,8 @@ class BaseWriter(object):
                     if isinstance(self.vtrack.sizeStats, numpy.ndarray):
                         notifystats(self.vtrack.sizeStats)
 
-                    #else:
-                        #notifystats(numpy.zeros((0, ), dtype=numpy.int0))
-
                 self.open(logfile)
-                self._iterators = iterators = self.prepare(pass_, encoderoverrides, logfile, notifyvencode)
+                self._iterators = iterators = self._prepare(pass_, encoderoverrides, logfile, notifyvencode)
 
             except:
                 print("!!! EXCEPTION encountered during preparation !!!", file=logfile)
@@ -592,7 +706,7 @@ class BaseWriter(object):
                 raise
 
             try:
-                self.multiplex(iterators, logfile, notifymux)
+                self._multiplex(iterators, logfile, notifymux)
 
             except:
                 print("!!! EXCEPTION encountered during transcode !!!", file=logfile)
@@ -606,7 +720,7 @@ class BaseWriter(object):
 
             try:
                 self._closepackets(iterators, logfile)
-                self.wrapup(logfile, notifyfinish)
+                self._wrapup(logfile, notifyfinish, notifycancelled)
 
             except:
                 print("!!! EXCEPTION encountered during wrap-up !!!", file=logfile)
@@ -619,17 +733,23 @@ class BaseWriter(object):
                 self._transcode_started.clear()
                 self._stop.clear()
 
-            self.lastoverhead, self.newoverhead = self.newoverhead, {}
-            self.saveOverhead()
-
         finally:
             if logfile:
                 logfile.flush()
 
             self._transcodeThread = None
 
-    def multiplex(self, iterators, logfile=None, notifymux=None):
-        for packet in self._multiplex(*iterators):
+    def stopTranscode(self):
+        self._unpaused.set()
+        self._stop.set()
+
+        if self._transcodeThread:
+            self._transcodeThread.join()
+
+        self._stop.clear()
+
+    def _multiplex(self, iterators, logfile=None, notifymux=None):
+        for packet in self._iterPackets(*iterators):
             self._mux(packet)
 
             if callable(notifymux):
@@ -646,10 +766,12 @@ class BaseWriter(object):
         else:
             print(f"Output file: {self.outputpathabs}", file=logfile)
 
+    @abc.abstractmethod
     def _open(self):
+        """Abstract method that opens/creates the container file."""
         raise NotImplementedError
 
-    def prepare(self, pass_=0, encoderoverrides=[], logfile=None, notifyvencode=None):
+    def _prepare(self, pass_=0, encoderoverrides=[], logfile=None, notifyvencode=None):
         if self.targetsize is not None and pass_ != 1:
             print(f"Target file size: {transcode.util.h(self.targetsize)}", file=logfile)
 
@@ -659,13 +781,21 @@ class BaseWriter(object):
         if logfile is not None:
             logfile.flush()
 
-        self._prepare(logfile)
+        self._preparefile(logfile)
         return self._preparetracks(pass_, encoderoverrides, logfile, notifyvencode)
 
-    def _prepare(self, logfile=None):
+    @abc.abstractmethod
+    def _preparefile(self, logfile=None):
+        """
+        Abstract method prepares container file, writing any header information except
+        for track entries.
+        """
         pass
 
     def _preparetracks(self, pass_, encoderoverrides=[], logfile=None, notifyvencode=None):
+        """
+        Prepares packet iterators, and opens encoders.
+        """
         print("--- Track Information ---", file=logfile)
 
         vencoder_override = dict()
@@ -693,10 +823,13 @@ class BaseWriter(object):
 
             if track is self.vtrack:
                 encoder_override.update(vencoder_override)
-                iterators.append(track.prepare(duration=self.duration, notifyencode=notifyvencode, logfile=logfile, **encoder_override))
+                iterators.append(track._prepare(duration=self.duration, notifyencode=notifyvencode, logfile=logfile, **encoder_override))
 
             else:
-                iterators.append(track.prepare(duration=self.duration, logfile=logfile, **encoder_override))
+                iterators.append(track._prepare(duration=self.duration, logfile=logfile, **encoder_override))
+
+        if logfile:
+            logfile.flush()
 
         return iterators
 
@@ -737,22 +870,30 @@ class BaseWriter(object):
     def _excepthandler(self, exc, tb, logfile=None):
         pass
 
-    def wrapup(self, logfile=None, notifyfinish=None):
+    def _wrapup(self, logfile=None, notifyfinish=None, notifycancelled=None):
         self._transcode_started.clear()
-        self._wrapup(logfile)
 
-        if callable(notifyfinish):
-            notifyfinish()
 
         strftime = time.strftime("%A, %B %-d, %Y, %-I:%M:%S %P %Z")
 
         if self._stop.isSet():
+            if callable(notifycancelled):
+                notifycancelled()
+
             print(f"!!! Transcode cancelled: {strftime} !!!", file=logfile)
 
         else:
+            self._finalize(logfile)
+            self.lastoverhead, self.newoverhead = self.newoverhead, {}
+            self.saveOverhead()
+
+            if callable(notifyfinish):
+                notifyfinish()
+
             print(f"*** Transcode completed: {strftime} ***", file=logfile)
 
-    def _wrapup(self, logfile=None):
+    @abc.abstractmethod
+    def _finalize(self, logfile=None):
         pass
 
     def calcOverhead(self):
@@ -792,10 +933,10 @@ class BaseWriter(object):
             sizePerKbps = float(self.vtrack.framecount*self.vtrack.defaultDuration*self.vtrack.time_base*125)
 
             bitrateAdj += int(diff//sizePerKbps)
+            print("b", bitrateAdj)
 
             self.newoverhead["bitrateAdj"] = bitrateAdj
 
         bitrate = targetsize/self.duration/125 - overheadbitrate
-        
         return bitrate/(self.vtrack.avgfps*self.vtrack.defaultDuration*self.vtrack.time_base) + bitrateAdj
 

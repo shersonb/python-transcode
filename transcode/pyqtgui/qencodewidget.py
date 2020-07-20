@@ -255,12 +255,14 @@ class QEncodeDialog(QDialog):
     packetreceived = pyqtSignal(Packet)
     statsloaded = pyqtSignal(numpy.ndarray)
     encodefinished = pyqtSignal()
+    encodeinterrupted = pyqtSignal()
     encodeerror = pyqtSignal(BaseException, types.TracebackType)
 
     def __init__(self, output_file, pass_=None, encoderoverrides=[], logfile=None, *args, **kwargs):
         super(QEncodeDialog, self).__init__(*args, **kwargs)
         self.packetreceived.connect(self.packetReceived)
         self.encodefinished.connect(self.encodeFinished)
+        self.encodeinterrupted.connect(self.encodeInterrupted)
         self.encodeerror.connect(self.encodeError)
         self.framesenttoencoder.connect(self.setFrame)
         self.statsloaded.connect(self.statsLoaded)
@@ -340,7 +342,8 @@ class QEncodeDialog(QDialog):
             title = f"{k}: {title} ({lang})"
             time_base = track.time_base
 
-            trackinfo = TrackStats(duration=min(track.duration, track.container.duration), title=title, framecount=track.framecount, time_base=track.time_base, keep=7200, parent=self)
+            trackinfo = TrackStats(duration=min(track.duration, track.container.duration), title=title,
+                                   framecount=track.framecount, time_base=track.time_base, keep=7200, parent=self)
 
             self.trackinfo.append(trackinfo)
             self._gridlayout.addWidget(trackinfo.titleLabel, k+1, 0)
@@ -438,7 +441,7 @@ class QEncodeDialog(QDialog):
         if self.output_file is not None and self.output_file.vtrack is not None and pkt.track_index == self.output_file.vtrack.track_index:
             k = self.trackinfo[pkt.track_index].packetsreceived
 
-            if self.vhist is not None:
+            if self.vhist is not None and self.vhist.ndim:
                 if len(self.vhist) >= 2:
                     self.graph.addPoints([(k, self.vhist[-2, k]), (k, self.vhist[-1, k]), (k, pkt.size)])
 
@@ -457,14 +460,15 @@ class QEncodeDialog(QDialog):
     def statsLoaded(self, stats):
         self.vhist = stats
 
-        if len(stats) >= 2:
-            pens = [QPen(QColor(160, 160, 255), 1), QPen(QColor(80, 80, 255), 1), QPen(QColor(255, 0, 0), 1)]
+        if stats.ndim:
+            if len(stats) >= 2:
+                pens = [QPen(QColor(160, 160, 255), 1), QPen(QColor(80, 80, 255), 1), QPen(QColor(255, 0, 0), 1)]
 
-        elif len(stats) == 1:
-            pens = [QPen(QColor(80, 80, 255), 1), QPen(QColor(255, 0, 0), 1)]
+            elif len(stats) == 1:
+                pens = [QPen(QColor(80, 80, 255), 1), QPen(QColor(255, 0, 0), 1)]
 
-        self.graph.pens = pens
-        self.graph.A = numpy.zeros((1 + min(2, len(stats)), 0, 2))
+            self.graph.pens = pens
+            self.graph.A = numpy.zeros((1 + min(2, len(stats)), 0, 2))
         
 
     def startTranscode(self):
@@ -476,7 +480,8 @@ class QEncodeDialog(QDialog):
 
         self.encodeThread = self.output_file.createTranscodeThread(pass_=self.pass_, logfile=self.logfile,
                             encoderoverrides=self.encoderoverrides, notifyvencode=self.framesenttoencoder.emit,
-                            notifymux=self.packetreceived.emit, notifyerror=self.encodeerror.emit, notifyfinish=self.encodefinished.emit,
+                            notifymux=self.packetreceived.emit, notifyerror=self.encodeerror.emit,
+                            notifyfinish=self.encodefinished.emit, notifycancelled=self.encodeinterrupted.emit,
                             notifystats=self.statsloaded.emit, autostart=False)
 
         self.encodeThread.start()
@@ -499,6 +504,9 @@ class QEncodeDialog(QDialog):
             self.output_file.unpauseMux()
 
         self.output_file.stopTranscode()
+
+    def encodeInterrupted(self):
+        self.autoClose.setEnabled(False)
 
     @pyqtSlot(BaseException, types.TracebackType)
     def encodeError(self, exc, tb):

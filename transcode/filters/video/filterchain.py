@@ -1,5 +1,5 @@
-from transcode.util import llist
-from transcode.filters.video.base import BaseVideoFilter
+from ...util import llist
+from .base import BaseVideoFilter
 import numpy
 
 class FilterChain(llist, BaseVideoFilter):

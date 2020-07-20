@@ -1,24 +1,13 @@
 #!/usr/bin/python
-from transcode.filters.video import zoned
-from transcode.util import cached
-from transcode.util import numpify
+from . import zoned
+from ...util import cached, numpify
 import numpy
 from fractions import Fraction as QQ
 import codecfactory
 import itertools
 from av.video import VideoFrame
 import sys
-#import qtable
-#import movie.qframetable
 from collections import OrderedDict
-
-try:
-    from PyQt5.QtCore import Qt
-
-except:
-    Qt = None
-
-dbg = sys.stderr
 
 class Zone(zoned.Zone):
     getinitkwargs = ["src_start", "src_fps", "pulldown", "pulldownoffset", "yblend", "uvblend"]

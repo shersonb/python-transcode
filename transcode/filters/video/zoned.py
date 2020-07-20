@@ -1,7 +1,8 @@
-from transcode.filters.video.base import BaseVideoFilter
-from transcode.util import cached, llist
+from .base import BaseVideoFilter
+from ...util import cached, llist
 import numpy
 from itertools import chain, islice, count
+import time
 
 class Zone(object):
     from copy import deepcopy as copy
@@ -242,36 +243,8 @@ class Zone(object):
     def end_pts(self):
         return self.start_pts_time + self.duration
 
-    #def _translate_index_local(self, n):
-        #return n
-
-    #def _backtranslate_index_local(self, m):
-        #return m
-
-    #def _translate_index(self, n):
-        #if isinstance(n, (int, long, list, tuple, xrange)):
-            #n = numpy.int0(n)
-
-        #if isinstance(n, numpy.ndarray):
-            #m = -numpy.ones(n.shape, dtype=numpy.int0)
-            #nonneg = n >= 0
-            #m[nonneg] = self._translate_index_local(n[nonneg] - self.prev_start)
-            #nonneg = m >= 0
-            #m[nonneg] += self.dest_start
-        #elif n == -1:
-            #return -1
-        #else:
-            #M = self._translate_index_local(n - self.prev_start)
-            #if M < 0:
-                #return -1
-            #m = M + self.dest_start
-        #return m
-
-    #def _backtranslate_index(self, m):
-        #return self._backtranslate_index_local(m - self.dest_start) + self.prev_start
-
     def getIterStart(self, start):
-        return self.reverseIndexMap(start)
+        return self.reverseIndexMap[start - self.dest_start]
 
     def reset_cache(self):
         del self.prev_start
@@ -403,7 +376,7 @@ class ZonedFilter(llist, BaseVideoFilter):
 
         J, start_zone = self.zoneAtNew(start)
         iterstart = start_zone.getIterStart(start)
-        iterable = self.prev.iterFrames(iterstart)
+        iterable = self.prev.iterFrames(iterstart, whence=whence)
 
         for frame in self.processFrames(iterable):
             try:

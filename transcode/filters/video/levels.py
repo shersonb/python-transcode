@@ -1,33 +1,13 @@
 #!/usr/bin/python
-from transcode.filters.video import zoned
-from transcode.util import cached
-from transcode.util import numpify
+from . import zoned
+from ...util import cached, numpify
 import numpy
-#import movie.filters
-#import fractions
-#import codecfactory
 import itertools
 from av.video import VideoFrame
 import sys
-#import parallel
 from scipy.signal import fftconvolve
 from collections import OrderedDict
 from itertools import islice
-#import movie.qframetable
-#from cachable import cachable
-#from movie.tools import unzipframes, zipframes
-
-#class LevelsZone(movie.filters.BaseFilter):
-    #def __init__(self, rmax=0, rmax=255, gmax=0, gmax=255, bmax=0, bmax=255, gamma=1, prev=None, next=None, notify_input=None, notify_output=None):
-        #self.rmax = rmax
-        #self.rmax = rmax
-        #self.gmax = gmax
-        #self.gmax = gmax
-        #self.bmax = bmax
-        #self.bmax = bmax
-        #self.gamma = gamma
-        #movie.filters.BaseFilter.__init__(self, prev=prev, next=next, notify_input=notify_input, notify_output=notify_output)
-
 
 def histogram(A):
     N = numpy.zeros(1024, dtype=numpy.int0)
@@ -124,13 +104,6 @@ class Zone(zoned.Zone):
         if state.get("histogram") is not None:
             self.histogram = state.get("histogram")
 
-
-    #def copy(self):
-        #kwargs = self.getinitkwargs()
-        #if kwargs.get("histogram") is not None:
-            #kwargs["histogram"] = kwargs["histogram"].copy()
-        #return type(self)(**kwargs)
-
     def __repr__(self):
         if self.parent.framecount is None:
             return "LevelsZone"
@@ -139,29 +112,6 @@ class Zone(zoned.Zone):
             return "<LevelsZone: ({self.src_start}, {self.src_end}), [({self.prev.rmin:.2f}, {self.prev.rmax:.2f}), ({self.prev.gmin:.2f}, {self.prev.gmax:.2f}), ({self.prev.bmin:.2f}, {self.prev.bmax:.2f}), {self.prev.gamma:.4f}] - [({self.next.rmin:.2f}, {self.next.rmax:.2f}), ({self.next.gmin:.2f}, {self.next.gmax:.2f}), ({self.next.bmin:.2f}, {self.next.bmax:.2f}), {self.next.gamma:.4f}], {self.framecount} frames, {self.duration:.3f} seconds (Transition)>".format(self=self)
         else:
             return "<LevelsZone: ({self.src_start}, {self.src_end}), [({self.rmin:.2f}, {self.rmax:.2f}, {self.rgamma:.2f}), ({self.gmin:.2f}, {self.gmax:.2f}, {self.ggamma:.2f}), ({self.bmin:.2f}, {self.bmax:.2f}, {self.bgamma:.2f}), {self.gamma:.4f}], {self.framecount} frames, {self.duration:.3f} seconds>".format(self=self)
-
-    #def getinitkwargs(self):
-        #d = OrderedDict()
-        #d["src_start"] = self.src_start
-        #if self.transition:
-            #d["transition"] = True
-        #else:
-            #d["rmin"] = self.rmin
-            #d["rmax"] = self.rmax
-            #if self.rgamma != 1:
-                #d["rgamma"] = self.rgamma
-            #d["gmin"] = self.gmin
-            #d["gmax"] = self.gmax
-            #if self.ggamma != 1:
-                #d["ggamma"] = self.ggamma
-            #d["bmin"] = self.bmin
-            #d["bmax"] = self.bmax
-            #if self.bgamma != 1:
-                #d["bgamma"] = self.bgamma
-            #d["gamma"] = self.gamma
-            #if self.histogram is not None:
-                #d["histogram"] = self.histogram
-        #return d
 
     @property
     def rmin(self):

@@ -1,22 +1,32 @@
 import os
 import importlib
-import  transcode.encoders.video.base
+from .base import VideoEncoderConfig
 
 _path = os.path.split(__file__)[0]
 
-for _module in os.listdir(_path):
-    if _module[0] in "_." or _module == "base.py":
-        continue
+encoders = {}
 
-    if os.path.isfile(os.path.join(_path, _module)) and _module.lower().endswith(".py"):
-        _module = importlib.import_module(f"{__name__}.{_module[:-3]}")
+def scan():
+    encoders.clear()
 
-    elif os.path.isdir(os.path.join(_path, _module)) and os.path.isfile(os.path.join(_path, _module, "__init__.py")):
-        _module = importlib.import_module(f"{__name__}.{_module}")
+    for _module in os.listdir(_path):
+        if _module[0] in "_." or _module in ("base.py",):
+            continue
 
-    else:
-        continue
+        if os.path.isfile(os.path.join(_path, _module)) and _module.lower().endswith(".py"):
+            _module = importlib.import_module(f"{__name__}.{_module[:-3]}")
 
-    del _module
+        elif os.path.isdir(os.path.join(_path, _module)) and os.path.isfile(os.path.join(_path, _module, "__init__.py")):
+            _module = importlib.import_module(f"{__name__}.{_module}")
 
-del _path
+        else:
+            continue
+
+        for _key in dir(_module):
+            _cls = getattr(_module, _key)
+
+            if isinstance(_cls, type) and issubclass(_cls, VideoEncoderConfig) and\
+                    _cls not in (VideoEncoderConfig,) and hasattr(_cls, "codec"):
+                        encoders[_cls.codec] = _cls
+
+scan()

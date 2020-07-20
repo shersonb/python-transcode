@@ -156,12 +156,12 @@ class FilterChain(llist, BaseFilter):
         return iterable
 
 
-    def readFrames(self, start=0, end=None):
+    def iterFrames(self, start=0, end=None, whence="framenumber"):
         if self.end is not None:
-            return self.end.readFrames(start, end)
+            return self.end.iterFrames(start, end, whence)
 
         elif self.prev is not None:
-            return self.prev.readFrames(start, end)
+            return self.prev.iterFrames(start, end, whence)
 
     #def _calc_duration(self):
         #return self.end.duration

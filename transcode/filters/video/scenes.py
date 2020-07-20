@@ -1,6 +1,6 @@
-from transcode.filters.video import zoned
-from transcode.filters.video.base import BaseVideoFilter
-from transcode.util import cached, numpify
+from . import zoned
+from .base import BaseVideoFilter
+from ...util import cached, numpify
 from itertools import count
 import numpy
 from collections import OrderedDict

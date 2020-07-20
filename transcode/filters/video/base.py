@@ -1,13 +1,12 @@
-import transcode.util
-from transcode.util import cached
-import transcode.filters.base
-import transcode.containers.basereader
+from ...util import cached, search
+from ..base import BaseFilter
+from ...containers.basereader import Track
 from fractions import Fraction as QQ
 import threading
 import numpy
 from itertools import count
 
-class BaseVideoFilter(transcode.filters.base.BaseFilter):
+class BaseVideoFilter(BaseFilter):
     @property
     def sar(self):
         if self.prev is not None:
@@ -65,7 +64,7 @@ class BaseVideoFilter(transcode.filters.base.BaseFilter):
 
     @property
     def src(self):
-        if isinstance(self.prev, transcode.containers.basereader.Track):
+        if isinstance(self.prev, Track):
             return self.prev
 
         elif isinstance(self.prev, BaseVideoFilter):
@@ -108,7 +107,7 @@ class BaseVideoFilter(transcode.filters.base.BaseFilter):
         return numpy.ones(self.framecount, dtype=numpy.int0)*int(self.defaultDuration)
 
     def frameIndexFromPts(self, pts, dir="+"):
-        return transcode.util.search(self.pts, pts, dir)
+        return search(self.pts, pts, dir)
 
     @cached
     def cumulativeIndexMap(self):
@@ -165,6 +164,16 @@ class BaseVideoFilter(transcode.filters.base.BaseFilter):
             if end is not None:
                 try:
                     end = self.frameIndexFromPts(end)
+
+                except:
+                    end = None
+
+        elif whence == "seconds":
+            start = self.frameIndexFromPts(start/self.time_base)
+
+            if end is not None:
+                try:
+                    end = self.frameIndexFromPts(end/self.time_base)
 
                 except:
                     end = None

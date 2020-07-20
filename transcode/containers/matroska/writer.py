@@ -1,7 +1,7 @@
-from transcode.containers import basewriter
+from .. import basewriter
 import matroska
-from transcode.encoders.video.base import VideoEncoderContext
-#from transcode.encoders.audio.base import AudioEncoderContext
+from ...encoders.video.base import VideoEncoderContext
+#from ...encoders.audio.base import AudioEncoderContext
 from fractions import Fraction as QQ
 import ebml
 from collections import OrderedDict
@@ -29,6 +29,8 @@ codecs = dict(
     )
 
 class Track(basewriter.Track):
+    """Track class for the Matroska media format."""
+
     def __init__(self, source, encoder=None, filters=None, name=None, language=None, trackUID=None,
                  maxInLace=1, enabled=True, forced=False, compression=None, mincache=None, maxcache=None, container=None):
         self.name = name
@@ -41,7 +43,7 @@ class Track(basewriter.Track):
         self.trackEntry = None
         self.mincache = mincache
         self.maxcache = maxcache
-        super().__init__(source, encoder, filters, container)
+        super().__init__(source, encoder, filters, name=name, language=language, container=container)
 
     def __getstate__(self):
         state = super().__getstate__() or OrderedDict()
@@ -79,7 +81,7 @@ class Track(basewriter.Track):
         self.maxcache = state.get("maxcache")
         super().__setstate__(state)
 
-    def _prepare(self, packets, logfile=None):
+    def _prepareentry(self, packets, logfile=None):
         if self.type == "video":
             self.trackEntry = self.container.mkvfile.tracks.new(codecs[self.codec], pixelWidth=self.width, pixelHeight=self.height)
 
@@ -140,21 +142,9 @@ class Track(basewriter.Track):
         else:
             self.trackEntry.codecPrivate = self.source.extradata
 
-    #def _handlePacket(self, packet):
-        #packet = matroska.Packet.copy(packet, trackNumber=self.trackEntry.trackNumber)
-        #packet.compression = self.compression
-
-        #if self.codec == "libx265":
-            #packet.referenceBlocks = None
-
-        #if self.type == "video":
-            #packet.duration = None
-
-        #return packet
-
     def calcOverhead(self):
         if self.defaultDuration:
-            isDefaultDuration = (abs(self.durations - int(self.defaultDuration)) < 2 + (self.durations == 0)).sum()
+            isDefaultDuration = (abs(self.durations - int(self.defaultDuration)) < 2*10**6 + (self.durations == 0)).sum()
 
         else:
             isDefaultDuration = (self.durations == 0).sum()
@@ -207,8 +197,8 @@ class Track(basewriter.Track):
             for frame in frames:
                 yield frame
 
-
 class MatroskaWriter(basewriter.BaseWriter):
+    """Writer class for the Matroska media format."""
     trackclass = Track
     extensions = (".mkv", ".mka", ".mks")
     fmtname = "Matroska"
@@ -345,16 +335,22 @@ class MatroskaWriter(basewriter.BaseWriter):
         overhead.append(128)
 
         if self.mkvfile:
+            """
+            'self.mkvfile' should never be none when transcode is started, but in case this method
+            is called outside if self.transcode(), we will use sizes from the previous transcode
+            if available (see 'else:' clause), provided that self.loadOverhead() is called beforehand.
+            """
+
             overhead.append(self.mkvfile.segment.info.size())
 
             if len(self.mkvfile.chapters):
                 overhead.append(self.mkvfile.chapters.size())
 
-            #if len(self.mkvfile.attachments):
-                #overhead.append(self.mkvfile.attachments.size())
+            if len(self.mkvfile.attachments):
+                overhead.append(self.mkvfile.attachments.size())
 
-            #if len(self.mkvfile.tags):
-                #overhead.append(self.mkvfile.tags.size())
+            if len(self.mkvfile.tags):
+                overhead.append(self.mkvfile.tags.size())
 
         else:
             overhead.append(self.lastoverhead.get("infoSize", 0))
@@ -364,11 +360,6 @@ class MatroskaWriter(basewriter.BaseWriter):
 
         overheadPerCluster = len(matroska.cluster.Cluster.ebmlID) + len(matroska.cluster.Timestamp.ebmlID) + 4
         overhead.append(overheadPerCluster*self.lastoverhead.get("clusterCount", int(self.duration/32.768 + 1)))
-
-
-        #self.mkvfile.attachments = 
-        #self.mkvfile.tags = 
-
         return sum(overhead)
 
     @property
@@ -428,7 +419,7 @@ class MatroskaWriter(basewriter.BaseWriter):
     def _open(self):
         self.mkvfile = matroska.MatroskaFile(self.outputpathabs, "w")
 
-    def _prepare(self, logfile=None):
+    def _preparefile(self, logfile=None):
         if self.title:
             self.mkvfile.title = self.title
             print(f"Title: {self.title}", file=logfile)
@@ -478,7 +469,7 @@ class MatroskaWriter(basewriter.BaseWriter):
         if self.tags:
             self.mkvfile.segment.tags = self.tags.prepare(logfile)
 
-    def _wrapup(self, logfile):
+    def _finalize(self, logfile):
         self.mkvfile.close()
         filesize = self.mkvfile.fileSize
 
@@ -536,6 +527,10 @@ class MatroskaWriter(basewriter.BaseWriter):
     @property
     def time_base(self):
         return QQ(1, 10**9)
+
+    def trackCols(self):
+        from .pyqtgui.qtracklist import cols
+        return cols
 
 def h(size):
     if size == 1:

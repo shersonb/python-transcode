@@ -1,6 +1,6 @@
 #!/usr/bin/python3
-from transcode.filters.video.base import BaseVideoFilter
-from transcode.util import cached
+from .base import BaseVideoFilter
+from ...util import cached
 import numpy
 from fractions import Fraction as QQ
 import itertools

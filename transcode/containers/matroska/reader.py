@@ -1,10 +1,10 @@
-from transcode.containers import basereader
+from .. import basereader
 import matroska
 import numpy
 import av
 from fractions import Fraction as QQ
 import os
-from transcode.util import Packet
+from ...util import Packet
 
 codecs = {
         "V_MPEGH/ISO/HEVC": "hevc",
@@ -32,8 +32,15 @@ class Track(basereader.Track):
 
     @property
     def trackEntry(self):
-        #return self.container.mkvfile.tracks.byTrackNumber[self.trackNumber]
         return self.container.mkvfile.tracks[self.track_index]
+
+    @property
+    def name(self):
+        return self.trackEntry.name
+
+    @property
+    def language(self):
+        return self.trackEntry.language
 
     @property
     def trackNumber(self):
@@ -136,7 +143,7 @@ class Track(basereader.Track):
             start = self.keyIndexFromPts(start)
 
         if whence == "seconds":
-            start = self.frameIndexFromPts(int(10**9*start))
+            start = self.keyIndexFromPts(int(10**9*start))
 
         elif whence == "framenumber":
             pass

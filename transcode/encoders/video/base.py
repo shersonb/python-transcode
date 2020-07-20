@@ -18,7 +18,7 @@ class VideoEncoderContext(object):
         for key, value in kwargs.items():
             setattr(self._encoder, key, value)
 
-        self._encoder.time_base = QQ(1, 10**9)
+        #self._encoder.time_base = QQ(1, 10**9)
 
         self._framesource = framesource
         self._packets = deque()
@@ -57,7 +57,6 @@ class VideoEncoderContext(object):
 
     def _sendframe(self):
         if self._noMoreFrames:
-            print("StopIteration")
             raise StopIteration
 
         try:
@@ -66,7 +65,6 @@ class VideoEncoderContext(object):
             frame.time_base = QQ(1, 10**9)
 
         except StopIteration:
-            print("_noMoreFrames")
             self._success = True
             return self.stop()
 
@@ -133,9 +131,30 @@ class VideoEncoderConfig(object):
 
     @property
     def optionslots(self):
-        codecobj = av.Codec(self.codec, "w")
+        if self.descriptor:
+            return {option.name for option in self.descriptor.options}
 
-        if codecobj.type != "video":
-            raise ValueError(f"Not a video encoder: {self.codec}.")
+        return set()
 
-        return {option.name for option in codecobj.descriptor.options}
+    @property
+    def descriptor(self):
+        if not hasattr(self, "_descriptor"):
+            try:
+                codecobj = av.Codec(self.codec, "w")
+
+            except:
+                return
+
+            self._descriptor = codecobj.descriptor
+
+        return self._descriptor
+
+    @property
+    def type(self):
+        if self.descriptor:
+            return self.descriptor.type
+
+    @property
+    def avoptions(self):
+        if self.descriptor:
+            return self.descriptor.options

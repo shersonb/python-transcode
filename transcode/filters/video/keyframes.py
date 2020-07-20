@@ -1,11 +1,11 @@
 #!/usr/bin/python
-from transcode.filters.video.base import BaseVideoFilter
+from .base import BaseVideoFilter
+from ...util import cached
 import numpy
 import fractions
 import itertools
 from av.video import VideoFrame
 import sys
-from transcode.util import cached
 
 class KeyFrames(BaseVideoFilter, set):
     def __init__(self, keyframes=[], prev=None, next=None):
