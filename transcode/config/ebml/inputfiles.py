@@ -57,24 +57,19 @@ class InputFile(ebml.serialization.Object):
         (inputPath,) = args
         return cls.inputPath.cls.fromObj(inputPath, environ, refs)
 
-    def _saveState(self, state, environ, refs):
-        self.tracks = self.__class__.tracks.cls.fromObj(state.pop("tracks"), environ, refs)
-        self.state = self.__class__.state.cls.fromObj(state, environ, refs)
+    def _saveItems(self, items, environ, refs):
+        self.tracks = self.__class__.tracks.cls.fromObj(items, environ, refs)
 
     def _constructArgs(self, environ, refs):
         return (self._inputPath.toObj(environ, refs),)
 
-    def _restoreState(self, obj, environ, refs):
-        environ["trackclass"] = obj.trackclass
+    def _restoreItems(self, obj, environ, refs):
+        if self.tracks:
+            if hasattr(obj, "trackclass"):
+                environ["trackclass"] = obj.trackclass
 
-        if self.state:
-            state = self.state.toObj(environ, refs)
-
-        else:
-            state = {}
-
-        state["tracks"] = self.tracks.toObj(environ, refs)
-        obj.__setstate__(state)
+            obj.tracks.clear()
+            obj.extend(self.tracks.toObj(environ, refs))
 
 class InputFiles(ebml.serialization.List):
     ebmlID = b"\x22\xad\xc9"

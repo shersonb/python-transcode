@@ -64,7 +64,7 @@ class OutputTrack(ebml.serialization.Object):
             EBMLProperty("filters", FilterChain, optional=True),
             EBMLProperty("name", TrackName, optional=True),
             EBMLProperty("language", Language, optional=True),
-            EBMLProperty("state", (ebml.serialization.State, ebml.serialization.StateDict), optional=True),
+            EBMLProperty("options", ebml.serialization.StateDict, optional=True),
         )
 
     @classmethod
@@ -73,27 +73,12 @@ class OutputTrack(ebml.serialization.Object):
 
     @classmethod
     def _createArgsElement(cls, args, environ, refs):
-        source, encoder, filters = args
+        #source, encoder, filters = args
+        (source,) = args
         d = dict()
-
-        mod = environ.get("module")
 
         if id(source) in refs:
             d["source"] = refs[id(source)]
-
-        if encoder:
-            environ["module"] = "transcode.encoders"
-            d["encoder"] = Encoder.fromObj(encoder, environ, refs)
-
-        if filters:
-            environ["module"] = "transcode.filters"
-            d["filters"] = FilterChain.fromObj(filters, environ, refs)
-
-        if mod:
-            environ["module"] = mod
-
-        elif "module" in environ:
-            del environ["module"]
 
         return d
 
@@ -103,21 +88,18 @@ class OutputTrack(ebml.serialization.Object):
     def _constructArgs(self, environ, refs):
         source = refs.get(self.source)
 
+        return (source,)
+
+    def _saveState(self, state, environ, refs):
         mod = environ.get("module")
 
-        if self.encoder:
+        if "encoder" in state:
             environ["module"] = "transcode.encoders"
-            encoder = self.encoder.toObj(environ, refs)
-        
-        else:
-            encoder = None
+            self.encoder = Encoder.fromObj(state.pop("encoder"), environ, refs)
 
-        if self.filters:
+        if "filters" in state:
             environ["module"] = "transcode.filters"
-            filters = self.filters.toObj(environ, refs)
-        
-        else:
-            filters = None
+            self.filters = FilterChain.fromObj(state.pop("filters"), environ, refs)
 
         if mod:
             environ["module"] = mod
@@ -125,7 +107,32 @@ class OutputTrack(ebml.serialization.Object):
         elif "module" in environ:
             del environ["module"]
 
-        return (source, encoder, filters)
+        self.options = ebml.serialization.StateDict.fromObj(state, environ, refs)
+
+    def _restoreState(self, obj, environ, refs):
+        if self.options:
+            state = self.options.toObj(environ, refs)
+
+        else:
+            state = {}
+
+        mod = environ.get("module")
+
+        if self.encoder:
+            environ["module"] = "transcode.encoders"
+            state["encoder"]= self.encoder.toObj(environ, refs)
+
+        if self.filters:
+            environ["module"] = "transcode.filters"
+            state["filters"]= self.filters.toObj(environ, refs)
+
+        if mod:
+            environ["module"] = mod
+
+        elif "module" in environ:
+            del environ["module"]
+
+        obj.__setstate__(state)
 
 class OutputTracks(ebml.serialization.List):
     ebmlID = b"\x50\x7c"
@@ -160,17 +167,16 @@ class OutputFile(ebml.serialization.Object):
         return (self._outputPath.toObj(environ, refs),)
 
     def _restoreState(self, obj, environ, refs):
-        if self.options:
-            state = self.options.toObj(environ, refs)
-
-        else:
-            state = {}
-
-        if self.parent is not None and hasattr(self.parent.parent, "objID"):
-            state["config"]= refs.get(self.parent.parent.objID)
-
+        state = {}
         environ["trackclass"] = obj.trackclass
         state["tracks"] = self.tracks.toObj(environ, refs)
+
+        if self.options:
+            state.update(self.options.toObj(environ, refs))
+
+        #if self.parent is not None and hasattr(self.parent.parent, "objID"):
+            #state["config"] = refs.get(self.parent.parent.objID)
+
         obj.__setstate__(state)
 
 class OutputFiles(ebml.serialization.List):
