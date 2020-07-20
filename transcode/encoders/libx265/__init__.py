@@ -1,5 +1,5 @@
-from transcode.encoders.video.base import VideoEncoderContext
-from transcode.encoders.video.base import VideoEncoderConfig
+from ..base import EncoderContext
+from ..base import EncoderConfig
 import regex
 import os
 import fcntl
@@ -99,7 +99,7 @@ def _convert_dict(d, stripnones=True):
 def quote(s):
     return f"{s}".replace("\\", "\\\\").replace(":", "\\:")
 
-class libx265EncoderContext(VideoEncoderContext):
+class libx265EncoderContext(EncoderContext):
     def open(self):
         self._t0 = time.time()
         self._encoder.open()
@@ -160,7 +160,23 @@ class libx265EncoderContext(VideoEncoderContext):
         self._encoder.extradata = data
 
     def close(self):
+        try:
+            flag = fcntl.fcntl(self._rfd, fcntl.F_GETFL)
+
+        except OSError:
+            pass
+
+        else:
+            fcntl.fcntl(self._rfd, fcntl.F_SETFL, flag & ~os.O_NONBLOCK)
+
+        os.close(self._wfd)
         super().close()
+
+        while self.procStats():
+            continue
+
+        os.close(self._rfd)
+
 
         N = sum(self._pktCount.values())
 
@@ -184,14 +200,25 @@ class libx265EncoderContext(VideoEncoderContext):
         else:
             print(f"    Encoded {N} frames in {self._t1 - self._t0:.2f}s ({n/(self._t1 - self._t0):.2f} fps), Avg QP: ---  kb/s: ---", file=self._logfile)
 
-        try:
-            if self._success and self._pass:
-                stats = self._stats or "x265_2pass.log"
-                t = time.localtime()
-                backupstats = f"{stats}-backup-{t.tm_year:4d}.{t.tm_mon:02d}.{t.tm_mday:02d}-{t.tm_hour:02d}.{t.tm_min:02d}.{t.tm_sec:02d}.xz"
+        if self._success and self._pass:
+            stats = self._stats or "x265_2pass.log"
+            t = time.localtime()
+            backupstats = f"{stats}-backup-{t.tm_year:4d}.{t.tm_mon:02d}.{t.tm_mday:02d}-{t.tm_hour:02d}.{t.tm_min:02d}.{t.tm_sec:02d}.xz"
+
+            try:
                 f = open(stats, "rb")
+
+            except:
+                return
+
+            try:
                 g = lzma.LZMAFile(backupstats, "wb", preset=9|lzma.PRESET_EXTREME)
 
+            except:
+                f.close()
+                return
+
+            try:
                 while True:
                     data = f.read(65536)
 
@@ -200,32 +227,38 @@ class libx265EncoderContext(VideoEncoderContext):
 
                     g.write(data)
 
+            finally:
                 f.close()
                 g.close()
+
+            stat = os.stat(stats)
+            os.utime(backupstats, (stat.st_atime, stat.st_mtime))
+
+            if self._pass == 1:
+                stats = f"{stats}.cutree"
+                backupstats = f"{stats}-backup-{t.tm_year:4d}.{t.tm_mon:02d}.{t.tm_mday:02d}-{t.tm_hour:02d}.{t.tm_min:02d}.{t.tm_sec:02d}"
+
+                try:
+                    shutil.copyfile(stats, backupstats)
+
+                except:
+                    return
+
+                #f = open(stats, "rb")
+                #g = lzma.LZMAFile(backupstats, "wb", preset=9|lzma.PRESET_EXTREME)
+
+                #while True:
+                    #data = f.read(65536)
+
+                    #if len(data) == 0:
+                        #break
+
+                    #g.write(data)
+
+                #f.close()
+                #g.close()
                 stat = os.stat(stats)
                 os.utime(backupstats, (stat.st_atime, stat.st_mtime))
-
-                if self._pass == 1:
-                    stats = f"{stats}.cutree"
-                    backupstats = f"{stats}-backup-{t.tm_year:4d}.{t.tm_mon:02d}.{t.tm_mday:02d}-{t.tm_hour:02d}.{t.tm_min:02d}.{t.tm_sec:02d}.xz"
-                    f = open(stats, "rb")
-                    g = lzma.LZMAFile(backupstats, "wb", preset=9|lzma.PRESET_EXTREME)
-
-                    while True:
-                        data = f.read(65536)
-
-                        if len(data) == 0:
-                            break
-
-                        g.write(data)
-
-                    f.close()
-                    g.close()
-                    stat = os.stat(stats)
-                    os.utime(backupstats, (stat.st_atime, stat.st_mtime))
-        except:
-            raise
-            pass
 
     def __next__(self):
         if not self._isopen and not self._noMoreFrames:
@@ -320,6 +353,66 @@ class libx265EncoderContext(VideoEncoderContext):
         packet = Packet(data=len(data).to_bytes(4, "big")+data, pts=packet.pts, duration=packet.duration,
                         keyframe=packet.is_keyframe, time_base=packet.time_base,
                         discardable=discardable, referenceBlocks=referenceBlocks)
+        return packet
+
+    def procStats(self):
+        n = 0
+
+        while True:
+            data = self._rf.read(4096)
+            n += len(data)
+
+            if len(data) == 0:
+                break
+
+            self._statsbuffer += data
+
+        *lines, self._statsbuffer = self._statsbuffer.split("\n")
+
+        for statsline in lines:
+            match = regex.match(self._statspattern, statsline, flags=regex.I)
+
+            if match:
+                md = match.groupdict()
+
+            discardable = md["pict_type"].upper() == "B"
+
+            self._pktQPSums[md["pict_type"].upper()] += float(md["qp"])
+            self._pktSizeSums[md["pict_type"].upper()] += int(md["bits"])//8
+            self._pktCount[md["pict_type"].upper()] += 1
+
+        return n
+
+    def __next__(self):
+        if not self._isopen and not self._noMoreFrames:
+            self.open()
+
+        while len(self._packets) == 0:
+            try:
+                self._sendframe()
+
+            except StopIteration:
+                self.procStats()
+                raise
+
+            finally:
+                self._t1 = time.time()
+
+        self.procStats()
+        packet = self._packets.popleft()
+
+        if packet.is_keyframe:
+            pattern = b"(?:\\x00{2,3}\\x01)([\\x00-\\xff]+?)"
+            nal1, nal2, nal3, nal4, data = regex.findall(b"^" + 5*pattern + b"$", packet.to_bytes())[0]
+
+        else:
+            data = packet.to_bytes()[4:]
+
+        self._packetsEncoded += 1
+        self._streamSize += len(data) - 4
+        self._t1 = time.time()
+        packet = Packet(data=len(data).to_bytes(4, "big")+data, pts=packet.pts, duration=packet.duration,
+                        keyframe=packet.is_keyframe, time_base=packet.time_base)
         return packet
 
     def __iter__(self):
@@ -447,12 +540,9 @@ class libx265EncoderContext(VideoEncoderContext):
 
         super().__init__("libx265", framesource, notifyencode=notifyencode, logfile=logfile, **kwargs)
 
-class libx265Config(VideoEncoderConfig):
+class libx265Config(EncoderConfig):
     format = None
-
-    @property
-    def codec(self):
-        return "libx265"
+    codec = "libx265"
 
     def __init__(self, bitrate=None, qp=None, crf=None, lossless=None,
             preset="medium", tune=None, forced_idr=None, **kwargs):
@@ -514,7 +604,16 @@ class libx265Config(VideoEncoderConfig):
         if x265paramname in x265params:
             return self.x265params.get(x265paramname)
 
-        return super().__getattribute__(attr)
+        return object.__getattribute__(self, attr)
+
+    def __delattr__(self, attr):
+        x265paramname = attr.rstrip("_").replace("_", "-")
+
+        if x265paramname in x265params and x265paramname in self.x265params:
+            del self.x265params[x265paramname]
+            return
+
+        return object.__delattr__(self, attr)
 
     def __setattr__(self, attr, value):
         x265paramname = attr.rstrip("_").replace("_", "-")
@@ -544,7 +643,8 @@ class libx265Config(VideoEncoderConfig):
         elif x265paramname in x265strparams:
             self.x265params[x265paramname] = str(value)
 
-        return super().__setattr__(attr, value)
+        return object.__setattr__(self, attr, value)
+        #return super().__setattr__(attr, value)
 
     def create(self, framesource, width, height, sample_aspect_ratio=1,
                 rate=None, pix_fmt="yuv420p", time_base=None,
@@ -579,3 +679,6 @@ class libx265Config(VideoEncoderConfig):
     def copy(self):
         return type(self)(crf=self.crf, forced_idr=self.forced_idr, **self.x265params)
 
+    def pyqtgui(self):
+        from .pyqtgui import x265ConfigDlg
+        return x265ConfigDlg
