@@ -5,14 +5,13 @@ import time
 import os
 import sys
 import traceback
-from transcode.encoders.video.base import VideoEncoderContext
 from itertools import zip_longest
 import json
 import numpy
 from collections import OrderedDict, UserList
 import ebml.ndarray
 import abc
-#from transcode.encoders.audio.base import AudioEncoderContext
+from fractions import Fraction as QQ
 
 class TrackStats(ebml.ndarray.EBMLNDArray):
     ebmlID = b"\x19\x14\xdc\x87"
@@ -144,6 +143,17 @@ class Track(abc.ABC):
             return self.encoderContext.extradata
 
         return self.source.extradata
+
+    @property
+    def bitrate(self):
+        if self.encoder:
+            return self.encoder.bitrate
+
+        try:
+            return self.source.bitrate
+
+        except AttributeError:
+            return
 
     def _iterPackets(self, packets, duration=None, logfile=None):
         self._sizes = []
@@ -369,11 +379,14 @@ class Track(abc.ABC):
             kwargs.update(width=self.width, height=self.height, sample_aspect_ratio=self.sar,
                           rate=1/self.defaultDuration/self.time_base)
 
-        if self.format:
-            kwargs.update(pix_fmt=self.format)
+            if self.format:
+                kwargs.update(pix_fmt=self.format)
 
         if self.type == "audio":
             kwargs.update(rate=self.rate, channels=self.channels)
+
+            if self.format:
+                kwargs.update(format=self.format)
 
         packets = self.encoder.create(frames, logfile=logfile, time_base=self.time_base, **kwargs)
         packets.open()
