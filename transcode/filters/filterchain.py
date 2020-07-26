@@ -7,6 +7,38 @@ class FilterChain(llist, BaseFilter):
         llist.__init__(self, filters.copy())
         BaseFilter.__init__(self, prev=prev)
 
+    def append(self, item):
+        if len(self) == 0:
+            super().append(item)
+            item.prev = self.prev
+
+        else:
+            super().append(item)
+
+    def extend(self, items):
+        if len(self) == 0:
+            super().extend(items)
+
+            if len(self):
+                self[0].prev = self.prev
+
+        else:
+            super().extend(items)
+
+    def insert(self, index, item):
+        super().insert(index, item)
+
+        if index == 0:
+            item.prev = self.prev
+
+    @property
+    def format(self):
+        if self.end is not None:
+            return self.end.format
+
+        elif self.prev is not None:
+            return self.prev.format
+
     @property
     def sar(self):
         if self.end is not None:
