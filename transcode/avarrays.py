@@ -179,3 +179,67 @@ def toVFrame(array, format=None):
             format = "gray8"
 
     return VideoFrame.from_ndarray(array)
+
+def aconvert(frame, format):
+    if frame.format.name == format:
+        return frame
+
+    A = toNDArray(frame)
+    dtype = numpy.dtype(_aformat_dtypes[format])
+
+    if format in ("fltp", "dblp", "flt", "dbl"):
+        if A.dtype in (numpy.int8, numpy.uint8):
+            A = A/2**7
+
+        elif A.dtype in (numpy.int16, numpy.uint16):
+            A = A/2**15
+
+        elif A.dtype in (numpy.int32, numpy.uint32):
+            A = A/2**31
+
+        elif A.dtype in (numpy.int64, numpy.uint64):
+            A = A/2**63
+
+        A = numpy.array(A, dtype=dtype)
+
+    elif format in ("s16", "s16p"):
+        if A.dtype in (numpy.float32, numpy.float64):
+            A = A*2**15
+
+        elif A.dtype in (numpy.int32, numpy.uint32):
+            A = A/2**16
+
+        elif A.dtype in (numpy.int8, numpy.uint8):
+            A = A*2**8
+
+        A = numpy.array(A.clip(min=-2**15, max=2**15 - 1), dtype=dtype)
+
+    elif format in ("s32", "s32p"):
+        if A.dtype in (numpy.float32, numpy.float64):
+            A = A*2**31
+
+        elif A.dtype in (numpy.int16, numpy.uint16):
+            A = A*2**16
+
+        elif A.dtype in (numpy.int8, numpy.uint8):
+            A = A*2**24
+
+        A = numpy.array(A.clip(min=-2**31, max=2**31 - 1), dtype=dtype)
+
+    elif format in ("u8", "u8p"):
+        if A.dtype in (numpy.float32, numpy.float64):
+            A = A*2**7
+
+        elif A.dtype in (numpy.int16, numpy.uint16):
+            A = A/2**8
+
+        elif A.dtype in (numpy.int32, numpy.uint32):
+            A = A/2**24
+
+        A = numpy.array(A.clip(min=0, max=2**8 - 1), dtype=dtype)
+
+    newframe = toAFrame(A, layout=frame.layout.name)
+    newframe.pts = frame.pts
+    newframe.rate = frame.rate
+    newframe.time_base = frame.time_base
+    return newframe
