@@ -38,7 +38,7 @@ class Track(object):
         self.pts = state.get("pts")
 
     def keyIndexFromPts(self, pts, dir="-"):
-        k = self.frameIndexFromPts(pts)
+        k = self.frameIndexFromPts(pts, "-" if self.type == "audio" else "+")
         pts = self.pts[k]
         return transcode.util.search(self.index[:, 0], pts, dir)
 
@@ -96,7 +96,7 @@ class Track(object):
 
         elif whence == "seconds":
             startindex = self.frameIndexFromPts(start/self.time_base, "-" if self.type is "audio" else "+")
-            startpts = self.pts[startindex]
+            startpts = start/self.time_base
 
             try:
                 endindex = end and self.frameIndexFromPts(end/self.time_base)
@@ -129,7 +129,11 @@ class Track(object):
                 avpacket.time_base = self.time_base
 
                 for frame, pts1, pts2 in zip(decoder.decode(avpacket), iterpts1, iterpts2):
-                    if pts2 < startpts:
+                    if self.type == "audio":
+                        pts1 = int(int((pts1 - self.pts[0])/self.defaultDuration + 0.5)*self.defaultDuration + 0.5) + self.pts[0]
+                        pts2 = int(int((pts2 - self.pts[0])/self.defaultDuration + 0.5)*self.defaultDuration + 0.5) + self.pts[0]
+
+                    if pts2 <= startpts:
                         continue
 
                     if endpts is not None and pts1 >= endpts:
