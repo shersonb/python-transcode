@@ -106,6 +106,7 @@ class FilterChain(ebml.serialization.Object):
     _typeMap = {object: Filter}
     _typesByID = {Filter.ebmlID: Filter}
     __ebmlchildren__ = (
+            EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
             EBMLProperty("prev", ebml.serialization.Ref, optional=True),
             EBMLProperty("filters", Filters, optional=True),
         )
