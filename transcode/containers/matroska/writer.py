@@ -1,6 +1,6 @@
 from .. import basewriter
 import matroska
-from ...encoders.video.base import VideoEncoderContext
+from ...encoders.base import EncoderContext
 #from ...encoders.audio.base import AudioEncoderContext
 from fractions import Fraction as QQ
 import ebml
@@ -97,7 +97,7 @@ class Track(basewriter.Track):
             self.trackEntry = self.container.mkvfile.tracks.new(codecs[self.codec], samplingFrequency=self.rate, channels=self.channels)
 
             if self.bitdepth:
-                self.trackEntry.audio.bitDepth = self.bitDepth
+                self.trackEntry.audio.bitDepth = self.bitdepth
 
         else:
             self.trackEntry = self.container.mkvfile.tracks.new(codecs[self.codec])
@@ -136,7 +136,7 @@ class Track(basewriter.Track):
         else:
             print(f"    Packet Compression: Disabled", file=logfile)
 
-        if isinstance(packets, (VideoEncoderContext)): #, AudioEncoderContext)):
+        if isinstance(packets, EncoderContext):
             self.trackEntry.codecPrivate = packets.extradata
 
         else:
