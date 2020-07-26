@@ -13,7 +13,9 @@ codecs = {
         "A_DTS": "dts",
         "V_MS/VFW/FOURCC": "vc1",
         "S_TEXT/ASS": "ass",
-        "S_VOBSUB": "dvdsub"
+        "S_VOBSUB": "dvdsub",
+        "V_MPEG4/ISO/AVC": "h264",
+        "S_HDMV/PGS": "pgssub"
     }
 
 class Track(basereader.Track):
@@ -140,18 +142,35 @@ class Track(basereader.Track):
 
     def iterPackets(self, start=0, whence="pts"):
         if whence == "pts":
+            startpts = start
             start = self.keyIndexFromPts(start)
 
         if whence == "seconds":
-            start = self.keyIndexFromPts(int(10**9*start))
+            startpts = int(10**9*start)
+            start = self.keyIndexFromPts(startpts)
 
         elif whence == "framenumber":
-            pass
+            startpts = self.pts[start]
 
         start_pts, startClusterPosition, startBlockPosition = self.index[start]
-
-        return self.container.demux(startClusterPosition=startClusterPosition,
+        packets = self.container.demux(startClusterPosition=startClusterPosition,
                     startBlockPosition=startBlockPosition, trackNumber=self.trackNumber)
+        pkts_list = []
+
+        for packet in packets:
+            if packet.keyframe:
+                if packet.pts > startpts:
+                    for pkt in pkts_list:
+                        yield pkt
+
+                pkts_list.clear()
+                pkts_list.append(packet)
+
+            elif len(pkts_list):
+                pkts_list.append(packet)
+
+        for pkt in pkts_list:
+            yield pkt
 
     @property
     def time_base(self):
@@ -231,10 +250,12 @@ class MatroskaReader(basereader.BaseReader):
         return QQ(1, 10**9)
 
     def demux(self, startClusterPosition=None, startBlockPosition=None, trackNumber=None):
+        track_index = [track.trackNumber for track in self.tracks].index(trackNumber)
+
         for packet in self.mkvfile.demux(startClusterPosition=startClusterPosition,
                     startBlockPosition=startBlockPosition, trackNumber=trackNumber):
             yield Packet(data=packet.data, pts=packet.pts, duration=packet.duration,
                          time_base=self.time_base, keyframe=packet.keyframe,
                          invisible=packet.invisible, discardable=packet.discardable,
-                         referenceBlocks=packet.referenceBlocks)
+                         referenceBlocks=packet.referenceBlocks, track_index=track_index)
 
