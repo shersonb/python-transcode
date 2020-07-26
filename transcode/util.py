@@ -90,6 +90,9 @@ class Packet(object):
     def size(self):
         return len(self.data)
 
+    def __repr__(self):
+        return f"Packet(pts={self.pts}, duration={self.duration}, size={self.size}, keyframe={self.keyframe}, track_index={self.track_index})"
+
 class ChildList(collections.UserList):
     def __init__(self, items=[], parent=None):
         self.data = list(items)
@@ -513,3 +516,4 @@ class NewConfig(object):
 
     def save(self):
         self._oldconfig.update(self._newconfig)
+
