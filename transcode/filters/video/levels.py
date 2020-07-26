@@ -77,7 +77,7 @@ class Zone(zoned.Zone):
 
             state["gamma"] = self.gamma
 
-        if self.histogram:
+        if self.histogram is not None:
             state["histogram"] = self.histogram
 
         return state
@@ -369,10 +369,7 @@ class Zone(zoned.Zone):
         self._B_ = None
 
     def _processOneFrame(self, frame):
-        #if frame.format.name != "rgb24":
-            #frame = frame.to_rgb()
         A, fmt, pict_type, pts, time_base = frame
-        #print(frame)
         R, G, B = numpy.moveaxis(A, 2, 0)
 
         if self.transition:
@@ -380,36 +377,34 @@ class Zone(zoned.Zone):
             R = self._R[R, k]
             G = self._G[G, k]
             B = self._B[B, k]
+
         elif self.rmin == self.gmin == self.bmin == 0 and self.rmax == self.gmax == self.bmax == 255 and self.gamma == 1:
             """Nothing is actually being done to the frame."""
             return frame
+
         else:
             if self.rmin != 0 or self.rmax != 255 or self.gamma != 1 or self.rgamma != 1:
                 R = self._R[R]
+
             if self.gmin != 0 or self.gmax != 255 or self.gamma != 1 or self.ggamma != 1:
                 G = self._G[G]
+
             if self.bmin != 0 or self.bmax != 255 or self.gamma != 1 or self.bgamma != 1:
                 B = self._B[B]
-        #A = numpy.moveaxis((R, G, B), 0, 2).copy(order="C")
+
         A = numpy.zeros(R.shape+(3,), dtype=numpy.uint8)
         A[:,:,0] = R
         A[:,:,1] = G
         A[:,:,2] = B
+
         return (A, fmt, pict_type, pts, time_base)
 
-        #print R.shape, G.shape, B.shape, A.shape
-
-        #newframe = VideoFrame.from_ndarray(A)
-        #newframe.time_base = frame.time_base
-        #newframe.pts = frame.pts
-        #newframe.pict_type = frame.pict_type
-        #return newframe
-
-    def processFrames(self, iterable, prev_start):
+    def processFrames(self, frames, prev_start):
         torgb = lambda frame: frame.to_rgb() if frame.format.name != "rgb24" else frame
         totuple = lambda frame: (frame.to_ndarray(), frame.format.name, frame.pict_type.name, frame.pts, frame.time_base)
-        I = map(torgb, iterable)
+        I = map(torgb, frames)
         I = map(totuple, I)
+
         #for (A, fmt, pict_type, pts, time_base) in parallel.map(self._processOneFrame, I):
         for (A, fmt, pict_type, pts, time_base) in map(self._processOneFrame, I):
             frame = VideoFrame.from_ndarray(A, fmt)
@@ -417,39 +412,21 @@ class Zone(zoned.Zone):
             frame.pts = pts
             frame.time_base = time_base
             yield frame
-            #yield A
 
     def _calc_pts_time(self, m=None):
         return self.parent.prev.pts_time(m)
 
-    def analyzeFrames(self, iterable=None):
-        if iterable is None:
-            iterable = self.parent.prev.readFrames(self.prev_start, self.prev_end)
+    def analyzeFrames(self, frames=None):
+        if frames is None:
+            frames = self.parent.prev.iterFrames(self.prev_start, self.prev_end)
+
         A = numpy.zeros((3, 1024), dtype=numpy.int0)
-        for H in parallel.map(analyzeFrame, iterable):
+
+        for H in parallel.map(analyzeFrame, frames):
             A += numpy.int0(H)
+
         self.histogram = A
         return numpy.array(list(map(clip, A)))*0.25
-
-    #def _processFrames(self, iterable):
-        #for frame in iterable:
-            #if frame.format.name != "rgb24":
-                #frame = frame.to_rgb()
-            #R, G, B = numpy.moveaxis(frame.to_ndarray(), 2, 0)
-
-            #R = self._R[R]
-            #G = self._G[G]
-            #B = self._B[B]
-            #A = numpy.moveaxis((R, G, B), 0, 2).copy(order="C")
-
-
-            ##print R.shape, G.shape, B.shape, A.shape
-
-            #newframe = VideoFrame.from_ndarray(A)
-            #newframe.time_base = frame.time_base
-            #newframe.pts = frame.pts
-            #newframe.pict_type = frame.pict_type
-            #yield newframe
 
 class Levels(zoned.ZonedFilter):
     zoneclass = Zone
@@ -468,11 +445,11 @@ class Levels(zoned.ZonedFilter):
 
         while zone is not None:
             if zone.prev_framecount is not None:
-                zone_iterable = islice(frames, int(zone.prev_framecount))
+                zone_frames = islice(frames, int(zone.prev_framecount))
             else:
-                zone_iterable = frames
+                zone_frames = frames
 
-            A = zone.analyzeFrames(zone_iterable)
+            A = zone.analyzeFrames(zone_frames)
             print("% 6d-% 6d: %s" % (zone.src_start, zone.src_end, list(map(tuple, A))))
 
             zone = zone.next
