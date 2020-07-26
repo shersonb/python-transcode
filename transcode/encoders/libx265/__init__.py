@@ -4,7 +4,7 @@ import regex
 import os
 import fcntl
 from fractions import Fraction as QQ
-from transcode.util import Packet
+from ...util import Packet
 from collections import OrderedDict
 import time
 import lzma
