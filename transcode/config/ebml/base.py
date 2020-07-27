@@ -5,7 +5,6 @@ import ebml.serialization
 from fractions import Fraction as QQ
 import numpy
 import pathlib
-import transcode.config.obj
 import importlib
 import types
 import os

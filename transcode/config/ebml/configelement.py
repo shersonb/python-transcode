@@ -21,13 +21,13 @@ try:
 except:
     gzip = None
 
-import transcode.config.obj
-from transcode.config.ebml.inputfiles import InputFiles
-from transcode.config.ebml.filterchains import FilterChains
-from transcode.config.ebml.outputfiles import OutputFiles
+from ..obj import Config
+from .inputfiles import InputFiles
+from .filterchains import FilterChains
+from .outputfiles import OutputFiles
 
 class ConfigElement(ebml.serialization.Object):
-    constructor = transcode.config.obj.Config
+    constructor = Config
     ebmlID = b'\x13\xce\x86\xc9'
     __ebmlchildren__ = (
             EBMLProperty("objID", ebml.serialization.ObjID, optional=True),

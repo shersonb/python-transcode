@@ -5,18 +5,18 @@ import ebml.serialization
 from fractions import Fraction as QQ
 import numpy
 import pathlib
-import transcode.config.obj
 import importlib
 import types
-from transcode.config.ebml.base import ArrayValue, PathElement
-from transcode.config.ebml.filterchains import FilterChain
+from .base import ArrayValue, PathElement
+from .filterchains import FilterChainElement
+from ... import encoders, containers
 
 class EncoderName(EBMLString):
     ebmlID = b"\x7f\xa7"
 
 class Encoder(ebml.serialization.Object):
     ebmlID = b"\x42\x85"
-    module = transcode.encoders
+    module = encoders
     __ebmlchildren__ = (
             EBMLProperty("constructor", ebml.serialization.Constructor),
             EBMLProperty("name", EncoderName, optional=True),
@@ -56,12 +56,12 @@ class Language(EBMLString):
 
 class OutputTrack(ebml.serialization.Object):
     ebmlID = b"\x55\xc4"
-    module = transcode.containers
+    module = containers
     __ebmlchildren__ = (
             EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
             EBMLProperty("source", ebml.serialization.Ref, optional=True),
             EBMLProperty("encoder", Encoder, optional=True),
-            EBMLProperty("filters", FilterChain, optional=True),
+            EBMLProperty("filters", FilterChainElement, optional=True),
             EBMLProperty("name", TrackName, optional=True),
             EBMLProperty("language", Language, optional=True),
             EBMLProperty("options", ebml.serialization.StateDict, optional=True),
@@ -99,7 +99,7 @@ class OutputTrack(ebml.serialization.Object):
 
         if "filters" in state:
             environ["module"] = "transcode.filters"
-            self.filters = FilterChain.fromObj(state.pop("filters"), environ, refs)
+            self.filters = FilterChainElement.fromObj(state.pop("filters"), environ, refs)
 
         if mod:
             environ["module"] = mod
@@ -144,7 +144,7 @@ class OutputPath(PathElement):
 
 class OutputFile(ebml.serialization.Object):
     ebmlID = b"\x33\xe6\xfe"
-    module = transcode.containers
+    module = containers
 
     __ebmlchildren__ = (
             EBMLProperty("constructor", ebml.serialization.Constructor),

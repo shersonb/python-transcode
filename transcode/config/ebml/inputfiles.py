@@ -5,14 +5,14 @@ import ebml.serialization
 from fractions import Fraction as QQ
 import numpy
 import pathlib
-import transcode.config.obj
 import importlib
 import types
-from transcode.config.ebml.base import ArrayValue, PathElement
+from .base import ArrayValue, PathElement
+from ... import containers
 
 class InputTrack(ebml.serialization.Object):
     ebmlID = b"\x5b\xda"
-    module = transcode.containers
+    module = containers
     __ebmlchildren__ = (
             EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
             EBMLProperty("state", (ebml.serialization.State, ebml.serialization.StateDict), optional=True),
@@ -43,7 +43,7 @@ class InputPath(PathElement):
 
 class InputFile(ebml.serialization.Object):
     ebmlID = b"\x31\xbc\xac"
-    module = transcode.containers
+    module = containers
     __ebmlchildren__ = (
             EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
             EBMLProperty("constructor", ebml.serialization.Constructor),
