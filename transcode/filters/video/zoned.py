@@ -374,9 +374,19 @@ class ZonedFilter(llist, BaseVideoFilter):
                 except:
                     end = None
 
+        if whence == "seconds":
+            start = self.frameIndexFromPts(start/self.time_base)
+
+            if end is not None:
+                try:
+                    end = self.frameIndexFromPts(end/self.time_base)
+
+                except:
+                    end = None
+
         J, start_zone = self.zoneAtNew(start)
         iterstart = start_zone.getIterStart(start)
-        iterable = self.prev.iterFrames(iterstart, whence=whence)
+        iterable = self.prev.iterFrames(iterstart, whence="framenumber")
 
         for frame in self.processFrames(iterable):
             try:
