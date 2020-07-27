@@ -11,7 +11,6 @@ from fractions import Fraction as QQ
 import av
 import sys
 import traceback
-import codecfactory
 
 class QImageView(QWidget):
     mousePressed = pyqtSignal(float, float)
