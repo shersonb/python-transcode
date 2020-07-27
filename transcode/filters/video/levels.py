@@ -373,7 +373,7 @@ class Zone(zoned.Zone):
         R, G, B = numpy.moveaxis(A, 2, 0)
 
         if self.transition:
-            k = self.parent.prev.index_from_pts(pts) - self.prev_start
+            k = self.parent.prev.frameIndexFromPts(pts) - self.prev_start
             R = self._R[R, k]
             G = self._G[G, k]
             B = self._B[B, k]
