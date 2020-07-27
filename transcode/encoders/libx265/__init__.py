@@ -322,22 +322,22 @@ class libx265EncoderContext(EncoderContext):
 
         if match:
             md = match.groupdict()
-            self._pts[int(md["displayorder"])] = packet.pts
+            #self._pts[int(md["displayorder"])] = packet.pts
 
-            referenceBlocks = []
+            #referenceBlocks = []
 
-            if md["refs1"] != "-":
-                referenceBlocks.extend(self._pts[int(d)] - packet.pts for d in md["refs1"].split(" "))
+            #if md["refs1"] != "-":
+                #referenceBlocks.extend(self._pts[int(d)] - packet.pts for d in md["refs1"].split(" "))
 
-            if md["refs2"] != "-":
-                referenceBlocks.extend(self._pts[int(d)] - packet.pts for d in md["refs2"].split(" "))
+            #if md["refs2"] != "-":
+                #referenceBlocks.extend(self._pts[int(d)] - packet.pts for d in md["refs2"].split(" "))
 
         else:
             print(repr(self._statspattern))
             print(repr(statsline))
 
-        if len(referenceBlocks) == 0:
-            referenceBlocks = None
+        #if len(referenceBlocks) == 0:
+            #referenceBlocks = None
 
         self._statsbuffer = self._statsbuffer[l:]
         discardable = md["pict_type"].upper() == "B"
@@ -350,9 +350,11 @@ class libx265EncoderContext(EncoderContext):
         self._pktCount[md["pict_type"].upper()] += 1
 
         self._t1 = time.time()
+        #packet = Packet(data=len(data).to_bytes(4, "big")+data, pts=packet.pts, duration=packet.duration,
+                        #keyframe=packet.is_keyframe, time_base=packet.time_base,
+                        #discardable=discardable, referenceBlocks=referenceBlocks)
         packet = Packet(data=len(data).to_bytes(4, "big")+data, pts=packet.pts, duration=packet.duration,
-                        keyframe=packet.is_keyframe, time_base=packet.time_base,
-                        discardable=discardable, referenceBlocks=referenceBlocks)
+                        keyframe=packet.is_keyframe, time_base=packet.time_base)
         return packet
 
     def procStats(self):
@@ -374,6 +376,10 @@ class libx265EncoderContext(EncoderContext):
 
             if match:
                 md = match.groupdict()
+
+            else:
+                print(self._statspattern)
+                print(statsline)
 
             discardable = md["pict_type"].upper() == "B"
 
@@ -430,6 +436,10 @@ class libx265EncoderContext(EncoderContext):
             # python-transcode 
             notifyencode=None, logfile=None, **x265params):
 
+        print(f"width={width}, height={height}, sample_aspect_ratio={sample_aspect_ratio}, rate={rate}, pix_fmt={pix_fmt},")
+        print(f"time_base={time_base}, preset={preset}, tune={tune}, forced_idr={forced_idr}, bitrate={bitrate}, qp={qp}")
+        print(f"crf={crf}, lossless={lossless}, **{x265params}")
+
         self._rate = rate
         _convert_dict(x265params)
 
@@ -438,21 +448,27 @@ class libx265EncoderContext(EncoderContext):
 
         if crf:
             options["crf"] = f"{crf:.2f}"
+            print(f"        crf={crf:.2f}", file=logfile)
 
         elif bitrate:
             kwargs["bit_rate"] = int(1000*bitrate)
+            print(f"        bitrate={bitrate:.2f}kbps", file=logfile)
 
         elif qp:
             x265params["qp"] = qp
+            print(f"        qp={qp}", file=logfile)
 
         elif lossless:
             x265params["lossless"] = True
+            print("        lossless", file=logfile)
 
         if preset:
             options["preset"] = preset
+            print(f"        preset={preset}", file=logfile)
 
         if tune:
             options["tune"] = tune
+            print(f"        tune={tune}", file=logfile)
 
         #print(kwargs, x265params)
         self._rfd, self._wfd = os.pipe()
@@ -470,9 +486,6 @@ class libx265EncoderContext(EncoderContext):
         x265params["csv-log-level"] = 1
 
         L = []
-
-        if bitrate:
-            print(f"        bitrate={bitrate:.2f}kbps", file=logfile)
 
         for key, value in x265params.items():
             if value is True:
@@ -517,18 +530,18 @@ class libx265EncoderContext(EncoderContext):
             r"\s*(?P<bits>\d+),"\
             r"\s*(?P<scenecut>[01]),"\
 
-        if bitrate is None and qp is None and lossless is None:
-            self._statspattern += r"\s*(?P<ratefactor>\d+(?:\.\d+)?),"\
-                r"\s*(?P<bufferfill>\d+(?:\.\d+)?),"\
-                r"\s*(?P<bufferfillfinal>\d+(?:\.\d+)?),"
+        #if bitrate is None and qp is None and lossless is None:
+            #self._statspattern += r"\s*(?P<ratefactor>\d+(?:\.\d+)?),"\
+                #r"\s*(?P<bufferfill>\d+(?:\.\d+)?),"\
+                #r"\s*(?P<bufferfillfinal>\d+(?:\.\d+)?),"
 
-        if x265params.get("ssim"):
-            self._statspattern += r"\s*(?P<ssim>\d+(?:\.\d+)?),"\
-                r"\s*(?P<ssimdb>\d+(?:\.\d+)?),"\
+        #if x265params.get("ssim"):
+            #self._statspattern += r"\s*(?P<ssim>\d+(?:\.\d+)?),"\
+                #r"\s*(?P<ssimdb>\d+(?:\.\d+)?),"\
 
-        self._statspattern += r"(?P<latency>\d+),"\
-            r"\s*(?P<refs1>(?:-|[\s\d]+?))\s*,"\
-            r"\s*(?P<refs2>(?:-|[\s\d]+?))\s*,"
+        #self._statspattern += r"(?P<latency>\d+),"\
+            #r"\s*(?P<refs1>(?:-|[\s\d]+?))\s*,"\
+            #r"\s*(?P<refs2>(?:-|[\s\d]+?))\s*,"
 
         self._statsbuffer = ""
         self._pktCount = {s: 0 for s in "IBP"}
