@@ -403,7 +403,10 @@ class Track(abc.ABC):
 
     @property
     def durations(self):
-        if self.encoder and self.filters:
+        if self.encoder and self.type == "audio" and self.codec in ("aac", "libfdk_aac", "ac3", "dca", "truehd"):
+            return int(self.defaultDuration)*numpy.ones(self.framecount, dtype=numpy.int0)
+
+        elif self.encoder and self.filters:
             return numpy.int0(self.filters.durations*float(self.filters.time_base/self.time_base))
 
         return numpy.int0(self.source.durations*float(self.source.time_base/self.time_base))
@@ -952,4 +955,10 @@ class BaseWriter(abc.ABC):
 
         bitrate = targetsize/self.duration/125 - overheadbitrate
         return bitrate/(self.vtrack.avgfps*self.vtrack.defaultDuration*self.vtrack.time_base) + bitrateAdj
+
+    def pauseMux(self):
+        self._unpaused.clear()
+
+    def unpauseMux(self):
+        self._unpaused.set()
 
