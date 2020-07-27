@@ -287,6 +287,68 @@ class TVEpisodeTag(BaseTag):
         self.part = state.get("part")
         super().__setstate__(state)
 
+class MovieTag(BaseTag):
+    typeValue = 50
+    type = "MOVIE"
+
+    def __init__(self, title=None, director=None, date_released=None, comment=None, tracks=[], editions=[], chapters=[], attachments=[]):
+        self.title = title
+        self.director = director
+        self.date_released = date_released
+        self.comment = comment
+        super().__init__(tracks, editions, chapters, attachments)
+
+    @property
+    def simpletags(self):
+        simpletags = []
+
+        if isinstance(self.title, dict):
+            for lang, title in self.title.items():
+                simpletags.append(SimpleTag("TITLE", lang, string=title))
+
+        elif isinstance(self.title, str):
+            simpletags.append(SimpleTag("TITLE", string=self.title))
+
+        if isinstance(self.director, str):
+            simpletags.append(SimpleTag("DIRECTOR", string=self.director))
+
+        if isinstance(self.date_released, (str, int)):
+            simpletags.append(SimpleTag("DATE_RELEASED", string=self.date_released))
+
+        if isinstance(self.comment, dict):
+            for lang, comment in self.comment.items():
+                simpletags.append(SimpleTag("COMMENT", lang, string=comment))
+
+        elif isinstance(self.comment, str):
+            simpletags.append(SimpleTag("COMMENT", string=self.comment))
+
+        return simpletags
+
+    def __getstate__(self):
+        state = OrderedDict()
+
+        if self.title is not None:
+            state["title"] = self.title
+
+        if self.director is not None:
+            state["director"] = self.director
+
+        if self.date_released is not None:
+            state["date_released"] = self.date_released
+
+        if self.comment is not None:
+            state["comment"] = self.comment
+
+        state.update(super().__getstate__())
+        return state
+
+    def __setstate__(self, state):
+        self.title = state.get("title")
+        self.director = state.get("director")
+        self.date_released = state.get("date_released")
+        self.comment = state.get("comment")
+        super().__setstate__(state)
+
 
 class Tags(transcode.util.ChildList):
     def prepare(self, logfile=None):
