@@ -275,10 +275,10 @@ class ZonedFilter(llist, BaseVideoFilter):
         return type(self), (), self.__getstate__(), llist.__iter__(self)
 
     def __getstate__(self):
-        return None
+        return BaseVideoFilter.__getstate__(self)
 
     def __setstate__(self, state):
-        return
+        BaseVideoFilter.__setstate__(self, state)
 
     def reset_cache(self, start=0, end=None, reset_children=True):
         if len(self) and reset_children:

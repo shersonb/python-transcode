@@ -195,7 +195,7 @@ class Scenes(zoned.ZonedFilter):
         self.fixpts = bool(fixpts)
 
     def __getstate__(self):
-        state = OrderedDict()
+        state = super().__getstate__()
         state["fixpts"] = self.fixpts
 
         if self.stats:
@@ -206,6 +206,7 @@ class Scenes(zoned.ZonedFilter):
     def __setstate__(self, state):
         self.fixpts = state.get("fixpts")
         self.stats = state.get("stats")
+        super().__setstate__(state)
 
     @property
     def fixpts(self):

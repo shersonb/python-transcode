@@ -143,11 +143,14 @@ class DropFrames(BaseVideoFilter, set):
         return t0 + self.pts_duration.sum()
 
     def __getstate__(self):
-        return {"dropframes": list(self)}
+        state = super().__getstate__()
+        state["dropframes"] = list(self)
+        return state
 
     def __setstate__(self, state):
         self.clear()
-        return self.update(state.get("dropframes", []))
+        self.update(state.get("dropframes", []))
+        super().__setstate__(state)
 
     #@cached
     #def QTableColumns(self):

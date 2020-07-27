@@ -20,7 +20,7 @@ class Crop(BaseVideoFilter):
         super().__init__(prev=prev, next=next, parent=parent)
 
     def __getstate__(self):
-        state = OrderedDict()
+        state = super().__getstate__()
         state["croptop"] = self.croptop
         state["cropbottom"] = self.cropbottom
         state["cropleft"] = self.cropleft
@@ -32,6 +32,7 @@ class Crop(BaseVideoFilter):
         self.cropbottom = state.get("cropbottom", 0)
         self.cropleft = state.get("cropleft", 0)
         self.cropright = state.get("cropright", 0)
+        super().__setstate__(state)
 
     def __str__(self):
         if self is None:
@@ -127,7 +128,7 @@ class Resize(BaseVideoFilter):
         super().__init__(prev=prev, next=next, parent=parent)
 
     def __getstate__(self):
-        state = OrderedDict()
+        state = super().__getstate__()
         state["width"] = self.width
         state["height"] = self.height
         state["resample"] = self.resample
@@ -141,6 +142,7 @@ class Resize(BaseVideoFilter):
         self.resample = state.get("resample")
         self.box = state.get("box")
         self.sar = state.get("sar", 1)
+        super().__setstate__(state)
 
     def __str__(self):
         if self is None:
@@ -396,7 +398,7 @@ class CropScenes(zoned.ZonedFilter):
         super().__init__(zones=zones, **kwargs)
 
     def __getstate__(self):
-        state = OrderedDict()
+        state = super().__getstate__()
         state["width"] = self.width
         state["height"] = self.height
         state["resample"] = self.resample
@@ -410,6 +412,7 @@ class CropScenes(zoned.ZonedFilter):
         self.resample = state.get("resample")
         self.box = state.get("box")
         self.sar = state.get("sar", 1)
+        super().__setstate__(state)
 
     def __repr__(self):
         if self is None:

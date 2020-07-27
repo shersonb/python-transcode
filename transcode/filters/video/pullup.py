@@ -36,7 +36,7 @@ class Zone(zoned.Zone):
         self._framecount = framecount
 
     def __getstate__(self):
-        state = OrderedDict()
+        state = super().__getstate__()
         state["src_fps"] = self.src_fps
 
         if self.pulldown:
@@ -55,6 +55,8 @@ class Zone(zoned.Zone):
             self.pulldownoffset = state["pulldownoffset"]
             self.yblend = state["yblend"]
             self.uvblend = state["uvblend"]
+
+        super().__setstate__(self)
 
     def reset_cache(self):
         super().reset_cache()

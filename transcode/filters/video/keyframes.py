@@ -73,11 +73,14 @@ class KeyFrames(BaseVideoFilter, set):
         set.add(self, int(item))
 
     def __getstate__(self):
-        return {"keyframes": list(self)}
+        state = super().__getstate__()
+        state["keyframes"] = list(self)
+        return state
 
     def __setstate__(self, state):
         self.clear()
-        return self.update(state.get("keyframes", []))
+        self.update(state.get("keyframes", []))
+        super().__setstate__(state)
 
 
 #class KeyFrameCol(qtable.BaseColumn):

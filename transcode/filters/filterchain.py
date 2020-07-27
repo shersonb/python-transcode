@@ -214,11 +214,11 @@ class FilterChain(llist, BaseFilter):
                 #cols.extend(filt.QTableColumns())
         #return cols
 
-    def __reduce__(self):
-        return type(self), (), self.__getstate__(), iter(self)
-
     def __getstate__(self):
-        return dict(prev=self.prev)
+        return BaseFilter.__getstate__(self)
 
     def __setstate__(self, state):
-        self.prev = state.get("prev")
+        BaseFilter.__setstate__(self, state)
+
+    def __reduce__(self):
+        return type(self), (), self.__getstate__(), iter(self)
