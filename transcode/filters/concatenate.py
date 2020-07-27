@@ -298,6 +298,10 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
             for packet in packets:
                 packet.pts = int((T + packet.pts*packet.time_base)/self.time_base + 0.5)
+
+                if packet.duration:
+                    packet.duration = int(packet.duration*packet.time_base/self.time_base + 0.5)
+
                 packet.time_base = self.time_base
                 yield packet
 

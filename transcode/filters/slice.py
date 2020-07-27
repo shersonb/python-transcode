@@ -15,12 +15,18 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
 
     @cached
     def prev_start(self):
-        return self.prev.frameIndexFromPts((self.startpts - 0.008)/self.prev.time_base, "+")
+        if self.type == "video":
+            return self.prev.frameIndexFromPts((self.startpts - 0.008)/self.prev.time_base, "+")
+
+        return self.prev.frameIndexFromPts((self.startpts - 0.001)/self.prev.time_base, "+")
 
     @cached
     def prev_end(self):
         if self.endpts is not None:
-            return self.prev.frameIndexFromPts((self.endpts - 0.008)/self.prev.time_base, "+")
+            if self.type == "video":
+                return self.prev.frameIndexFromPts((self.endpts - 0.008)/self.prev.time_base, "+")
+
+            return self.prev.frameIndexFromPts(self.endpts/self.prev.time_base, "+")
 
         return self.prev.framecount
 
@@ -268,6 +274,12 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                     break
 
             packet.pts -= int(self.startpts/self.time_base + 0.5)
+
+            if packet.duration:
+                packet.duration = int(packet.duration*packet.time_base/self.time_base + 0.5)
+
+            packet.time_base = self.time_base
+
             yield packet
 
     def __reduce__(self):
