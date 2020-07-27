@@ -15,15 +15,11 @@ class EncoderContext(object):
         else:
             self._encoder = av.CodecContext.create(codec, "w")
 
-        print(f"        {kwargs}", file=logfile)
-
         for key, value in kwargs.items():
             if value is not None:
-                print(f"{key}={value}")
                 setattr(self._encoder, key, value)
 
         if "time_base" not in kwargs:
-            print(f"time_base=QQ(1, 10**9)")
             self._encoder.time_base = QQ(1, 10**9)
 
         self._framesource = framesource
