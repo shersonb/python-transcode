@@ -26,6 +26,11 @@ class BaseAudioFilter(BaseFilter):
             return self.prev.format
 
     @property
+    def bitdepth(self):
+        if self.prev:
+            return self.prev.bitdepth
+
+    @property
     def prev(self):
         return self._prev
 
