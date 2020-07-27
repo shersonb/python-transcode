@@ -3,7 +3,6 @@ from . import zoned
 from ...util import cached, numpify
 import numpy
 from fractions import Fraction as QQ
-import codecfactory
 import itertools
 from av.video import VideoFrame
 import sys
