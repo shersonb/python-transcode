@@ -83,7 +83,12 @@ class Track(object):
                 endpts = None
 
         elif whence == "pts":
-            startindex = self.frameIndexFromPts(start, "-" if self.type is "audio" else "+")
+            if start >= self.pts[0]:
+                startindex = self.frameIndexFromPts(start, "-" if self.type is "audio" else "+")
+
+            else:
+                startindex = 0
+
             startpts = self.pts[startindex]
 
             try:
@@ -95,7 +100,12 @@ class Track(object):
                 endpts = None
 
         elif whence == "seconds":
-            startindex = self.frameIndexFromPts(start/self.time_base, "-" if self.type is "audio" else "+")
+            if start/self.time_base >= self.pts[0]:
+                startindex = self.frameIndexFromPts(start/self.time_base, "-" if self.type is "audio" else "+")
+
+            else:
+                startindex = 0
+
             startpts = start/self.time_base
 
             try:
