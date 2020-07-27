@@ -46,36 +46,72 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
         return numpy.int0(numpy.concatenate([segment.durations*segment.time_base/self.time_base for segment in self.segments]) + 0.0001)
 
     @cached
+    def sizes(self):
+        return numpy.concatenate([segment.sizes for segment in self.segments])
+
+    @cached
     def framecount(self):
         return sum(segment.framecount for segment in self.segments)
 
     @property
     def type(self):
-        return self.segments[0].type
+        if len(self.segments):
+            return self.segments[0].type
+
+    @property
+    def codec(self):
+        if len(self.segments):
+            return self.segments[0].codec
+
+    @property
+    def extradata(self):
+        if len(self.segments):
+            return self.segments[0].extradata
+
+    @property
+    def format(self):
+        if len(self.segments):
+            return self.segments[0].format
+
+    @property
+    def bitdepth(self):
+        if len(self.segments):
+            return self.segments[0].bitdepth
+
+    @property
+    def defaultDuration(self):
+        if len(self.segments):
+            return self.segments[0].defaultDuration
 
     @property
     def rate(self):
-        return self.segments[0].rate
+        if len(self.segments):
+            return self.segments[0].rate
 
     @property
     def layout(self):
-        return self.segments[0].layout
+        if len(self.segments):
+            return self.segments[0].layout
 
     @property
     def channels(self):
-        return self.segments[0].channels
+        if len(self.segments):
+            return self.segments[0].channels
 
     @property
     def width(self):
-        return self.segments[0].width
+        if len(self.segments):
+            return self.segments[0].width
 
     @property
     def height(self):
-        return self.segments[0].height
+        if len(self.segments):
+            return self.segments[0].height
 
     @property
     def sar(self):
-        return self.segments[0].sar
+        if len(self.segments):
+            return self.segments[0].sar
 
     @property
     def prev(self):
@@ -172,7 +208,6 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                     break
 
             for frame in frames:
-                print(T)
                 frame.pts = int((T + frame.pts*frame.time_base)/self.time_base + 0.5)
                 frame.time_base = self.time_base
                 yield frame
@@ -259,7 +294,6 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                     break
 
             for frame in frames:
-                print(T)
                 frame.pts = int((T + frame.pts*frame.time_base)/self.time_base + 0.5)
                 frame.time_base = self.time_base
                 yield frame
@@ -345,7 +379,6 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                     break
 
             for frame in frames:
-                print(T)
                 frame.pts = int((T + frame.pts*frame.time_base)/self.time_base + 0.5)
                 frame.time_base = self.time_base
                 yield frame
@@ -357,16 +390,19 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
     def append(self, segment):
         self.segments.append(segment)
 
+    def extend(self, segments):
+        self.segments.extend(segments)
+
     def __reduce__(self):
         return type(self), (), self.__getstate__(), iter(self.segments)
 
     def __getstate__(self):
         state = OrderedDict()
 
-        if self.prev:
-            state["prev"] = self.prev
+        if self.time_base:
+            state["time_base"] = self.time_base
 
         return state
 
     def __setstate__(self, state):
-        self.prev = state.get("prev")
+        self.time_base = state.get("time_base", QQ(1, 10**9))

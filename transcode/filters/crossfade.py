@@ -13,14 +13,15 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
         self.source1 = source1
         self.source2 = source2
 
-        if source1.type != source2.type:
-            raise ValueError("Both segments must have same type.")
+        if source1 is not None and source2 is not None:
+            if source1.type != source2.type:
+                raise ValueError("Both segments must have same type.")
 
-        if self.type == "video" and (source1.width != source2.width or source1.height != source2.height):
-            raise ValueError("Both segments must have same size.")
+            if self.type == "video" and (source1.width != source2.width or source1.height != source2.height):
+                raise ValueError("Both segments must have same size.")
 
-        if self.type == "audio" and (source1.layout != source2.layout):
-            raise ValueError("Both segments must have same layout.")
+            if self.type == "audio" and (source1.layout != source2.layout):
+                raise ValueError("Both segments must have same layout.")
 
         self.flags = flags
         self._prev_start = None
@@ -165,6 +166,10 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
     @property
     def type(self):
         return self.source1.type
+
+    @property
+    def time_base(self):
+        return self.source1.time_base
 
     def iterFrames(self, start=0, end=None, whence="pts"):
         frames1 = self.source1.iterFrames(start, end, whence)

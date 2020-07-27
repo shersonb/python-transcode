@@ -15,12 +15,12 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
 
     @cached
     def prev_start(self):
-        return self.prev.frameIndexFromPts((self.startpts - 0.0005)/self.prev.time_base, "+")
+        return self.prev.frameIndexFromPts((self.startpts - 0.008)/self.prev.time_base, "+")
 
     @cached
     def prev_end(self):
         if self.endpts is not None:
-            return self.prev.frameIndexFromPts((self.endpts - 0.0005)/self.prev.time_base, "+")
+            return self.prev.frameIndexFromPts((self.endpts - 0.008)/self.prev.time_base, "+")
 
         return self.prev.framecount
 
@@ -42,6 +42,20 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
     @cached
     def durations(self):
         return self.prev.durations[self.prev_start:self.prev_end]
+
+    @cached
+    def sizes(self):
+        return self.prev.sizes[self.prev_start:self.prev_end]
+
+    @property
+    def codec(self):
+        if self.prev is not None:
+            return self.prev.codec
+
+    @property
+    def extradata(self):
+        if self.prev is not None:
+            return self.prev.extradata
 
     @property
     def time_base(self):
@@ -260,10 +274,7 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
         return type(self), (), self.__getstate__()
 
     def __getstate__(self):
-        state = OrderedDict()
-
-        if self.prev:
-            state["prev"] = self.prev
+        state = super().__getstate__()
 
         state["startpts"] = self.startpts
         state["endpts"] = self.endpts
@@ -274,7 +285,7 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
         return state
 
     def __setstate__(self, state):
-        self.prev = state.get("prev")
         self.startpts = state.get("startpts", 0)
         self.endpts = state.get("endpts")
         self.firstframekey = bool(state.get("firstframekey", False))
+        super().__setstate__(state)
