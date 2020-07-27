@@ -37,7 +37,7 @@ class BaseVideoFilter(BaseFilter):
 
     @property
     def defaultDuration(self):
-        if self.prev:
+        if self.prev and self.prev.defaultDuration is not None:
             return self.prev.defaultDuration*self.prev.time_base/self.time_base
 
     @property
