@@ -217,7 +217,7 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
     def iterPackets(self, start=0, end=None, whence="pts"):
         if self.type == "video" and whence is None:
-            whence = "framenumber"
+            whence = "packetnumber"
 
         elif self.type in ("audio", "subtitle") and whence is None:
             whence = "seconds"
@@ -227,7 +227,7 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
         T = 0
 
         for segment in self.segments:
-            if whence == "framenumber":
+            if whence == "packetnumber":
                 if start >= N + segment.framecount:
                     N += segment.framecount
                     T += segment.duration
@@ -235,21 +235,24 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
                 elif N <= start:
                     if end is not None and end < N + segment.framecount:
-                        frames = segment.iterFrames(start - N, end - N, whence)
+                        packets = segment.iterPackets(start - N, end - N, whence)
 
                     else:
-                        frames = segment.iterFrames(start - N, None, whence)
+                        packets = segment.iterPackets(start - N, None, whence)
 
                 elif end is None or end >= N + segment.framecount:
-                    frames = segment.iterFrames()
+                    packets = segment.iterPackets()
 
                 elif end > N:
-                    frames = segment.iterFrames(None, end - N, whence)
+                    packets = segment.iterPackets(None, end - N, whence)
 
                 else:
                     break
 
             elif whence == "pts":
+                print("S", start, segment.time_base, T, segment.duration)
+                print("S", start*segment.time_base, T+segment.duration)
+
                 if start*segment.time_base >= T + segment.duration:
                     N += segment.framecount
                     T += segment.duration
@@ -257,16 +260,16 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
                 elif T <= start*segment.time_base:
                     if end is not None and end*segment.time_base < T + segment.duration:
-                        frames = segment.iterFrames(start - int(T/segment.time_base + 0.5), end - int(T/segment.time_base + 0.5), whence)
+                        packets = segment.iterPackets(start - int(T/segment.time_base + 0.5), end - int(T/segment.time_base + 0.5), whence)
 
                     else:
-                        frames = segment.iterFrames(start - int(T/segment.time_base + 0.5), None, whence)
+                        packets = segment.iterPackets(start - int(T/segment.time_base + 0.5), None, whence)
 
                 elif end is None or end*segment.time_base >= T + segment.duration:
-                    frames = segment.iterFrames()
+                    packets = segment.iterPackets()
 
                 elif end*segment.time_base > T:
-                    frames = segment.iterFrames(None, end - int(T/segment.time_base + 0.5), whence)
+                    packets = segment.iterPackets(None, end - int(T/segment.time_base + 0.5), whence)
 
                 else:
                     break
@@ -279,109 +282,24 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
                 elif T <= start:
                     if end is not None and end < T + segment.duration:
-                        frames = segment.iterFrames(start - T, end - T, whence)
+                        packets = segment.iterPackets(start - T, end - T, whence)
 
                     else:
-                        frames = segment.iterFrames(start - T, None, whence)
+                        packets = segment.iterPackets(start - T, None, whence)
 
                 elif end is None or end >= T + segment.duration:
-                    frames = segment.iterFrames()
+                    packets = segment.iterPackets()
 
                 elif end > T:
-                    frames = segment.iterFrames(None, end - T, whence)
+                    packets = segment.iterPackets(None, end - T, whence)
 
                 else:
                     break
 
-            for frame in frames:
-                frame.pts = int((T + frame.pts*frame.time_base)/self.time_base + 0.5)
-                frame.time_base = self.time_base
-                yield frame
-
-            N += segment.framecount
-            T += segment.duration
-
-        if self.type == "video" and whence is None:
-            whence = "framenumber"
-
-        elif self.type in ("audio", "subtitle") and whence is None:
-            whence = "seconds"
-
-        N = 0
-        K = count(start)
-        T = 0
-
-        for segment in self.segments:
-            if whence == "framenumber":
-                if start >= N + segment.framecount:
-                    N += segment.framecount
-                    T += segment.duration
-                    continue
-
-                elif N <= start:
-                    if end is not None and end < N + segment.framecount:
-                        frames = segment.iterFrames(start - N, end - N, whence)
-
-                    else:
-                        frames = segment.iterFrames(start - N, None, whence)
-
-                elif end is None or end >= N + segment.framecount:
-                    frames = segment.iterFrames()
-
-                elif end > N:
-                    frames = segment.iterFrames(None, end - N, whence)
-
-                else:
-                    break
-
-            elif whence == "pts":
-                if start*segment.time_base >= T + segment.duration:
-                    N += segment.framecount
-                    T += segment.duration
-                    continue
-
-                elif T <= start*segment.time_base:
-                    if end is not None and end*segment.time_base < T + segment.duration:
-                        frames = segment.iterFrames(start - int(T/segment.time_base + 0.5), end - int(T/segment.time_base + 0.5), whence)
-
-                    else:
-                        frames = segment.iterFrames(start - int(T/segment.time_base + 0.5), None, whence)
-
-                elif end is None or end*segment.time_base >= T + segment.duration:
-                    frames = segment.iterFrames()
-
-                elif end*segment.time_base > T:
-                    frames = segment.iterFrames(None, end - int(T/segment.time_base + 0.5), whence)
-
-                else:
-                    break
-
-            elif whence == "seconds":
-                if start >= T + segment.duration:
-                    N += segment.framecount
-                    T += segment.duration
-                    continue
-
-                elif T <= start:
-                    if end is not None and end < T + segment.duration:
-                        frames = segment.iterFrames(start - T, end - T, whence)
-
-                    else:
-                        frames = segment.iterFrames(start - T, None, whence)
-
-                elif end is None or end >= T + segment.duration:
-                    frames = segment.iterFrames()
-
-                elif end > T:
-                    frames = segment.iterFrames(None, end - T, whence)
-
-                else:
-                    break
-
-            for frame in frames:
-                frame.pts = int((T + frame.pts*frame.time_base)/self.time_base + 0.5)
-                frame.time_base = self.time_base
-                yield frame
+            for packet in packets:
+                packet.pts = int((T + packet.pts*packet.time_base)/self.time_base + 0.5)
+                packet.time_base = self.time_base
+                yield packet
 
             N += segment.framecount
             T += segment.duration
