@@ -1,10 +1,10 @@
-import transcode.util
-from transcode.util import cached
-import transcode.filters.base
-import transcode.containers.basereader
+#import ..util
+from ..util import cached, search
+from ..containers.basereader import Track
 from fractions import Fraction as QQ
 import threading
 import numpy
+from collections import OrderedDict
 
 class BaseFilter(object):
     """
@@ -23,6 +23,17 @@ class BaseFilter(object):
 
     def __reduce__(self):
         return type(self), (), self.__getstate__()
+
+    def __getstate__(self):
+        state = OrderedDict()
+
+        if self.prev is not None:
+            state["prev"] = self.prev
+
+        return state
+
+    def __setstate__(self, state):
+        self.prev = state.get("prev")
 
     @property
     def dependencies(self):
@@ -95,7 +106,7 @@ class BaseFilter(object):
 
     @property
     def src(self):
-        if isinstance(self.prev, transcode.containers.basereader.Track):
+        if isinstance(self.prev, Track):
             return self.prev
 
         elif isinstance(self.prev, BaseVideoFilter):
@@ -127,7 +138,7 @@ class BaseFilter(object):
         del self.duration
 
     def frameIndexFromPts(self, pts, dir="+"):
-        return transcode.util.search(self.pts, pts, dir)
+        return search(self.pts, pts, dir)
 
     @cached
     def cumulativeIndexMap(self):
