@@ -218,7 +218,7 @@ class MatroskaReader(basereader.BaseReader):
                     if trackEntry.codec == "vc1":
                         index.append((-1, clusterOffset, blockOffset))
 
-                    else:
+                    elif len(index) == 0 or index[-1][-2:] != (clusterOffset, blockOffset):
                         index.append((pts, clusterOffset, blockOffset))
 
                 ptslist.append((pts, size, duration))
