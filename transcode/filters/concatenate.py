@@ -250,9 +250,6 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                     break
 
             elif whence == "pts":
-                print("S", start, segment.time_base, T, segment.duration)
-                print("S", start*segment.time_base, T+segment.duration)
-
                 if start*segment.time_base >= T + segment.duration:
                     N += segment.framecount
                     T += segment.duration
