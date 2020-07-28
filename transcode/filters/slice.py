@@ -236,9 +236,8 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                     if whence == "seconds":
                         frame.pts = max(pts - int(self.startpts/tb + 0.001), int((start - self.startpts)/tb + 0.001))
 
-                    elif whence == "pts" and pts < start:
+                    elif whence == "pts":
                         frame.pts = max(pts - int(self.startpts/tb + 0.001), int(start - self.startpts/tb + 0.001))
-
 
                 else:
                     frame.pts -= int(self.startpts/self.time_base + 0.001)
