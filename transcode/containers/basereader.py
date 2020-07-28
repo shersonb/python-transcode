@@ -6,6 +6,7 @@ import os
 import sys
 from transcode.util import cached
 from collections import OrderedDict
+import numpy
 
 class Track(object):
     from copy import deepcopy as copy
@@ -116,7 +117,13 @@ class Track(object):
                 endindex = None
                 endpts = None
 
-        key_index = self.keyIndexFromPts(startpts)
+        if isinstance(self.index, numpy.ndarray) and self.index.ndim == 2 \
+            and self.index.size and startpts >= self.index[0, 0]:
+            key_index = self.keyIndexFromPts(startpts)
+
+        else:
+            key_index = 0
+
         key_pts = self.index[key_index, 0]
         index = self.frameIndexFromPts(key_pts)
 
