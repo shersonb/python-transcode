@@ -255,6 +255,7 @@ class QEncodeDialog(QDialog):
     packetreceived = pyqtSignal(Packet)
     statsloaded = pyqtSignal(numpy.ndarray)
     encodefinished = pyqtSignal()
+    encodepaused = pyqtSignal(str)
     encodeinterrupted = pyqtSignal()
     encodeerror = pyqtSignal(BaseException, types.TracebackType)
 
@@ -262,6 +263,7 @@ class QEncodeDialog(QDialog):
         super(QEncodeDialog, self).__init__(*args, **kwargs)
         self.packetreceived.connect(self.packetReceived)
         self.encodefinished.connect(self.encodeFinished)
+        self.encodepaused.connect(self.encodePaused)
         self.encodeinterrupted.connect(self.encodeInterrupted)
         self.encodeerror.connect(self.encodeError)
         self.framesenttoencoder.connect(self.setFrame)
@@ -480,8 +482,9 @@ class QEncodeDialog(QDialog):
 
         self.encodeThread = self.output_file.createTranscodeThread(pass_=self.pass_, logfile=self.logfile,
                             encoderoverrides=self.encoderoverrides, notifyvencode=self.framesenttoencoder.emit,
-                            notifymux=self.packetreceived.emit, notifyerror=self.encodeerror.emit,
-                            notifyfinish=self.encodefinished.emit, notifycancelled=self.encodeinterrupted.emit,
+                            notifymux=self.packetreceived.emit, notifypaused=self.encodepaused.emit,
+                            notifyerror=self.encodeerror.emit, notifyfinish=self.encodefinished.emit,
+                            notifycancelled=self.encodeinterrupted.emit,
                             notifystats=self.statsloaded.emit, autostart=False)
 
         self.encodeThread.start()
@@ -521,6 +524,17 @@ class QEncodeDialog(QDialog):
         errorDlg.setIcon(QMessageBox.Critical)
         errorDlg.exec_()
         self.autoClose.setEnabled(False)
+
+    @pyqtSlot(str)
+    def encodePaused(self, message="Encoding Paused"):
+        self.pauseBtn.setText("&Resume")
+        pausedDlg = QMessageBox(self)
+        pausedDlg.setWindowTitle("Encoding Paused")
+        pausedDlg.setText(message)              
+        pausedDlg.setStandardButtons(QMessageBox.Ok)
+        pausedDlg.setDefaultButton(QMessageBox.Ok)
+        pausedDlg.setIcon(QMessageBox.Critical)
+        pausedDlg.exec_()
 
     def encodeFinished(self):
         if self.autoClose.checkState():
