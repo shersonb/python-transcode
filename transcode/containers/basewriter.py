@@ -518,6 +518,7 @@ class BaseWriter(abc.ABC):
         self.loadOverhead()
         self.newoverhead = {}
         self._transcodeThread = None
+        self._files = set()
 
     @property
     def tracks(self):
@@ -625,31 +626,52 @@ class BaseWriter(abc.ABC):
             except:
                 track.sizeStats = None
 
+    def _checkpause(self, notifypaused=None):
+        while True:
+            self._unpaused.wait()
+
+            if self._stop.isSet():
+                break
+
+            for path in self._files:
+                stat = os.statvfs(path)
+
+                if stat.f_bavail*stat.f_bsize < 64*1024**2:
+                    if callable(notifypaused):
+                        notifypaused("Transcode paused due to low disk space.")
+
+                    self.pauseMux()
+                    break
+
+            else:
+                return
+
+    def _queuepacket(self, k, iterator, packets):
+        if iterator is None:
+            return
+
+        if packets[k] is None:
+            try:
+                packet = next(iterator)
+
+                if isinstance(packet, BaseException):
+                    raise packet
+
+                packets[k] = packet
+
+            except StopIteration:
+                iterators[k] = None
+
+    def _queuepackets(self, iterators, packets):
+        for k, iterator in enumerate(iterators):
+            self._queuepacket(k, iterator, packets)
+
     def _iterPackets(self, *iterators):
         iterators = list(iterators)
         packets = [None]*len(iterators)
 
         while any([iterator is not None for iterator in iterators]):
-            for k, iterator in enumerate(iterators):
-                if iterator is None:
-                    continue
-
-                if packets[k] is None:
-                    self._unpaused.wait()
-
-                    if self._stop.isSet():
-                        break
-
-                    try:
-                        packet = next(iterator)
-
-                        if isinstance(packet, BaseException):
-                            raise packet
-
-                        packets[k] = packet
-
-                    except StopIteration:
-                        iterators[k] = None
+            self._queuepackets(iterators, packets)
 
             ready_to_mux = [packet for packet in packets if packet is not None]
 
@@ -677,14 +699,14 @@ class BaseWriter(abc.ABC):
                 self._printexeption(exc, tb, logfile)
 
     def createTranscodeThread(self, pass_=0, encoderoverrides=[], logfile=None, notifystats=None,
-                notifymux=None, notifyfinish=None, notifycancelled=None, notifyerror=None,
-                notifyvencode=None, autostart=True):
+                notifymux=None, notifypaused=None, notifyfinish=None, notifycancelled=None,
+                notifyerror=None, notifyvencode=None, autostart=True):
         return threading.Thread(target=self.transcode, args=(pass_, encoderoverrides, logfile,
-                                            notifystats, notifymux, notifyfinish, notifycancelled, notifyerror, notifyvencode))
+            notifystats, notifymux, notifypaused, notifyfinish, notifycancelled, notifyerror, notifyvencode))
 
     def transcode(self, pass_=0, encoderoverrides=[], logfile=None, notifystats=None,
-                  notifymux=None, notifyfinish=None, notifycancelled=None, notifyerror=None,
-                  notifyvencode=None):
+                  notifymux=None, notifypaused=None, notifyfinish=None, notifycancelled=None,
+                  notifyerror=None, notifyvencode=None):
         """
         Start transcode. If it is desired to run this method in a separate thread, 
         self.createTranscodeThread() is provided.
@@ -722,7 +744,7 @@ class BaseWriter(abc.ABC):
                 raise
 
             try:
-                self._multiplex(iterators, logfile, notifymux)
+                self._multiplex(iterators, logfile, notifymux, notifypaused)
 
             except:
                 print("!!! EXCEPTION encountered during transcode !!!", file=logfile)
@@ -754,6 +776,7 @@ class BaseWriter(abc.ABC):
                 logfile.flush()
 
             self._transcodeThread = None
+            self._files.clear()
 
     def stopTranscode(self):
         self._unpaused.set()
@@ -764,8 +787,13 @@ class BaseWriter(abc.ABC):
 
         self._stop.clear()
 
-    def _multiplex(self, iterators, logfile=None, notifymux=None):
+    def _multiplex(self, iterators, logfile=None, notifymux=None, notifypaused=None):
         for packet in self._iterPackets(*iterators):
+            self._checkpause(notifypaused)
+
+            if self._stop.isSet():
+                return
+
             self._mux(packet)
 
             if callable(notifymux):
@@ -781,6 +809,8 @@ class BaseWriter(abc.ABC):
 
         else:
             print(f"Output file: {self.outputpathabs}", file=logfile)
+
+        self._files.add(self.outputpathabs)
 
     @abc.abstractmethod
     def _open(self):
@@ -831,6 +861,7 @@ class BaseWriter(abc.ABC):
         if pass_:
             stats = f"{self.config.configstem}-{self.file_index}.{self.vtrack.track_index:d}-{self.vtrack.encoder.codec}-multipass.log"
             vencoder_override.update(pass_=pass_, stats=stats)
+            self._files.add(stats)
 
         iterators = []
 
