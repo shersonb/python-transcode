@@ -7,6 +7,7 @@ from itertools import count
 from ..util import cached
 from ..avarrays import toNDArray, toAFrame, aconvert
 from fractions import Fraction as QQ
+from av import VideoFrame
 
 class CrossFade(BaseVideoFilter, BaseAudioFilter):
     def __init__(self, source1=None, source2=None, flags=0, **kwargs):
