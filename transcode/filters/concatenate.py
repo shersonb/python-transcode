@@ -158,7 +158,7 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                     frames = segment.iterFrames()
 
                 elif end > N:
-                    frames = segment.iterFrames(None, end - N, whence)
+                    frames = segment.iterFrames(0, end - N, whence)
 
                 else:
                     break
@@ -180,7 +180,7 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                     frames = segment.iterFrames()
 
                 elif end*segment.time_base > T:
-                    frames = segment.iterFrames(None, end - int(T/segment.time_base + 0.5), whence)
+                    frames = segment.iterFrames(0, end - int(T/segment.time_base + 0.5), whence)
 
                 else:
                     break
@@ -202,7 +202,7 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                     frames = segment.iterFrames()
 
                 elif end > T:
-                    frames = segment.iterFrames(None, end - T, whence)
+                    frames = segment.iterFrames(0, end - T, whence)
 
                 else:
                     break
