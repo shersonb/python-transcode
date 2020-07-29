@@ -1,5 +1,6 @@
 from .video.base import BaseVideoFilter
 from .audio.base import BaseAudioFilter
+from .base import CacheResettingProperty
 import numpy
 from collections import OrderedDict
 from itertools import count
@@ -7,11 +8,14 @@ from ..util import cached
 from ..avarrays import toNDArray, toAFrame
 
 class Slice(BaseVideoFilter, BaseAudioFilter):
+    startpts = CacheResettingProperty("startpts")
+    endpts = CacheResettingProperty("endpts")
+
     def __init__(self, startpts=0, endpts=None, firstframekey=False, **kwargs):
+        super().__init__(**kwargs)
         self.startpts = startpts
         self.endpts = endpts
         self.firstframekey = bool(firstframekey)
-        super().__init__(**kwargs)
 
     @cached
     def prev_start(self):
@@ -129,7 +133,7 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
 
 
             elif whence == "pts":
-                N = count(self.prev.frameIndexFromPts(start) - self.prev_start)
+                N = count(self.frameIndexFromPts(start))
                 start = (self.startpts - 0.0005)/self.prev.time_base + max(start, 0)
 
                 if end is not None and self.endpts is not None:
@@ -146,7 +150,7 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
 
 
             elif whence == "seconds":
-                N = count(self.prev.frameIndexFromPts(start/self.prev.time_base) - self.prev_start)
+                N = count(self.frameIndexFromPts(start/self.prev.time_base))
                 start = self.startpts - 0.0005 + max(start, 0)
 
                 if end is not None and self.endpts is not None:
