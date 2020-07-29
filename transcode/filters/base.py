@@ -5,13 +5,33 @@ from fractions import Fraction as QQ
 import threading
 import numpy
 from collections import OrderedDict
+from itertools import count
+
+class CacheResettingProperty(object):
+    def __init__(self, attrname):
+        self.attrname = attrname
+        self._attrname = f"_{attrname}"
+
+    def __get__(self, inst, cls):
+        if inst is None:
+            return self
+
+        return getattr(inst, self._attrname)
+
+    def __set__(self, inst, value):
+        inst.reset_cache()
+        setattr(inst, self._attrname, value)
+
+
 
 class BaseFilter(object):
     """
     Base class for filter objects.
     This class also serves as a filter that does nothing.
     """
+
     from copy import deepcopy as copy
+    next = None
 
     def __init__(self, prev=None, next=None, parent=None, notify_input=None, notify_output=None):
         self.next = next
@@ -127,11 +147,13 @@ class BaseFilter(object):
 
     @cached
     def framecount(self):
-        if self.prev is not None:
+        if self.prev is not None and self.prev.framecount:
             for k in count(self.prev.framecount - 1, -1):
                 n = self.indexMap[k]
                 if n not in (None, -1):
                     return n + 1
+
+        return 0
 
     @framecount.deleter
     def framecount(self):
