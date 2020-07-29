@@ -15,6 +15,7 @@ class Gain(BaseAudioFilter):
             newframe = toAFrame(A*scale, layout=frame.layout.name)
             newframe.rate = frame.rate
             newframe.pts = frame.pts
+            newframe.time_base = frame.time_base
             yield newframe
 
     @property
