@@ -121,6 +121,10 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
     def prev(self, value):
         return
 
+    @property
+    def cumulativeIndexMap(self):
+        return numpy.arange(self.framecount)
+
     #def QTableColumns(self):
         #cols = []
         #for filt in self:
