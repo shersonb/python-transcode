@@ -980,7 +980,6 @@ class BaseWriter(abc.ABC):
             sizePerKbps = float(self.vtrack.framecount*self.vtrack.defaultDuration*self.vtrack.time_base*125)
 
             bitrateAdj += int(diff//sizePerKbps)
-            print("b", bitrateAdj)
 
             self.newoverhead["bitrateAdj"] = bitrateAdj
 

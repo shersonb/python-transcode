@@ -250,18 +250,7 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
                 else:
                     B = BB[:N]
 
-                C = A + B
-
-                #if self.format == "fltp":
-                    #newframe = AudioFrame.from_ndarray(numpy.float32(C), format="fltp", layout=frame1.layout.name)
-
-                #elif self.format == "s16":
-                    #C = numpy.int16(2**15*C+0.5)
-                    #C = C.transpose().reshape(1, C.size)
-                    ##print("C", C.dtype, C.shape)
-                    #newframe = AudioFrame.from_ndarray(C, format="s16", layout=frame1.layout.name)
-
-                newframe = toAFrame(C, layout=self.layout)
+                newframe = toAFrame(A + B, layout=self.layout)
 
                 newframe.rate = frame1.rate
                 newframe.pts = int(T/frame1.time_base + 0.00001)

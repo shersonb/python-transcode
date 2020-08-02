@@ -279,7 +279,6 @@ class CropZone(zoned.Zone):
             A = frame.to_ndarray()
 
             if frame.format.name == "rgb24":
-                print(A.shape)
                 R.append(A.max(axis=(0, 2)))
                 C.append(A.max(axis=(1, 2)))
 

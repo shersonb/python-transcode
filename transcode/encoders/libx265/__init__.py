@@ -260,103 +260,6 @@ class libx265EncoderContext(EncoderContext):
                 stat = os.stat(stats)
                 os.utime(backupstats, (stat.st_atime, stat.st_mtime))
 
-    def __next__(self):
-        if not self._isopen and not self._noMoreFrames:
-            self.open()
-
-        while "\n" not in self._statsbuffer and not self._noMoreFrames:
-            self._sendframe()
-            data = self._rf.read(4096)
-            #print(data, end="")
-            self._statsbuffer += data
-            while "\n" in self._statsbuffer and not regex.match(r"\d+,\s*[IPB]-SLICE", self._statsbuffer, flags=regex.I):
-                #print(self._statsbuffer[self._statsbuffer.find("\n") + 1:], end="")
-                self._statsbuffer = self._statsbuffer[self._statsbuffer.find("\n") + 1:]
-
-
-        if self._noMoreFrames:
-            try:
-                flag = fcntl.fcntl(self._rfd, fcntl.F_GETFL)
-
-            except OSError:
-                pass
-
-            else:
-                fcntl.fcntl(self._rfd, fcntl.F_SETFL, flag & ~os.O_NONBLOCK)
-                os.close(self._wfd)
-
-                while True:
-                    data = self._rf.read(4096)
-                    #print(data, end="")
-
-                    if len(data) == 0:
-                        break
-
-                    self._statsbuffer += data
-
-                os.close(self._rfd)
-
-        while len(self._packets) == 0:
-            try:
-                self._sendframe()
-
-            except StopIteration:
-                raise
-
-            finally:
-                self._t1 = time.time()
-
-        packet = self._packets.popleft()
-
-        if packet.is_keyframe:
-            pattern = b"(?:\\x00{2,3}\\x01)([\\x00-\\xff]+?)"
-            nal1, nal2, nal3, nal4, data = regex.findall(b"^" + 5*pattern + b"$", packet.to_bytes())[0]
-
-        else:
-            data = packet.to_bytes()[4:]
-
-
-        l = self._statsbuffer.find("\n") + 1
-        statsline = self._statsbuffer[:l]
-        match = regex.match(self._statspattern, statsline, flags=regex.I)
-
-        if match:
-            md = match.groupdict()
-            #self._pts[int(md["displayorder"])] = packet.pts
-
-            #referenceBlocks = []
-
-            #if md["refs1"] != "-":
-                #referenceBlocks.extend(self._pts[int(d)] - packet.pts for d in md["refs1"].split(" "))
-
-            #if md["refs2"] != "-":
-                #referenceBlocks.extend(self._pts[int(d)] - packet.pts for d in md["refs2"].split(" "))
-
-        else:
-            print(repr(self._statspattern))
-            print(repr(statsline))
-
-        #if len(referenceBlocks) == 0:
-            #referenceBlocks = None
-
-        self._statsbuffer = self._statsbuffer[l:]
-        discardable = md["pict_type"].upper() == "B"
-
-        self._packetsEncoded += 1
-        self._streamSize += len(data) - 4
-
-        self._pktQPSums[md["pict_type"].upper()] += float(md["qp"])
-        self._pktSizeSums[md["pict_type"].upper()] += int(md["bits"])//8
-        self._pktCount[md["pict_type"].upper()] += 1
-
-        self._t1 = time.time()
-        #packet = Packet(data=len(data).to_bytes(4, "big")+data, pts=packet.pts, duration=packet.duration,
-                        #keyframe=packet.is_keyframe, time_base=packet.time_base,
-                        #discardable=discardable, referenceBlocks=referenceBlocks)
-        packet = Packet(data=len(data).to_bytes(4, "big")+data, pts=packet.pts, duration=packet.duration,
-                        keyframe=packet.is_keyframe, time_base=packet.time_base)
-        return packet
-
     def procStats(self):
         n = 0
 
@@ -376,16 +279,9 @@ class libx265EncoderContext(EncoderContext):
 
             if match:
                 md = match.groupdict()
-
-            else:
-                print(self._statspattern)
-                print(statsline)
-
-            discardable = md["pict_type"].upper() == "B"
-
-            self._pktQPSums[md["pict_type"].upper()] += float(md["qp"])
-            self._pktSizeSums[md["pict_type"].upper()] += int(md["bits"])//8
-            self._pktCount[md["pict_type"].upper()] += 1
+                self._pktQPSums[md["pict_type"].upper()] += float(md["qp"])
+                self._pktSizeSums[md["pict_type"].upper()] += int(md["bits"])//8
+                self._pktCount[md["pict_type"].upper()] += 1
 
         return n
 
@@ -435,10 +331,6 @@ class libx265EncoderContext(EncoderContext):
 
             # python-transcode 
             notifyencode=None, logfile=None, **x265params):
-
-        print(f"width={width}, height={height}, sample_aspect_ratio={sample_aspect_ratio}, rate={rate}, pix_fmt={pix_fmt},")
-        print(f"time_base={time_base}, preset={preset}, tune={tune}, forced_idr={forced_idr}, bitrate={bitrate}, qp={qp}")
-        print(f"crf={crf}, lossless={lossless}, **{x265params}")
 
         self._rate = rate
         _convert_dict(x265params)

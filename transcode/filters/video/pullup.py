@@ -268,13 +268,12 @@ class Zone(zoned.Zone):
 
             if len(value) % 2:
                 raise ValueError("Telecine pattern must be even-length.")
+
             if "A" not in value[:2]:
                 raise ValueError("Telecine pattern contain 'A' in position 0 or position 1.")
 
             if (self.yblend or self.uvblend) and not value.startswith("AA"):
-                #raise ValueError("Telecine pattern must begin with AA if either yblend or uvblend is set.")
-                print(self.src_start)
-                print(ValueError("Telecine pattern must begin with AA if either yblend or uvblend is set."))
+                raise ValueError("Telecine pattern must begin with AA if either yblend or uvblend is set.")
 
             if hasattr(self, "_pattern") and value != self._pattern:
                 self.reset_cache_full()
