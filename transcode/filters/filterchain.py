@@ -7,6 +7,9 @@ class FilterChain(llist, BaseFilter):
         llist.__init__(self, filters.copy())
         BaseFilter.__init__(self, prev=prev)
 
+    def __hash__(self):
+        return BaseFilter.__hash__(self)
+
     def append(self, item):
         if len(self) == 0:
             super().append(item)
