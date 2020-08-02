@@ -32,6 +32,7 @@ class BaseFilter(object):
 
     from copy import deepcopy as copy
     next = None
+    prev = CacheResettingProperty("prev")
 
     def __init__(self, prev=None, next=None, parent=None, notify_input=None, notify_output=None):
         self.next = next
@@ -115,14 +116,14 @@ class BaseFilter(object):
         if self.prev:
             return self.prev.defaultDuration
 
-    @property
-    def prev(self):
-        return self._prev
+    #@property
+    #def prev(self):
+        #return self._prev
 
-    @prev.setter
-    def prev(self, value):
-        self._prev = value
-        self.reset_cache()
+    #@prev.setter
+    #def prev(self, value):
+        #self._prev = value
+        #self.reset_cache()
 
     @property
     def src(self):
