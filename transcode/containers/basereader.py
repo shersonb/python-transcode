@@ -165,7 +165,7 @@ class Track(object):
                     yield frame
 
 
-            for frame, pts in zip(decoder.decode(), iterpts):
+            for frame, pts in zip(decoder.decode(), iterpts1):
                 if pts < startpts:
                     continue
 
