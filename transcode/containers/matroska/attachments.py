@@ -49,42 +49,66 @@ class AttachedFile(object):
         self.description = description
         self.parent = parent
 
-    def prepare(self, logfile=None):
-        print(f"Attachment {self.UID}", file=logfile)
-
-        if self.fileName:
-            fileName = self.fileName
+    @property
+    def fileName(self):
+        if self._fileName is not None:
+            return self._fileName
 
         elif isinstance(self.source, AttachmentRef):
-            fileName = self.source.fileName
+            return self.source.fileName
 
         elif isinstance(self.source, pathlib.Path):
-            fileName = self.source.name
+            return self.source.name
 
-        print(f"    Filename: {fileName}", file=logfile)
+    @fileName.setter
+    def fileName(self, value):
+        self._fileName = value
 
-        if self.mimeType:
-            mimeType = self.mimeType
+    @property
+    def mimeType(self):
+        if self._mimeType:
+            return self._mimeType
 
         elif isinstance(self.source, AttachmentRef):
-            mimeType = self.source.mimeType
+            return self.source.mimeType
 
         elif isinstance(self.source, pathlib.Path):
             mimeType, encoding = mimetypes.MimeTypes().guess_type(str(self.source))
+            return mimeType
 
-        print(f"    Mimetype: {mimeType}", file=logfile)
+    @mimeType.setter
+    def mimeType(self, value):
+        self._mimeType = value
+
+    @property
+    def fileData(self):
+        if isinstance(self.source, AttachmentRef):
+            if isinstance(self.source.attachment.fileData, matroska.attachments.FilePointer):
+                return b"".join(self.source.attachment.fileData)
+
+            elif isinstance(self.source.attachment.fileData, bytes):
+                return self.source.attachment.fileData
+
+        elif isinstance(self.source, pathlib.Path):
+            with open(self.source, "rb") as f:
+                return f.read()
+
+    def prepare(self, logfile=None):
+        print(f"Attachment {self.UID}", file=logfile)
+        print(f"    Filename: {self.fileName}", file=logfile)
+        print(f"    Mimetype: {self.mimeType}", file=logfile)
 
         if isinstance(self.source, AttachmentRef):
             attachment = self.source.attachment.copy()
-            attachment.fileName = fileName
-            attachment.mimeType = mimeType
+            attachment.fileName = self.fileName
+            attachment.mimeType = self.mimeType
             attachment.description = self.description
             attachment.fileUID = self.UID
             return attachment
 
         elif isinstance(self.source, pathlib.Path):
-            attachment = matroska.attachments.AttachedFile.fromPath(str(self.source), mimeType, self.UID, self.description)
-            attachment.fileName = fileName
+            attachment = matroska.attachments.AttachedFile.fromPath(str(self.source), self.mimeType, self.UID, self.description)
+            attachment.fileName = self.fileName
             return attachment
 
     def __reduce__(self):
@@ -93,11 +117,11 @@ class AttachedFile(object):
     def __getstate__(self):
         state = OrderedDict()
 
-        if self.fileName:
-            state["fileName"] = self.fileName
+        if self._fileName:
+            state["fileName"] = self._fileName
 
-        if self.mimeType:
-            state["mimeType"] = self.mimeType
+        if self._mimeType:
+            state["mimeType"] = self._mimeType
 
         if self.description:
             state["description"] = self.description
@@ -105,8 +129,8 @@ class AttachedFile(object):
         return state
 
     def __setstate__(self, state):
-        self.fileName = state.get("fileName")
-        self.mimeType = state.get("mimeType")
+        self._fileName = state.get("fileName")
+        self._mimeType = state.get("mimeType")
         self.description = state.get("description")
 
     @property
