@@ -195,7 +195,12 @@ class Track(abc.ABC):
                     yield None
 
         finally:
-            print(f"Track {self.track_index}: {len(self._sizes)} packets, {sum(self._sizes)} bytes", file=logfile)
+            if self._sizes > 1024:
+                print(f"Track {self.track_index}: {len(self._sizes):,d} packets, {transcode.util.h(sum(self._sizes))} ({sum(self._sizes):,d} bytes)", file=logfile)
+
+            else:
+                print(f"Track {self.track_index}: {len(self._sizes):,d} packets, {sum(self._sizes):,d} bytes", file=logfile)
+
             packets.close()
 
     def _prepare(self, duration=None, logfile=None, **kwargs):
@@ -364,10 +369,18 @@ class Track(abc.ABC):
 
     def _iterFrames(self, duration=None, logfile=None):
         if self.filters:
-            frames = self.filters.iterFrames(end=int(duration/self.filters.time_base), whence="pts")
+            if duration is not None:
+                frames = self.filters.iterFrames(end=int(duration/self.filters.time_base), whence="pts")
+
+            else:
+                frames = self.filters.iterFrames()
 
         else:
-            frames = self.source.iterFrames(end=int(duration/self.source.time_base), whence="pts")
+            if duration is not None:
+                frames = self.source.iterFrames(end=int(duration/self.source.time_base), whence="pts")
+
+            else:
+                frames = self.source.iterFrames()
 
         return frames
 
@@ -469,6 +482,7 @@ class BaseWriter(abc.ABC):
         │           └─ track._iterPackets(packets)
         ├─ self._multiplex()
         │   └─ for packet in self._iterPackets():
+        │       ├─ self._checkpause(notifypause)
         │       ├─ self._mux(packet) (OVERRIDE in subclass)
         │       └─ notifymux(packet) (if notifymux is provided)
         ├─ self._closepackets(self._iterators)
@@ -851,7 +865,7 @@ class BaseWriter(abc.ABC):
             self.newoverhead["targetSize"] = self.targetsize
 
             if self.newoverhead.get("bitrateAdj"):
-                print(f"Applying bitrate adjustment: {self.newoverhead['bitrateAdj']:+d} kbps", file=logfile)
+                print(f"Applying bitrate adjustment: {self.newoverhead['bitrateAdj']:+,d} kbps", file=logfile)
 
             vencoder_override.update(bitrate=bitrate)
 
