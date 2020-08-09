@@ -83,7 +83,7 @@ class Track(basereader.Track):
             except IndexError:
                 end = None
 
-        return islice(self.container.events, start, end)
+        return islice(self.container.assfile.events, start, end)
 
 class SubstationAlphaReader(basereader.BaseReader):
     trackclass = Track
