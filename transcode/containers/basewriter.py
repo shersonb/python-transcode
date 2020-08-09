@@ -195,7 +195,7 @@ class Track(abc.ABC):
                     yield None
 
         finally:
-            if self._sizes > 1024:
+            if sum(self._sizes) > 1024:
                 print(f"Track {self.track_index}: {len(self._sizes):,d} packets, {transcode.util.h(sum(self._sizes))} ({sum(self._sizes):,d} bytes)", file=logfile)
 
             else:
