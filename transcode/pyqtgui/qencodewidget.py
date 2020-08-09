@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QFileDialog, QLabel, QFrame,
         QComboBox, QGridLayout, QHBoxLayout, QDialog)
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtCore import pyqtSlot
+from PIL import Image
 from av.video import VideoFrame
 from transcode.util import Packet
 from .qimageview import QImageView
@@ -19,6 +20,7 @@ from fractions import Fraction as QQ
 import transcode.util
 import types
 import traceback
+import io
 
 av.logging.set_level(av.logging.ERROR)
 
@@ -213,42 +215,40 @@ class TrackStats(QWidget):
             rate = None
 
         if rate and self.framecount is not None:
-            self.frameCountLabel.setText("%d/%d (%.2f fps)" % (self.packetsreceived, self.framecount, rate))
-            timeleft = (self.framecount - self.packetsreceived)/rate
+            self.frameCountLabel.setText(f"{self.packetsreceived:,d}/{self.framecount:,d} ({rate:,.2f} fps)")
+            timeleft = int((self.framecount - self.packetsreceived)/rate)
             m, s = divmod(timeleft, 60)
-            m = int(m)
             h, m = divmod(m, 60)
             d, h = divmod(h, 24)
             eta = time.time() + timeleft
             etastr = time.strftime("%A, %B %-d, %Y, %-I:%M:%S %p", time.localtime(eta))
 
             if d > 1:
-                self.etaLabel.setText("%d days, %d:%02d:%02d (%s)" % (d, h, m, s, etastr))
+                self.etaLabel.setText(f"{d:d} days, {h:d}:{m:02d}:{s:02d} ({etastr})")
 
             elif d == 1:
-                self.etaLabel.setText("1 day, %d:%02d:%02d (%s)" % (h, m, s, etastr))
+                self.etaLabel.setText(f"1 day, {h:d}:{m:02d}:{s:02d} ({etastr})")
 
             else:
-                self.etaLabel.setText("%d:%02d:%02d (%s)" % (h, m, s, etastr))
+                self.etaLabel.setText(f"{h:d}:{m:02d}:{s:02d} ({etastr})")
 
         elif self.framecount is not None:
-            self.frameCountLabel.setText("%d/%d (— fps)" % (self.packetsreceived, self.framecount))
+            self.frameCountLabel.setText(f"{self.packetsreceived:,d}/{self.framecount:,d} (— fps)")
 
         elif rate:
-            self.frameCountLabel.setText("%d (%.2f fps)" % (self.packetsreceived, rate))
+            self.frameCountLabel.setText(f"{self.packetsreceived:,d} ({rate:,.2f} fps)")
 
         else:
-            self.frameCountLabel.setText("%d (— fps)" % (self.packetsreceived))
+            self.frameCountLabel.setText(f"{self.packetsreceived:,d} (— fps)")
 
         self.lastpts = max(self.lastpts, (packet.pts + packet.duration)*packet.time_base)
 
         if self.lastpts:
-            self.bitrateLabel.setText("%.2f kbps" % (self.bytesreceived/self.lastpts/125))
+            self.bitrateLabel.setText(f"{float(self.bytesreceived/self.lastpts/125):,.2f} kbps")
 
-        m, s = divmod(self.lastpts, 60)
-        m = int(m)
-        h, m = divmod(m, 60)
-        self.timestampLabel.setText("%d:%02d:%06.3f" % (h, m, s))
+        m, s = divmod(float(self.lastpts), 60)
+        h, m = divmod(int(m), 60)
+        self.timestampLabel.setText(f"{h:d}:{m:02d}:{s:06.3f}")
 
 class QEncodeDialog(QDialog):
     framesenttoencoder = pyqtSignal(VideoFrame)
@@ -273,6 +273,26 @@ class QEncodeDialog(QDialog):
         self.logfile = logfile
         self.encoderoverrides = encoderoverrides
         self.setWindowTitle(output_file.title)
+
+        try:
+            if hasattr(output_file, "attachments") and output_file.attachments:
+                for attachment in output_file.attachments:
+                    try:
+                        if attachment.fileName.lower() in ("cover.png", "cover.jpg"):
+                            bytesio = io.BytesIO()
+                            bytesio.write(attachment.fileData)
+                            bytesio.seek(0)
+                            qim = Image.open(bytesio).toqpixmap()
+                            icon = QIcon(qim)
+                            self.setWindowIcon(icon)
+                            bytesio.close()
+                            break
+
+                    except:
+                        pass
+
+        except:
+            pass
 
         fonthead = QFont("DejaVu Serif", 10, QFont.Bold, italic=True)
         fonttotal = QFont("DejaVu Serif", 8, italic=True)
@@ -380,7 +400,7 @@ class QEncodeDialog(QDialog):
             m, s = divmod(self.output_file.vtrack.duration, 60)
             m = int(m)
             h, m = divmod(m, 60)
-            self._durationLabel = QLabel("Duration: %2d:%02d:%06.3f" % (h, m, s), self)
+            self._durationLabel = QLabel(f"Duration: {h:d}:{m:02d}:{s:06.3f}", self)
             self._stats.addWidget(self._durationLabel)
             self._stats.addStretch()
 
