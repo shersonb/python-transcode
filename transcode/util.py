@@ -1,6 +1,8 @@
 import collections
 import numpy
 from fractions import Fraction as QQ
+import queue
+import threading
 
 def search(array, value, dir="-"):
     """
@@ -517,3 +519,37 @@ class NewConfig(object):
     def save(self):
         self._oldconfig.update(self._newconfig)
 
+class WorkaheadIterator(object):
+    def __init__(self, iterator, maxqueue=50):
+        self._queue = queue.Queue(maxsize=maxqueue)
+        self._iterator = iterator
+        self._thread = threading.Thread(target=self._readIterator)
+        self._thread.daemon = True
+        self._stopped = False
+        self._thread.start()
+
+    def _readIterator(self):
+        try:
+            for item in self._iterator:
+                self._queue.put(item)
+
+        except BaseException as exc:
+            self._queue.put(exc)
+            raise
+
+        self._queue.put(StopIteration())
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._stopped:
+            raise StopIteration()
+
+        item = self._queue.get()
+
+        if isinstance(item, BaseException) or (isinstance(item, type) and issubclass(item, BaseException)):
+            self._stopped = True
+            raise item
+
+        return item
