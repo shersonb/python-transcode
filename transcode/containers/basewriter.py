@@ -1,4 +1,5 @@
-import transcode.util
+#import transcode.util
+from ..util import search, h, WorkaheadIterator
 import av
 import threading
 import time
@@ -196,7 +197,7 @@ class Track(abc.ABC):
 
         finally:
             if sum(self._sizes) > 1024:
-                print(f"Track {self.track_index}: {len(self._sizes):,d} packets, {transcode.util.h(sum(self._sizes))} ({sum(self._sizes):,d} bytes)", file=logfile)
+                print(f"Track {self.track_index}: {len(self._sizes):,d} packets, {h(sum(self._sizes))} ({sum(self._sizes):,d} bytes)", file=logfile)
 
             else:
                 print(f"Track {self.track_index}: {len(self._sizes):,d} packets, {sum(self._sizes):,d} bytes", file=logfile)
@@ -281,10 +282,23 @@ class Track(abc.ABC):
 
     @property
     def layout(self):
-        if self.encoder and self.filters:
+        if self.encoder and self.filters and self.filters.layout:
             return self.filters.layout
 
-        return self.source.layout
+        elif self.source.layout:
+            return self.source.layout
+
+        elif self.channels == 8:
+            return f"{self.channels - 1}.1"
+
+        elif self.channels == 6:
+            return f"{self.channels - 1}.1(side)"
+
+        elif self.channels == 2:
+            return "stereo"
+
+        elif self.channels == 1:
+            return "mono"
 
     @property
     def sar(self):
@@ -408,7 +422,7 @@ class Track(abc.ABC):
     def openpackets(self, duration=None, logfile=None):
         print(f"    Codec: {self.codec} (copy)", file=logfile)
         packets = self.source.iterPackets()
-        return packets
+        return WorkaheadIterator(packets)
 
     @property
     def framecount(self):
@@ -427,7 +441,7 @@ class Track(abc.ABC):
     @property
     def pts(self):
         if self.type == "audio":
-            pts = numpy.arange(self.delay/self.time_base, min(self.duration, self.container.duration)/self.time_base, self.defaultDuration, dtype=numpy.int0)
+            pts = numpy.int0(numpy.arange(self.delay/self.time_base, min(self.duration, self.container.duration)/self.time_base, self.defaultDuration, dtype=numpy.float64))
 
         elif self.encoder and self.filters:
             pts = numpy.int0(self.filters.pts*float(self.filters.time_base/self.time_base))
@@ -436,14 +450,14 @@ class Track(abc.ABC):
             pts = numpy.int0(self.source.pts*float(self.source.time_base/self.time_base))
 
         try:
-            n = transcode.util.search(pts, self.container.duration/self.time_base, dir="+")
+            n = search(pts, self.container.duration/self.time_base, dir="+")
             return pts[:n]
 
         except:
             return pts
 
     def frameIndexFromPts(self, pts, dir="+"):
-        return transcode.util.search(self.pts, pts, dir)
+        return search(self.pts, pts, dir)
 
 class BaseWriter(abc.ABC):
     """
@@ -833,7 +847,7 @@ class BaseWriter(abc.ABC):
 
     def _prepare(self, pass_=0, encoderoverrides=[], logfile=None, notifyvencode=None):
         if self.targetsize is not None and pass_ != 1:
-            print(f"Target file size: {transcode.util.h(self.targetsize)}", file=logfile)
+            print(f"Target file size: {h(self.targetsize)}", file=logfile)
 
         if pass_:
             print(f"Pass: {pass_:d}", file=logfile)
