@@ -65,7 +65,7 @@ with open(f"{config.configstem}-{args.n}.log", "a") as logfile:
 
             for k in diff:
                 n = outfile.vtrack.filters.reverseIndexMap[k - 6]
-                fkf.add(int(n))
+                kf.add(int(n))
 
             T = time.localtime()
             os.rename(args.file, f"{args.file}-backup-{T.tm_year:04d}.{T.tm_mon:02d}.{T.tm_mday:02d}-{T.tm_hour:02d}.{T.tm_min:02d}.{T.tm_sec:02d}")
