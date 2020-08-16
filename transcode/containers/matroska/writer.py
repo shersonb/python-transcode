@@ -1,6 +1,7 @@
 from .. import basewriter
 import matroska
 from ...encoders.base import EncoderContext
+from ...util import h
 #from ...encoders.audio.base import AudioEncoderContext
 from fractions import Fraction as QQ
 import ebml
@@ -531,18 +532,3 @@ class MatroskaWriter(basewriter.BaseWriter):
     def trackCols(self):
         from .pyqtgui.qtracklist import cols
         return cols
-
-def h(size):
-    if size == 1:
-        return f"1 byte"
-    elif size < 1024:
-        return f"{size:,.0f} bytes"
-    elif size < 1024**2:
-        return f"{size/1024:,.2f} KB"
-    elif size < 1024**3:
-        return f"{size/1024**2:,.3f} MB"
-    elif size < 1024**4:
-        return f"{size/1024**3:,.3f} GB"
-    else:
-        return f"{size/1024**4:,.3f} TB"
-
