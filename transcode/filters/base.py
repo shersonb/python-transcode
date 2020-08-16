@@ -34,6 +34,10 @@ class BaseFilter(object):
     next = None
     prev = CacheResettingProperty("prev")
 
+    @property
+    def __name__(self):
+        return self.__class__.__name__
+
     def __init__(self, prev=None, next=None, parent=None, notify_input=None, notify_output=None):
         self.next = next
         self.prev = prev

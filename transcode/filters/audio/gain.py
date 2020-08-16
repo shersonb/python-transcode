@@ -3,6 +3,8 @@ from .base import BaseAudioFilter
 from ...avarrays import toNDArray, toAFrame, aconvert
 
 class Gain(BaseAudioFilter):
+    __name__ = "Amplify"
+
     def __init__(self, gain=0, prev=None, next=None, parent=None):
         self.gain = gain
         super().__init__(prev=prev, next=next)

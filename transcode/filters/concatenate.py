@@ -9,6 +9,8 @@ from ..avarrays import toNDArray, toAFrame
 from fractions import Fraction as QQ
 
 class Concatenate(BaseVideoFilter, BaseAudioFilter):
+    __name__ = "Concatenate"
+
     def __init__(self, segments=[], time_base=QQ(1, 10**9), **kwargs):
         self.segments = list(segments)
         self.time_base = time_base

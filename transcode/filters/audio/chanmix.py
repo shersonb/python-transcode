@@ -4,6 +4,8 @@ from ...avarrays import toNDArray, toAFrame, aconvert
 import numpy
 
 class ChannelMix(BaseAudioFilter):
+    __name__ = "Channel Mixer"
+
     def __init__(self, matrix=None, layout=None, prev=None, next=None, parent=None):
         self.matrix = numpy.array(matrix)
         self.layout = layout

@@ -11,6 +11,8 @@ from fractions import Fraction as QQ
 import regex
 
 class Crop(BaseVideoFilter):
+    __name__ = "Crop"
+
     def __init__(self, croptop=0, cropbottom=0, cropleft=0, cropright=0,
                  prev=None, next=None, parent=None):
         self.croptop = croptop
@@ -116,6 +118,8 @@ class Crop(BaseVideoFilter):
             #return True
 
 class Resize(BaseVideoFilter):
+    __name__ = "Resize"
+
     getinitkwargs = ["width", "height", "sar", "resample", "box"]
 
     def __init__(self, width=None, height=None, sar=1, resample=Image.LANCZOS, box=None,
