@@ -188,7 +188,7 @@ class TrackStats(QWidget):
         self.lastpts = 0
 
         if self.framecount is not None:
-            self.frameCountLabel.setText(f"—/{self.framecount} (— fps)")
+            self.frameCountLabel.setText(f"—/{self.framecount:,d} (— fps)")
 
         else:
             self.frameCountLabel.setText("— (— fps)")
