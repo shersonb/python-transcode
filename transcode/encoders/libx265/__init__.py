@@ -190,15 +190,15 @@ class libx265EncoderContext(EncoderContext):
                 size = self._pktSizeSums[s]
 
                 if n > 0:
-                    print(f"    Frame {s}:{n: 7,d}, Avg QP:{qpsum/n: 5,.2f}  kb/s: {float(self._rate)*size/n/125:,.2f}", file=self._logfile)
+                    print(f"    Frame {s}:{n: 8,d}, Avg QP:{qpsum/n: 5,.2f}  kb/s: {float(self._rate)*size/n/125:,.2f}", file=self._logfile)
 
                 else:
-                    print(f"    Frame {s}:{n: 7,d}, Avg QP:  ---  kb/s: ---", file=self._logfile)
+                    print(f"    Frame {s}:{n: 8,d}, Avg QP:  ---  kb/s: ---", file=self._logfile)
 
-            print(f"    Encoded {N} frames in {self._t1 - self._t0:,.2f}s ({n/(self._t1 - self._t0):,.2f} fps), Avg QP:{avgqp: 5,.2f}  kb/s: {float(self._rate)*Size/n/125:.2f}", file=self._logfile)
+            print(f"    Encoded {N: 8,d} frames in {self._t1 - self._t0:,.2f}s ({N/(self._t1 - self._t0):,.2f} fps), Avg QP:{avgqp: 5,.2f}  kb/s: {float(self._rate)*Size/N/125:.2f}", file=self._logfile)
 
         else:
-            print(f"    Encoded {N} frames in {self._t1 - self._t0:,.2f}s ({n/(self._t1 - self._t0):,.2f} fps), Avg QP: ---  kb/s: ---", file=self._logfile)
+            print(f"    Encoded {N: 8,d} frames in {self._t1 - self._t0:,.2f}s ({N/(self._t1 - self._t0):,.2f} fps), Avg QP: ---  kb/s: ---", file=self._logfile)
 
         if self._success and self._pass:
             stats = self._stats or "x265_2pass.log"
