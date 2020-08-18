@@ -4,6 +4,7 @@ from ..base import EncoderConfig
 class ac3Config(EncoderConfig):
     format = "fltp"
     codec = "ac3"
+    bitdepth = 24
 
     def __init__(self, bitrate=None, **options):
         super().__init__("ac3", bitrate, **options)
