@@ -525,12 +525,17 @@ class WorkaheadIterator(object):
         self._iterator = iterator
         self._thread = threading.Thread(target=self._readIterator)
         self._thread.daemon = True
+        self._lock = threading.Lock()
         self._stopped = False
         self._thread.start()
 
     def _readIterator(self):
         try:
             for item in self._iterator:
+                with self._lock:
+                    if self._stopped:
+                        break
+
                 self._queue.put(item)
 
         except BaseException as exc:
@@ -543,13 +548,16 @@ class WorkaheadIterator(object):
         return self
 
     def __next__(self):
-        if self._stopped:
-            raise StopIteration()
+        with self._lock:
+            if self._stopped:
+                raise StopIteration()
 
         item = self._queue.get()
 
         if isinstance(item, BaseException) or (isinstance(item, type) and issubclass(item, BaseException)):
-            self._stopped = True
+            with self._lock:
+                self._stopped = True
+
             raise item
 
         return item
