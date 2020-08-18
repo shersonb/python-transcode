@@ -410,7 +410,7 @@ class Track(abc.ABC):
                 kwargs.update(pix_fmt=self.format)
 
         if self.type == "audio":
-            kwargs.update(rate=self.rate, channels=self.channels)
+            kwargs.update(rate=self.rate, layout=self.layout)
 
             if self.format:
                 kwargs.update(format=self.format)
@@ -422,7 +422,11 @@ class Track(abc.ABC):
     def openpackets(self, duration=None, logfile=None):
         print(f"    Codec: {self.codec} (copy)", file=logfile)
         packets = self.source.iterPackets()
-        return WorkaheadIterator(packets)
+
+        if self.type == "subtitle":
+            return WorkaheadIterator(packets)
+
+        return packets
 
     @property
     def framecount(self):
