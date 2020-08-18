@@ -96,7 +96,7 @@ class EncoderContext(object):
 
         packet = self._packets.popleft()
 
-        if packet.pts is None:
+        if packet.pts is None or self._encoder.type == "audio":
             packet = Packet(data=packet.to_bytes(), pts=self._pts, duration=packet.duration,
                         keyframe=packet.is_keyframe, time_base=packet.time_base)
 
@@ -114,7 +114,14 @@ class EncoderContext(object):
 
 class EncoderConfig(object):
     format = None
-    bitdepth = None
+
+    @property
+    def bitdepth(self):
+        if format in ("s16", "s16p"):
+            return 16
+
+        if format in ("s32", "s32p"):
+            return 32
 
     def __init__(self, codec, bitrate=None, **options):
         self.codec = codec
