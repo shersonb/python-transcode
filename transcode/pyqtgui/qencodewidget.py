@@ -374,7 +374,8 @@ class QEncodeDialog(QDialog):
             self._gridlayout.addWidget(trackinfo.sizeLabel, k+1, 3)
             self._gridlayout.addWidget(trackinfo.bitrateLabel, k+1, 4)
 
-        self.totalinfo = TrackStats(None, title="Total", keep=7200, font=fonttotal, parent=self)
+        self.totalinfo = TrackStats(None, title="Total", framecount=sum(track.framecount for track in output_file.tracks),
+                                    keep=7200, font=fonttotal, parent=self)
         self._gridlayout.addWidget(self.totalinfo.titleLabel, len(output_file.tracks) + 2, 0)
         self._gridlayout.addWidget(self.totalinfo.frameCountLabel, len(output_file.tracks) + 2, 1)
         self._gridlayout.addWidget(self.totalinfo.timestampLabel, len(output_file.tracks) + 2, 2)
