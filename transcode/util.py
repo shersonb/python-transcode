@@ -561,3 +561,13 @@ class WorkaheadIterator(object):
             raise item
 
         return item
+
+    def close(self):
+        with self._lock:
+            self._stopped = True
+
+        try:
+            self._queue.get(timeout=0)
+
+        except queue.Empty:
+            pass
