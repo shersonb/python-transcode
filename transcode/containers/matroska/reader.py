@@ -10,6 +10,7 @@ codecs = {
         "V_MPEGH/ISO/HEVC": "hevc",
         "V_MPEG2": "mpeg2video",
         "A_AC3": "ac3",
+        "A_AAC": "aac",
         "A_DTS": "dts",
         "V_MS/VFW/FOURCC": "vc1",
         "S_TEXT/ASS": "ass",
