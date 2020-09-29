@@ -100,8 +100,18 @@ def quote(s):
     return f"{s}".replace("\\", "\\\\").replace(":", "\\:")
 
 class libx265EncoderContext(EncoderContext):
+    _stats_backup_amtime = None
+    _stats_backup = None
+
     def open(self):
         self._t0 = time.time()
+
+        if self._pass in (1, 3):
+            self._readstats()
+
+        #if self._pass == 1:
+            #self._readcutree()
+
         self._encoder.open()
         self._isopen = True
 
@@ -159,6 +169,88 @@ class libx265EncoderContext(EncoderContext):
 
         self._encoder.extradata = data
 
+    def _readstats(self):
+        stats = self._stats or "x265_2pass.log"
+
+        if os.path.isfile(stats):
+            with open(stats, "rb") as f:
+                self._stats_backup = f.read()
+
+            stat = os.stat(stats)
+            self._stats_backup_amtime = (stat.st_atime, stat.st_mtime)
+
+    def _restorestats(self):
+        stats = self._stats or "x265_2pass.log"
+
+        if self._stats_backup:
+            with open(stats, "wb") as f:
+                f.write(self._stats_backup)
+
+            os.utime(stats, self._stats_backup_amtime)
+
+    def _backupstats(self, t):
+        stats = self._stats or "x265_2pass.log"
+        backupstats = f"{stats}-backup-{t.tm_year:4d}.{t.tm_mon:02d}.{t.tm_mday:02d}-{t.tm_hour:02d}.{t.tm_min:02d}.{t.tm_sec:02d}.xz"
+
+        try:
+            f = open(stats, "rb")
+
+        except:
+            return
+
+        try:
+            g = lzma.LZMAFile(backupstats, "wb", preset=9|lzma.PRESET_EXTREME)
+
+        except:
+            f.close()
+            return
+
+        try:
+            while True:
+                data = f.read(65536)
+
+                if len(data) == 0:
+                    break
+
+                g.write(data)
+
+        finally:
+            f.close()
+            g.close()
+
+        stat = os.stat(stats)
+        os.utime(backupstats, (stat.st_atime, stat.st_mtime))
+
+    def _backupcutree(self, t):
+        stats = self._stats or "x265_2pass.log"
+        stats = f"{stats}.cutree"
+        backupstats = f"{stats}-backup-{t.tm_year:4d}.{t.tm_mon:02d}.{t.tm_mday:02d}-{t.tm_hour:02d}.{t.tm_min:02d}.{t.tm_sec:02d}"
+
+        #try:
+            #shutil.copyfile(stats, backupstats)
+
+        #except:
+            #return
+
+        f = open(stats, "rb")
+        g = open(backupstats, "wb")
+
+        try:
+            while True:
+                data = f.read(65536)
+
+                if len(data) == 0:
+                    break
+
+                g.write(data)
+
+        finally:
+            f.close()
+            g.close()
+
+        stat = os.stat(stats)
+        os.utime(backupstats, (stat.st_atime, stat.st_mtime))
+
     def close(self):
         try:
             flag = fcntl.fcntl(self._rfd, fcntl.F_GETFL)
@@ -200,65 +292,22 @@ class libx265EncoderContext(EncoderContext):
         else:
             print(f"    Encoded {N: 8,d} frames in {self._t1 - self._t0:,.2f}s ({N/(self._t1 - self._t0):,.2f} fps), Avg QP: ---  kb/s: ---", file=self._logfile)
 
-        if self._success and self._pass:
-            stats = self._stats or "x265_2pass.log"
+        if self._success:
             t = time.localtime()
-            backupstats = f"{stats}-backup-{t.tm_year:4d}.{t.tm_mon:02d}.{t.tm_mday:02d}-{t.tm_hour:02d}.{t.tm_min:02d}.{t.tm_sec:02d}.xz"
 
-            try:
-                f = open(stats, "rb")
-
-            except:
-                return
-
-            try:
-                g = lzma.LZMAFile(backupstats, "wb", preset=9|lzma.PRESET_EXTREME)
-
-            except:
-                f.close()
-                return
-
-            try:
-                while True:
-                    data = f.read(65536)
-
-                    if len(data) == 0:
-                        break
-
-                    g.write(data)
-
-            finally:
-                f.close()
-                g.close()
-
-            stat = os.stat(stats)
-            os.utime(backupstats, (stat.st_atime, stat.st_mtime))
+            if self._pass in (1, 3):
+                self._backupstats(t)
 
             if self._pass == 1:
-                stats = f"{stats}.cutree"
-                backupstats = f"{stats}-backup-{t.tm_year:4d}.{t.tm_mon:02d}.{t.tm_mday:02d}-{t.tm_hour:02d}.{t.tm_min:02d}.{t.tm_sec:02d}"
+                self._backupcutree(t)
 
-                try:
-                    shutil.copyfile(stats, backupstats)
+        else:
+            if self._pass in (1, 3):
+                self._restorestats()
 
-                except:
-                    return
+            #if self._pass == 1:
+                #self._restorecutree()
 
-                #f = open(stats, "rb")
-                #g = lzma.LZMAFile(backupstats, "wb", preset=9|lzma.PRESET_EXTREME)
-
-                #while True:
-                    #data = f.read(65536)
-
-                    #if len(data) == 0:
-                        #break
-
-                    #g.write(data)
-
-                #f.close()
-                #g.close()
-                stat = os.stat(stats)
-                os.utime(backupstats, (stat.st_atime, stat.st_mtime))
 
     def procStats(self):
         n = 0
