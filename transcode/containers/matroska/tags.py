@@ -43,7 +43,7 @@ class SimpleTag(object):
         if self.language:
             state["language"] = self.language
 
-        if self.mimeType:
+        if self.languageIETF:
             state["languageIETF"] = self.languageIETF
 
         if self.default:
@@ -144,7 +144,7 @@ class Tag(BaseTag):
         if self.type is not None:
             state["type"] = self.type
 
-        if self.tags is not None:
+        if self.simpletags is not None:
             state["simpletags"] = self.simpletags
 
         state.update(super().__getstate__())
