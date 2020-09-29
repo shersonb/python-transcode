@@ -144,11 +144,21 @@ class Track(basereader.Track):
     def iterPackets(self, start=0, whence="pts"):
         if whence == "pts":
             startpts = start
-            start = self.keyIndexFromPts(start)
+
+            try:
+                start = self.keyIndexFromPts(start)
+
+            except IndexError:
+                start = 0
 
         if whence == "seconds":
             startpts = int(10**9*start)
-            start = self.keyIndexFromPts(startpts)
+
+            try:
+                start = self.keyIndexFromPts(startpts)
+
+            except IndexError:
+                start = 0
 
         elif whence == "framenumber":
             startpts = self.pts[start]
