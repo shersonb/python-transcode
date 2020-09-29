@@ -1,4 +1,3 @@
-#import transcode.util
 from ..util import search, h, WorkaheadIterator
 import av
 import threading
@@ -165,6 +164,7 @@ class Track(abc.ABC):
             try:
                 for packet in packets:
                     packet.track_index = track_index
+                    packet.pts += int(self.delay/self.time_base)
 
                     if duration is not None and packet.keyframe and packet.pts >= duration/self.time_base:
                         break
