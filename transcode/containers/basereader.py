@@ -1,10 +1,9 @@
-import transcode.util
 import av
 import threading
 import time
 import os
 import sys
-from transcode.util import cached
+from ..util import cached, search
 from collections import OrderedDict
 import numpy
 
@@ -20,7 +19,7 @@ class Track(object):
         return self.container.tracks.index(self)
 
     def frameIndexFromPts(self, pts, dir="+"):
-        return transcode.util.search(self.pts, pts, dir)
+        return search(self.pts, pts, dir)
 
     def __reduce__(self):
         state = self.__getstate__()
@@ -41,7 +40,7 @@ class Track(object):
     def keyIndexFromPts(self, pts, dir="-"):
         k = self.frameIndexFromPts(pts, "-" if self.type == "audio" else "+")
         pts = self.pts[k]
-        return transcode.util.search(self.index[:, 0], pts, dir)
+        return search(self.index[:, 0], pts, dir)
 
     @property
     def framecount(self):
