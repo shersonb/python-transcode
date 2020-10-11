@@ -308,7 +308,7 @@ class QEncodeDialog(QDialog):
             self.imageWindow = QImageView(self)
             w = self.output_file.vtrack.width
             h = self.output_file.vtrack.height
-            self.imageWindow.setPixmap(QPixmap(w, h))
+            self.imageWindow.setFrame(QPixmap(w, h))
             self._layout.addWidget(self.imageWindow)
             self._layout.setStretch(k, 2)
             self._layout.addStretch()
@@ -444,7 +444,7 @@ class QEncodeDialog(QDialog):
     def setFrame(self, frame):
         im = frame.to_image()
         pix = im.toqpixmap()
-        self.imageWindow.setPixmap(pix)
+        self.imageWindow.setFrame(pix)
 
     def keyPressEvent(self, event):
         key = event.key()

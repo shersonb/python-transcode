@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QDir, Qt, QModelIndex, pyqtSignal, QThread, pyqtSlot, QSize, QRect, QPoint
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, pyqtSlot, QSize, QRect, QPoint
 from PyQt5.QtGui import QImage, QPainter, QPalette, QPixmap, QColor, QFont, QBrush, QPen
 from PyQt5.QtWidgets import (QAction, QApplication, QFileDialog, QLabel, QFrame,
         QMainWindow, QMenu, QMessageBox, QGridLayout, QScrollArea, QSizePolicy, QWidget,
@@ -11,26 +11,31 @@ from fractions import Fraction as QQ
 import av
 import sys
 import traceback
+from ass.line import Dialogue
+import regex as re
 
 class QImageView(QWidget):
     mousePressed = pyqtSignal(float, float)
     mouseDoubleClicked = pyqtSignal(float, float)
-    imageUpdated = pyqtSignal(QPixmap)
+    #frameUpdated = pyqtSignal(QPixmap)
 
     def __init__(self, sizehint=None, *args, **kwargs):
         super(QImageView, self).__init__(*args, **kwargs)
         p = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         p.setHeightForWidth(True)
+
         self._pixmap = QPixmap()
-        self._subpixmap = QPixmap()
+        self._subtitle = None
         self._subpos = QPoint()
         self.setSizePolicy(p)
+
         self._sizehint = sizehint
         self._sar = 1
         self._painthook = None
-        self.imageUpdated.connect(self.setPixmap)
+        #self.frameUpdated.connect(self.setFrame)
+        #self.frameUpdated[QPixmap, str, QPoint].connect(self.setFrameAndTextSub)
 
-    def setPixmap(self, pixmap):
+    def _setPixmap(self, pixmap):
         oldimh = self._pixmap.height()
         oldimw = self._pixmap.width()
         imh = pixmap.height()
@@ -40,24 +45,31 @@ class QImageView(QWidget):
         if oldimh != imh or oldimw != imw:
             self.updateGeometry()
 
+    def pixmap(self):
+        return self._pixmap
+
+    def setFrame(self, pixmap, subtitle=None, subpos=None):
+        self._setPixmap(pixmap)
+        self._subtitle = subtitle
+        self._subpos = subpos
         self.repaint()
 
-    def subtitlePixmap(self):
-        return self._subpixmap
+    def subtitle(self):
+        return self._subtitle
 
     def subtitlePos(self):
         return self._subpos
 
-    @pyqtSlot(QPixmap, QPoint)
-    def setSubtitlePixmap(self, pixmap, pos):
-        self._subpixmap = pixmap
-        self._subpos = pos
-        self.repaint()
+    #@pyqtSlot(QPixmap, QPoint)
+    #def setSubtitlePixmap(self, pixmap, pos):
+        #self._subtitle = pixmap
+        #self._subpos = pos
+        #self.repaint()
 
-    def clearSubtitle(self):
-        self._subpixmap = pixmap
-        self._subpos = pos
-        self.repaint()
+    #def clearSubtitle(self):
+        #self._subtitle = pixmap
+        #self._subpos = pos
+        #self.repaint()
 
     def setPaintHook(self, hook):
         self._painthook = hook
@@ -69,9 +81,6 @@ class QImageView(QWidget):
     def setSar(self, value):
         self._sar = value
         self.updateGeometry()
-
-    def pixmap(self):
-        return self._pixmap
 
     def sizeHint(self):
         imh = self._pixmap.height()
@@ -154,10 +163,7 @@ class QImageView(QWidget):
 
         self.mouseDoubleClicked.emit(imw*x/W, imh*y/H)
 
-    def paintEvent(self, event):
-        painter = QPainter(self)
-
-        painter.setRenderHint(QPainter.Antialiasing)
+    def _paintFrame(self, event, painter):
         pixmap = self.pixmap()
         imw = pixmap.width()
         imh = pixmap.height()
@@ -182,28 +188,49 @@ class QImageView(QWidget):
             pixmap = pixmap.scaled(W, H, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
             painter.drawPixmap(rect, pixmap)
 
-        subpixmap = self.subtitlePixmap()
+    def _paintPixmapSubtitle(self, event, painter):
+        subtitle = self.subtitle()
+        subpos = self.subtitlePos()
 
-        if subpixmap:
-            subpos = self.subtitlePos()
-            (rectx, recty, rectw, recth) = (rect.x(), rect.y(), rect.width(), rect.height())
-            (subx, suby) = (subpos.x(), subpos.y())
-            (subw, subh) = (subpixmap.width(), subpixmap.height())
+        (rectx, recty, rectw, recth) = (rect.x(), rect.y(), rect.width(), rect.height())
+        (subx, suby) = (subpos.x(), subpos.y())
+        (subw, subh) = (subtitle.width(), subtitle.height())
 
-            if imw > 0 and imh > 0 and subw > 0 and subh > 0:
-                X = rectx + subx*rectw/imw
-                Y = recty + suby*recth/imh
+        if imw > 0 and imh > 0 and subw > 0 and subh > 0:
+            X = rectx + subx*rectw/imw
+            Y = recty + suby*recth/imh
 
-                W = subw*rectw/imw
-                H = subh*recth/imh
-                rect = QRect(QPoint(X, Y), QSize(W, H))
+            W = subw*rectw/imw
+            H = subh*recth/imh
+            rect = QRect(QPoint(X, Y), QSize(W, H))
 
-                subpixmap = subpixmap.scaled(W, H, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-                painter.drawPixmap(rect, subpixmap)
+            subtitle = subtitle.scaled(W, H, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+            painter.drawPixmap(rect, subtitle)
+
+    def _paintSSASubtitle(self, event, painter):
+        pass
+
+    def _paintTextSubtitle(self, event, painter):
+        pass
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        self._paintFrame(event, painter)
+
+        if isinstance(self.subtitle(), QPixmap):
+            self._paintPixmapSubtitle(event, painter)
+
+        elif isinstance(self.subtitle(), Dialogue):
+            self._paintSSASubtitle(event, painter)
+
+        elif isinstance(self.subtitle(), str):
+            self._paintTextSubtitle(event, painter)
 
         if callable(self._painthook):
             try:
-                self._painthook(painter)
+                self._painthook(self, event, painter)
 
             except:
                 traceback.print_exc(file=sys.stderr)
@@ -226,3 +253,128 @@ class QImageView(QWidget):
                 self.pixmap().toImage().save(fileName)
             return True
         return False
+
+class QMultiImageView(QWidget):
+    setframes = pyqtSignal(*[QPixmap]*5)
+    setsubtitle = pyqtSignal(QPixmap, QPoint)
+
+    def __init__(self, *args, **kwargs):
+        super(QMultiImageView, self).__init__(*args, **kwargs)
+
+        self.imthumb1 = QImageView(self)
+        self.imthumb2 = QImageView(self)
+        self.main = QImageView(self)
+        self.imthumb3 = QImageView(self)
+        self.imthumb4 = QImageView(self)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        layout.addWidget(self.main)
+        thumblayout = QHBoxLayout()
+        thumblayout.setContentsMargins(0, 0, 0, 0)
+        thumblayout.setSpacing(4)
+        thumblayout.addWidget(self.imthumb1)
+        thumblayout.addWidget(self.imthumb2)
+        thumblayout.addStretch()
+        thumblayout.addWidget(self.imthumb3)
+        thumblayout.addWidget(self.imthumb4)
+        layout.addLayout(thumblayout)
+        self.setLayout(layout)
+
+        self.imwins = (self.imthumb1, self.imthumb2, self.main, self.imthumb3, self.imthumb4)
+        self.framesource = self.subtitlesource = None
+        self.setFrameSource(None)
+        self.setframes.connect(self.setFrames)
+        #self.setsubtitle.connect(self.main.setSubtitlePixmap)
+
+    def setFrameSource(self, framesource):
+        self.framesource = framesource
+
+    def setSubtitleSource(self, subtitlesource):
+        self.subtitlesource = subtitlesource
+
+    def setFrameOffset(self, n):
+        subpos = QPoint()
+        subpixmap = QPixmap()
+
+        if self.framesource is not None:
+            emptyframe = QPixmap(self.framesource.width, self.framesource.height)
+            emptyframe.fill(QColor(255, 255, 255, 0))
+
+            if n == 0:
+                frames  = [emptyframe, emptyframe]
+
+            elif n == 1:
+                frames  = [emptyframe]
+
+            else:
+                frames = []
+
+            try:
+                for k, frame in enumerate(
+                        self.framesource.iterFrames(
+                            n - 2 + len(frames),
+                            n + 3,
+                            whence="framenumber"
+                            ),
+                        n - 2 + len(frames)):
+                    frames.append(frame.to_image().toqpixmap())
+
+            except:
+                print(traceback.format_exc(), file=sys.stderr)
+
+            frames.extend([emptyframe]*(5 - len(frames)))
+
+            # TODO: Reimplement subtitles (both pgssub and ass)
+            #if self.subtitlesource is not None and n < self.framesource.framecount:
+                #pts_time = float(self.framesource.pts[n]*self.framesource.time_base)
+                #idx = self.subtitlesource.index_from_pts(int(pts_time/self.subtitlesource.time_base + 0.5))
+
+                #if pts_time >= self.subtitlesource.pts_time[idx]:
+                    #pkt = next(self.subtitlesource.iterPackets(idx))
+
+                    #try:
+                        #sub = pgssub.pgspacketcodec.decode(pkt.to_bytes())
+
+                    #except codecfactory.exc.ExcessData:
+                        #pass
+
+                    #except codecfactory.exc.UnexpectedEndOfData:
+                        #pass
+
+                    #else:
+                        #image = sub.image
+
+                        #if image is not None and sub.x is not None and sub.y is not None:
+                            #subpixmap = image.toqpixmap()
+                            #subpos = QPoint(sub.x, sub.y)
+
+        else:
+            emptyframe = QPixmap()
+            frames = [emptyframe]*5
+
+
+        self.setframes.emit(*frames[:5])
+        #self.setsubtitle.emit(subpixmap, subpos)
+
+    @pyqtSlot(*[QPixmap]*5)
+    def setFrames(self, *pixmaps):
+        for pixmap, imwin in zip(pixmaps, self.imwins):
+            imwin.setFrame(pixmap)
+
+    def resizeEvent(self, event):
+        w = event.size().width()
+        self.imthumb1.setFixedWidth(w/5)
+        self.imthumb2.setFixedWidth(w/5)
+        self.imthumb3.setFixedWidth(w/5)
+        self.imthumb4.setFixedWidth(w/5)
+
+    def setSar(self, value):
+        self._sar = value
+
+        for imwin in self.imwins:
+            imwin.setSar(value)
+
+        self.updateGeometry()
+
