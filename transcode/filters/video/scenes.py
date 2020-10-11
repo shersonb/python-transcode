@@ -198,7 +198,7 @@ class Scenes(zoned.ZonedFilter):
         state = super().__getstate__()
         state["fixpts"] = self.fixpts
 
-        if self.stats:
+        if self.stats is not None:
             state["stats"] = self.stats
 
         return state
@@ -267,16 +267,6 @@ class Scenes(zoned.ZonedFilter):
     def __next__(self):
         pass
 
-    #@cached
-    #def QTableColumns(self):
-        #from movie.qscenes import SceneCol, ContentCol, DeltaHueCol, DeltaSatCol, DeltaLumCol
-        #col1 = movie.qscenes.SceneCol(self)
-        #col2 = movie.qscenes.ContentCol(self)
-        #col3 = movie.qscenes.DeltaHueCol(self)
-        #col4 = movie.qscenes.DeltaSatCol(self)
-        #col5 = movie.qscenes.DeltaLumCol(self)
-        #return [col1, col2, col3, col4, col5]
-
     def analyze(self, start=0, end=None, notify_iter=None, notify_complete=None):
         t = AnalysisThread(self, start, end, notify_iter, notify_complete)
         t.start()
@@ -318,6 +308,20 @@ class Scenes(zoned.ZonedFilter):
 
         return prevadj.union({zone.dest_start for zone in self})
 
+    @property
+    def QtDlgClass(self):
+        from transcode.pyqtgui.qscenes import QScenes
+        return QScenes
+
+    def QtTableColumns(self):
+        from transcode.pyqtgui.qscenes import SceneCol, ContentCol, DeltaHueCol, DeltaSatCol, DeltaLumCol
+        col1 = SceneCol(self)
+        col2 = ContentCol(self)
+        col3 = DeltaHueCol(self)
+        col4 = DeltaSatCol(self)
+        col5 = DeltaLumCol(self)
+        return [col1, col2, col3, col4, col5]
+
 class AnalysisThread(threading.Thread):
     def __init__(self, scenes, start, end, notify_iter=None, notify_complete=None):
         self._start = start
@@ -329,7 +333,7 @@ class AnalysisThread(threading.Thread):
             self._end = end
 
         self.scenes = scenes
-        self.frames = scenes.prev.readFrames(start, end)
+        self.frames = scenes.prev.iterFrames(start, end, whence="framenumber")
         self.n = 0
         self.notify_iter = notify_iter
         self.notify_complete = notify_complete
@@ -380,17 +384,31 @@ class AnalysisThread(threading.Thread):
             scenemgr.detect_scenes(frame_source=self)
 
             if self.scenes.stats is None:
-                self.scenes.stats = numpy.nan*numpy.zeros((self.scenes.prev.framecount - 1, 4))
+                self.scenes.stats = numpy.nan*numpy.zeros((self.scenes.src.framecount - 1, 4))
 
             H, W = self.scenes.stats.shape
 
             if H < self.scenes.prev.framecount - 1 or W < 4:
-                newstats = numpy.nan*numpy.zeros((self.scenes.prev.framecount - 1, 4))
+                newstats = numpy.nan*numpy.zeros((self.scenes.src.framecount - 1, 4))
                 newstats[:H,:W] = self.scenes.stats
                 self.scenes.stats = newstats
 
-            for n in range(self._start + 1, self._end):
-                self.scenes.stats[n-1] = stats.get_metrics(n - self._start, ["content_val", "delta_hue", "delta_sat", "delta_lum"])
+            start = self.scenes.prev.cumulativeIndexReverseMap[self._start + 1]
+
+            if self._end >= self.scenes.prev.framecount:
+                end = self.scenes.src.framecount
+
+            else:
+                end = self.scenes.prev.cumulativeIndexReverseMap[self._end]
+
+            for m in range(start, end):
+                n = self.scenes.prev.cumulativeIndexMap[m]
+
+                if n > 0:
+                    self.scenes.stats[m-1] = stats.get_metrics(n - self._start, ["content_val", "delta_hue", "delta_sat", "delta_lum"])
+
+                else:
+                    self.scenes.stats[m-1] = numpy.nan
 
         finally:
             if callable(self.notify_complete):

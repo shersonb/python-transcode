@@ -476,18 +476,8 @@ class Zone(zoned.Zone):
         else:
             return [0]
 
-    @property
+    @cached
     def forward_matrix_blended(self):
-        if self._forward_matrix_blended is None:
-            self._forward_matrix_blended = self._calc_forward_matrix_blended()
-
-        return self._forward_matrix_blended
-    
-    @forward_matrix_blended.deleter
-    def forward_matrix_blended(self):
-        self._forward_matrix_blended = None
-    
-    def _calc_forward_matrix_blended(self):
         if self.pulldown:
             M = numpy.zeros((self.old_blksize + 1, self.new_blksize + 1))
             M[numpy.arange(self.old_blksize), self._pattern_int[:,0]] += 0.5
@@ -498,18 +488,8 @@ class Zone(zoned.Zone):
         else:
             return numpy.matrix(numpy.identity(1))
 
-    @property
+    @cached
     def reverse_matrix_blended(self):
-        if self._reverse_matrix_blended is None:
-            self._reverse_matrix_blended = self._calc_reverse_matrix_blended()
-
-        return self._reverse_matrix_blended
-
-    @reverse_matrix_blended.deleter
-    def reverse_matrix_blended(self):
-        self._reverse_matrix_blended = None
-    
-    def _calc_reverse_matrix_blended(self):
         if self.pulldown is None:
             return
 
@@ -517,18 +497,8 @@ class Zone(zoned.Zone):
         A = numpy.array(((M.transpose()*M)**-1*M.transpose())[:self.new_blksize])
         return A[:self.new_blksize]
 
-    @property
+    @cached
     def reverse_matrix_blended_head(self):
-        if self._reverse_matrix_blended_head is None:
-            self._reverse_matrix_blended_head = self._calc_reverse_matrix_blended_head()
-
-        return self._reverse_matrix_blended_head
-
-    @reverse_matrix_blended_head.deleter
-    def reverse_matrix_blended_head(self):
-        self._reverse_matrix_blended_head = None
-    
-    def _calc_reverse_matrix_blended_head(self):
         if self.pulldown is None:
             return
 
@@ -553,18 +523,8 @@ class Zone(zoned.Zone):
             M = M[cutoff_rows:, cutoff_columns:]
             return numpy.array(((M.transpose()*M)**-1*M.transpose())[partials:])
 
-    @property
+    @cached
     def reverse_matrix_blended_tail(self):
-        if self._reverse_matrix_blended_tail is None:
-            self._reverse_matrix_blended_tail = self._calc_reverse_matrix_blended_tail()
-
-        return self._reverse_matrix_blended_tail
-
-    @reverse_matrix_blended_tail.deleter
-    def reverse_matrix_blended_tail(self):
-        self._reverse_matrix_blended_tail = None
-    
-    def _calc_reverse_matrix_blended_tail(self):
         if self.pulldown is None:
             return
 
@@ -776,14 +736,6 @@ class ZonedPullup(zoned.ZonedFilter):
         self._start_pts_time = value
         self.reset_cache()
 
-    #@property
-    #def rate(self):
-        #return QQ(24000, 1001)
-
-    #def getinitkwargs(self):
-        #d = OrderedDict([("zones", list(self)), ("time_base", self.time_base), ("start_pts_time", self.start_pts_time)])
-        #return d
-
     def __str__(self):
         if self is None:
             return "Variable Frame Rate/Detelecine"
@@ -806,22 +758,28 @@ class ZonedPullup(zoned.ZonedFilter):
         if isinstance(n, int):
             k, zone = self.zoneAt(n)
             return zone.translate_fields(n)
-        elif isinstance(m, (list, tuple, range, numpy.ndarray)):
+
+        elif isinstance(n, (list, tuple, range, numpy.ndarray)):
             m = numpy.zeros(n.shape+(2,), dtype=numpy.int0)
+
             for zone in self:
                 filter = (n >= zone.prev_start)*(n < zone.prev_end)
                 m[filter] = zone.backtranslate_fields(n[filter])
+
             return m
 
     def backtranslate_fields(self, m):
         if isinstance(m, int):
             k, zone = self.zoneAtNew(m)
             return zone.backtranslate_fields(m)
+
         elif isinstance(m, (list, tuple, range, numpy.ndarray)):
             n = numpy.zeros(m.shape+(2,), dtype=numpy.int0)
+
             for zone in self:
                 filter = (m >= zone.dest_start)*(m < zone.dest_end)
                 n[filter] = zone.backtranslate_fields(m[filter])
+
             return n
 
     def final_fields(self, n):
@@ -912,11 +870,23 @@ class ZonedPullup(zoned.ZonedFilter):
         del self.defaultDuration
         super().reset_cache(start, end, reset_children)
 
-    #def QTableColumns(self):
-        #from movie.qframerate import (FrameRateCheckCol, FrameRateCol, TCPatternCol, TCPatternOffsetCol,
-                                      #YBlendCheckCol, UVBlendCheckCol, FrameRateECol, FrameRateOCol)
-        #if self._columns is None:
-            #self._columns = [FrameRateCheckCol(self), FrameRateCol(self), TCPatternCol(self), TCPatternOffsetCol(self),
-                #YBlendCheckCol(self), UVBlendCheckCol(self), FrameRateECol(self), FrameRateOCol(self)]
-        #return self._columns
+    def QtTableColumns(self):
+        from transcode.pyqtgui.qpullup import (FrameRateCheckCol, FrameRateCol, TCPatternCol, TCPatternOffsetCol,
+                                      YBlendCheckCol, UVBlendCheckCol, FrameRateECol, FrameRateOCol)
+        return [
+                FrameRateCheckCol(self),
+                FrameRateCol(self),
+                TCPatternCol(self),
+                TCPatternOffsetCol(self),
+                YBlendCheckCol(self),
+                UVBlendCheckCol(self),
+                FrameRateECol(self),
+                FrameRateOCol(self)
+            ]
+
+
+    @property
+    def QtDlgClass(self):
+        from transcode.pyqtgui.qpullup import QPullup
+        return QPullup
 
