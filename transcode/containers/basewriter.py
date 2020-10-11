@@ -12,6 +12,7 @@ from collections import OrderedDict, UserList
 import ebml.ndarray
 import abc
 from fractions import Fraction as QQ
+from copy import deepcopy
 
 class TrackStats(ebml.ndarray.EBMLNDArray):
     ebmlID = b"\x19\x14\xdc\x87"
@@ -108,6 +109,44 @@ class Track(abc.ABC):
         self.name = state.get("name")
         self.language = state.get("language")
         self.delay = state.get("delay", 0)
+
+    def __deepcopy__(self, memo):
+        """
+        We want to keep the original reference to self.source.
+        """
+        memo.update({
+                id(self.source): self.source,
+            })
+
+        reduced = self.__reduce__()
+
+        if len(reduced) == 2:
+            cls, args = reduced
+            state = items = dictitems = None
+
+        elif len(reduced) == 3:
+            cls, args, state = reduced
+            items = dictitems = None
+
+        if len(reduced) == 4:
+            cls, args, state, items = reduced
+            dictitems = None
+
+        if len(reduced) == 5:
+            cls, args, state, items, dictitems = reduced
+
+        new = cls(*(deepcopy(arg, memo) for arg in args))
+
+        if state is not None:
+            new.__setstate__(deepcopy(state, memo))
+
+        if items is not None:
+            new.extend(deepcopy(item, memo) for item in items)
+
+        if dictitems is not None:
+            new.update(deepcopy(dictitems, memo))
+
+        return new
 
     @property
     def filters(self):

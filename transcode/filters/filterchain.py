@@ -1,8 +1,11 @@
 from transcode.util import llist
 from transcode.filters.base import BaseFilter
 import numpy
+from copy import deepcopy
 
 class FilterChain(llist, BaseFilter):
+    from copy import deepcopy as copy
+
     def __init__(self, filters=[], prev=None):
         llist.__init__(self, filters.copy())
         BaseFilter.__init__(self, prev=prev)
@@ -33,6 +36,12 @@ class FilterChain(llist, BaseFilter):
 
         if index == 0:
             item.prev = self.prev
+
+    def __deepcopy__(self, memo):
+        """
+        We want to keep the original reference to self.source.
+        """
+        return self.__class__(deepcopy(list(self), memo), prev=self.prev)
 
     @property
     def format(self):
@@ -155,6 +164,11 @@ class FilterChain(llist, BaseFilter):
             return numpy.arange(0, self.prev.framecount, dtype=numpy.int0)
 
         return self.end.reverseIndexMap
+
+    def reset_cache(self, start=0, end=None):
+        del self.cumulativeIndexMap
+        del self.cumulativeIndexReverseMap
+        super().reset_cache(start, end)
 
     @property
     def prev(self):

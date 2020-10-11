@@ -7,6 +7,11 @@ import numpy
 from collections import OrderedDict
 from itertools import count
 
+def notifyIterate(iterator, func):
+    for item in iterator:
+        func(item)
+        yield item
+
 class CacheResettingProperty(object):
     def __init__(self, attrname):
         self.attrname = attrname
@@ -21,8 +26,6 @@ class CacheResettingProperty(object):
     def __set__(self, inst, value):
         inst.reset_cache()
         setattr(inst, self._attrname, value)
-
-
 
 class BaseFilter(object):
     """
@@ -39,9 +42,9 @@ class BaseFilter(object):
         return self.__class__.__name__
 
     def __init__(self, prev=None, next=None, parent=None, notify_input=None, notify_output=None):
+        self.parent = parent
         self.next = next
         self.prev = prev
-        self.parent = parent
         self.notify_input = notify_input
         self.notify_output = notify_output
         self.lock = threading.RLock()
@@ -59,6 +62,45 @@ class BaseFilter(object):
 
     def __setstate__(self, state):
         self.prev = state.get("prev")
+
+    def __deepcopy__(self, memo):
+        reduced = self.__reduce__()
+
+        if len(reduced) == 2:
+            cls, args = reduced
+            state = items = dictitems = None
+
+        elif len(reduced) == 3:
+            cls, args, state = reduced
+            items = dictitems = None
+
+        if len(reduced) == 4:
+            cls, args, state, items = reduced
+            dictitems = None
+
+        if len(reduced) == 5:
+            cls, args, state, items, dictitems = reduced
+
+        new = cls(*args)
+
+        if state is not None:
+            if "prev" in state:
+                prev = state.pop("prev")
+                newstate = deepcopy(state)
+                newstate["prev"] = prev
+
+            else:
+                newstate = deepcopy(state)
+
+            new.__setstate__(newstate)
+
+        if items is not None:
+            new.extend(deepcopy(item) for item in items)
+
+        if dictitems is not None:
+            new.update(deepcopy((key, value)) for (key, value) in dictitems)
+
+        return new
 
     @property
     def dependencies(self):
@@ -134,7 +176,7 @@ class BaseFilter(object):
         if isinstance(self.prev, Track):
             return self.prev
 
-        elif isinstance(self.prev, BaseVideoFilter):
+        elif isinstance(self.prev, BaseFilter):
             return self.prev.src
 
     @cached
@@ -142,13 +184,17 @@ class BaseFilter(object):
         return self.prev.duration
 
     def reset_cache(self, start=0, end=None):
-        del self.framecount
-        del self.duration
-        del self.indexMap
-        del self.reverseIndexMap
+        try:
+            del self.duration
+
+        except AttributeError:
+            pass
 
         if self.next is not None:
             self.next.reset_cache(start, end)
+
+        elif isinstance(self.parent, BaseFilter):
+            self.parent.reset_cache(start, end)
 
     @cached
     def framecount(self):

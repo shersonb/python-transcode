@@ -4,6 +4,7 @@ from collections import OrderedDict, UserList
 import pathlib
 import mimetypes
 import os
+from copy import deepcopy
 
 class AttachmentRef(object):
     from copy import copy
@@ -15,12 +16,51 @@ class AttachmentRef(object):
     def __reduce__(self):
         return self.__class__, (self.source, self.UID)
 
+    def __deepcopy__(self, memo):
+        """
+        We want to keep the original reference to self.source.
+        """
+        memo.update({
+                id(self.source): self.source,
+            })
+
+        reduced = self.__reduce__()
+
+        if len(reduced) == 2:
+            cls, args = reduced
+            state = items = dictitems = None
+
+        elif len(reduced) == 3:
+            cls, args, state = reduced
+            items = dictitems = None
+
+        if len(reduced) == 4:
+            cls, args, state, items = reduced
+            dictitems = None
+
+        if len(reduced) == 5:
+            cls, args, state, items, dictitems = reduced
+
+        new = cls(*(deepcopy(arg, memo) for arg in args))
+
+        if state is not None:
+            new.__setstate__(deepcopy(state, memo))
+
+        if items is not None:
+            new.extend(deepcopy(item, memo) for item in items)
+
+        if dictitems is not None:
+            new.update(deepcopy(dictitems, memo))
+
+        return new
+
     @property
     def attachment(self):
         if self.source.attachments:
             for attachment in self.source.attachments:
                 if attachment.fileUID == self.UID:
                     return attachment
+
             else:
                 raise KeyError(f"Attachment with fileUID {self.UID} not found.")
 
