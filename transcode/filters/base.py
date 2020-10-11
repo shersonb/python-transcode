@@ -6,6 +6,7 @@ import threading
 import numpy
 from collections import OrderedDict
 from itertools import count
+from copy import deepcopy
 
 def notifyIterate(iterator, func):
     for item in iterator:
@@ -86,19 +87,19 @@ class BaseFilter(object):
         if state is not None:
             if "prev" in state:
                 prev = state.pop("prev")
-                newstate = deepcopy(state)
+                newstate = deepcopy(state, memo)
                 newstate["prev"] = prev
 
             else:
-                newstate = deepcopy(state)
+                newstate = deepcopy(state, memo)
 
             new.__setstate__(newstate)
 
         if items is not None:
-            new.extend(deepcopy(item) for item in items)
+            new.extend(deepcopy(item, memo) for item in items)
 
         if dictitems is not None:
-            new.update(deepcopy((key, value)) for (key, value) in dictitems)
+            new.update(deepcopy((key, value), memo) for (key, value) in dictitems)
 
         return new
 
