@@ -114,6 +114,7 @@ class EncoderContext(object):
 
 class EncoderConfig(object):
     format = None
+    from copy import deepcopy as copy
 
     @property
     def bitdepth(self):
@@ -232,14 +233,14 @@ class EncoderConfig(object):
         return dir
 
     def __getattribute__(self, attr):
-        if attr in ("options", "codec", "avoptions", "descriptor", "type", "optionslots", "create") or attr.startswith("_"):
+        if attr in ("options", "copy", "codec", "avoptions", "descriptor", "type", "optionslots", "create") or attr.startswith("_"):
             return super().__getattribute__(attr)
 
         if self.avoptions:
             optname = attr.rstrip("_")
 
             for option in self.avoptions:
-                if optname == option.name.replace("-", "_"):
+                if optname.replace("-", "_") == option.name.replace("-", "_"):
                     return self.options.get(option.name)
 
         return super().__getattribute__(attr)
@@ -265,21 +266,28 @@ class EncoderConfig(object):
             optname = attr.rstrip("_")
 
             for option in self.avoptions:
-                if optname == option.name.replace("-", "_"):
-                    if option.type == "FLOAT":
-                        value = float(value)
+                if optname.replace("-", "_") == option.name.replace("-", "_"):
+                    if value is None:
+                        if option.name in self.options:
+                            del self.options[option.name]
 
-                    elif option.type == "INT":
-                        value = int(value)
+                        return
 
-                    elif option.type == "STRING":
-                        value = str(value)
+                    else:
+                        if option.type == "FLOAT":
+                            value = float(value)
 
-                    elif option.type == "BOOL":
-                        value = bool(value)
+                        elif option.type == "INT":
+                            value = int(value)
 
-                    self.options[option.name] = value
-                    return
+                        elif option.type == "STRING":
+                            value = str(value)
+
+                        elif option.type == "BOOL":
+                            value = bool(value)
+
+                        self.options[option.name] = value
+                        return
 
         return super().__setattr__(attr, value)
 
