@@ -9,7 +9,6 @@ def scan():
     filters.clear()
     from transcode.filters.video.base import BaseVideoFilter
     from transcode.filters.video.zoned import ZonedFilter
-    from transcode.filters.video.filterchain import FilterChain
 
     for _module in os.listdir(_path):
         if _module[0] in "_." or _module in ("base.py", "zoned.py", "filterchain.py"):
@@ -27,8 +26,8 @@ def scan():
         for _key in dir(_module):
             _cls = getattr(_module, _key)
 
-            if isinstance(_cls, type) and issubclass(_cls, (BaseVideoFilter, ZonedFilter, FilterChain)) and\
-                    _cls not in (BaseVideoFilter, ZonedFilter, FilterChain):
+            if isinstance(_cls, type) and issubclass(_cls, (BaseVideoFilter, ZonedFilter)) and\
+                    _cls not in (BaseVideoFilter, ZonedFilter):
                         filters[f"{_cls.__module__}.{_cls.__name__}"] = _cls
 
 scan()
