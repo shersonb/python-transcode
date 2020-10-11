@@ -90,10 +90,16 @@ class Zone(object):
 
         if self.parent is not None:
             self.parent.zone_indices.remove(self._src_start)
-            self.parent.zone_indices.add(self.value)
+            self.parent.zone_indices.add(value)
 
         self._src_start = value
         del self.prev_start
+
+        try:
+            del self.start_pts_time
+
+        except AttributeError:
+            pass
 
         if self.prev is not None:
             if self.parent is not None:
@@ -415,14 +421,18 @@ class ZonedFilter(llist, BaseVideoFilter):
 
         while k < K - 1:
             j = (k + K)//2
+
             if n < self[j].src_start:
                 K = j
                 continue
+
             elif n >= self[j].src_end:
                 k = j
                 continue
+
             else:
                 return j, self[j]
+
         raise IndexError
 
     def zoneAtNew(self, m, k=0, K=None):
@@ -625,7 +635,7 @@ class ZonedFilter(llist, BaseVideoFilter):
         llist.__delitem__(self, index)
 
     def remove(self, zone):
-        llist.__delitem__(self, index)
+        llist.remove(self, zone)
 
         if zone.src_start in self.zone_indices:
             self.zone_indices.remove(zone.src_start)
@@ -637,3 +647,31 @@ class ZonedFilter(llist, BaseVideoFilter):
     @cached
     def duration(self):
         return sum([zone.duration for zone in self])
+
+    @property
+    def QtDlgClass(self):
+        from transcode.pyqtgui.qzones import ZoneDlg
+        return ZoneDlg
+
+    def QtDlg(self, zone=None, offset=None, mode=None):
+        if zone is None:
+            zone = self.start
+
+        dlg = self.QtDlgClass(zone)
+
+        if mode is None:
+            mode = dlg.modeBox.currentData()
+
+        if offset is None:
+            if mode == 0:
+                offset = zone.src_start
+
+            elif mode == 1:
+                offset = zone.prev_start
+
+            if mode == 2:
+                offset = zone.dest_start
+
+        index = dlg.modeBox.findData(mode)
+        dlg.modeBox.setCurrentIndex(index)
+        return dlg

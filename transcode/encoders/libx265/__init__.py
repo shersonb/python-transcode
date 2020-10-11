@@ -633,6 +633,7 @@ class libx265Config(EncoderConfig):
     def copy(self):
         return type(self)(crf=self.crf, forced_idr=self.forced_idr, **self.x265params)
 
-    def pyqtgui(self):
+    @property
+    def QtDlgClass(self):
         from .pyqtgui import x265ConfigDlg
         return x265ConfigDlg

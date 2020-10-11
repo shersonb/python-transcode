@@ -1,5 +1,5 @@
 from ...util import cached, search
-from ..base import BaseFilter
+from ..base import BaseFilter, notifyIterate
 from ...containers.basereader import Track
 from fractions import Fraction as QQ
 import threading
@@ -33,7 +33,7 @@ class BaseVideoFilter(BaseFilter):
 
     @cached
     def pts(self):
-        return numpy.int0(self.pts_time/self.time_base)
+        return numpy.int0(self.pts_time/float(self.time_base))
 
     @property
     def defaultDuration(self):
@@ -71,11 +71,29 @@ class BaseVideoFilter(BaseFilter):
             return self.prev.src
 
     def reset_cache(self, start=0, end=None):
-        del self.framecount
-        del self.duration
-        del self.durations
-        del self.indexMap
-        del self.reverseIndexMap
+        try:
+            del self.framecount
+
+        except AttributeError:
+            pass
+
+        try:
+            del self.durations
+
+        except AttributeError:
+            pass
+
+        try:
+            del self.indexMap
+
+        except AttributeError:
+            pass
+
+        try:
+            del self.reverseIndexMap
+
+        except AttributeError:
+            pass
 
         try:
             del self.pts
@@ -83,8 +101,13 @@ class BaseVideoFilter(BaseFilter):
         except AttributeError:
             pass
 
-        if self.next is not None:
-            self.next.reset_cache(start, end)
+        try:
+            del self.pts_time
+
+        except AttributeError:
+            pass
+
+        super().reset_cache(start, end)
 
     @cached
     def framecount(self):
@@ -152,9 +175,12 @@ class BaseVideoFilter(BaseFilter):
     def processFrames(self, iterable):
         if callable(self.notify_input):
             iterable = notifyIterate(iterable, self.notify_input)
+
         iterable = self._processFrames(iterable)
+
         if callable(self.notify_output):
             iterable = notifyIterate(iterable, self.notify_output)
+
         return iterable
 
     def iterFrames(self, start=0, end=None, whence="framenumber"):
@@ -225,3 +251,5 @@ class BaseVideoFilter(BaseFilter):
     def _processFrame(self, frame):
         return frame
 
+    def QtTableColumns(self):
+        return []

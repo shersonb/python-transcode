@@ -54,8 +54,7 @@ class KeyFrames(BaseVideoFilter, set):
 
     def _processFrames(self, iterable):
         frame = iterable.send(None)
-        firstpts = frame.pts # *frame.time_base + 0.0005
-        #print firstpts
+        firstpts = frame.pts
         n = self.prev.frameIndexFromPts(firstpts)
 
         if n in self.prev_keyframes:
@@ -82,19 +81,6 @@ class KeyFrames(BaseVideoFilter, set):
         self.update(state.get("keyframes", []))
         super().__setstate__(state)
 
-
-#class KeyFrameCol(qtable.BaseColumn):
-    #headerdisplay = "K"
-    #display = ""
-    #width = 48
-    #flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
-    #def __init__(self, forcekeyframes):
-        #self.forcekeyframes = forcekeyframes
-    #def setcheckstate(self, obj, data, index):
-        #if self.checkstate(obj, index):
-            #self.forcekeyframes.remove(index)
-        #else:
-            #self.forcekeyframes.add(index)
-    #def checkstate(self, obj, index):
-        #return index in self.forcekeyframes
-
+    def QtTableColumns(self):
+        from transcode.pyqtgui.qkeyframes import KeyFrameCol
+        return [KeyFrameCol(self)]

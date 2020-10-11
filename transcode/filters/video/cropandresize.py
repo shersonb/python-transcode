@@ -1,7 +1,7 @@
 from . import zoned
 from .base import BaseVideoFilter
 from ...util import cached, numpify
-from itertools import count
+from itertools import count, islice
 import numpy
 from av.video import VideoFrame
 from PIL import Image
@@ -532,8 +532,7 @@ class CropScenes(zoned.ZonedFilter):
             newframe.pict_type = frame.pict_type
             yield newframe
 
-    #@cached
-    #def QTableColumns(self):
-        #from movie.qcropandresize import CropResizeCol
-        #return [CropResizeCol(self)]
+    def QtTableColumns(self):
+        from transcode.pyqtgui.qcropandresize import CropResizeCol
+        return [CropResizeCol(self)]
 

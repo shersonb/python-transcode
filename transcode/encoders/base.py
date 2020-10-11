@@ -283,7 +283,12 @@ class EncoderConfig(object):
 
         return super().__setattr__(attr, value)
 
-    def pyqtgui(self):
+    @property
+    def QtDlgClass(self):
         if self.avoptions:
             from transcode.pyqtgui.qencoderconfig import QEncoderConfigDlg
             return QEncoderConfigDlg
+
+    def QtDlg(self, parent=None):
+        if self.QtDlgClass is not None:
+            return self.QtDlgClass(self, parent)

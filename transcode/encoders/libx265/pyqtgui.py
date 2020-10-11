@@ -9,12 +9,11 @@ import regex
 from functools import partial
 
 class Choices(QWidget):
-    def __init__(self, encoder, optname, attrname, config, choices, *args, **kwargs):
+    def __init__(self, encoder, optname, attrname, choices, *args, **kwargs):
         super(Choices, self).__init__(*args, **kwargs)
         self.encoder = encoder
         self.optname = optname
         self.attrname = attrname
-        self.config = config
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -31,7 +30,7 @@ class Choices(QWidget):
         self.selection.addItem("Not set", None)
         self.selection.insertSeparator(1)
 
-        currentvalue = self.config.getState(encoder).get(attrname)
+        currentvalue = getattr(encoder, attrname)
 
         for choice in choices:
             if isinstance(choice, (list, tuple)):
@@ -52,22 +51,15 @@ class Choices(QWidget):
         self.selection.currentIndexChanged.connect(self.indexChanged)
 
     def indexChanged(self, value):
-        encoderstate = self.config.getState(self.encoder)
         data = self.selection.currentData()
-
-        if data is None and self.attrname in encoderstate:
-            del encoderstate[self.attrname]
-
-        elif data:
-            encoderstate[self.attrname] = data
+        setattr(self.encoder, self.attrname, data)
 
 class IntOption(QWidget):
-    def __init__(self, encoder, optname, attrname, config, minval, maxval, step, *args, **kwargs):
+    def __init__(self, encoder, optname, attrname, minval, maxval, step, *args, **kwargs):
         super(IntOption, self).__init__(*args, **kwargs)
         self.encoder = encoder
         self.optname = optname
         self.attrname = attrname
-        self.config = config
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -86,7 +78,7 @@ class IntOption(QWidget):
         self.spinbox.setMaximum(maxval)
         self.spinbox.setSingleStep(step)
 
-        currentvalue = self.config.getState(encoder).get(attrname)
+        currentvalue = getattr(encoder, attrname)
 
         if currentvalue is not None:
             self.spinbox.setValue(currentvalue)
@@ -97,21 +89,18 @@ class IntOption(QWidget):
         self.spinbox.valueChanged.connect(self.valueChanged)
 
     def valueChanged(self, value):
-        encoderstate = self.config.getState(self.encoder)
-
         if value > self.spinbox.minimum():
-            encoderstate[self.attrname] = value
+            setattr(self.encoder, self.attrname, value)
 
-        elif self.attrname in encoderstate:
-            del encoderstate[self.attrname]
+        else:
+            setattr(self.encoder, self.attrname, None)
 
 class FloatOption(QWidget):
-    def __init__(self, encoder, optname, attrname, config, minval, maxval, step, decimals, *args, **kwargs):
+    def __init__(self, encoder, optname, attrname, minval, maxval, step, decimals, *args, **kwargs):
         super(FloatOption, self).__init__(*args, **kwargs)
         self.encoder = encoder
         self.optname = optname
         self.attrname = attrname
-        self.config = config
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -131,7 +120,7 @@ class FloatOption(QWidget):
         self.spinbox.setDecimals(decimals)
         self.spinbox.setSingleStep(step)
 
-        currentvalue = self.config.getState(encoder).get(attrname)
+        currentvalue = getattr(encoder, attrname)
 
         if currentvalue is not None:
             self.spinbox.setValue(currentvalue)
@@ -142,24 +131,21 @@ class FloatOption(QWidget):
         self.spinbox.valueChanged.connect(self.valueChanged)
 
     def valueChanged(self, value):
-        encoderstate = self.config.getState(self.encoder)
-
         if value > self.spinbox.minimum() + 10**-6:
-            encoderstate[self.attrname] = value
+            setattr(self.encoder, self.attrname, value)
 
-        elif self.attrname in encoderstate:
-            del encoderstate[self.attrname]
+        else:
+            setattr(self.encoder, self.attrname, None)
 
 class BoolOption(QCheckBox):
-    def __init__(self, encoder, optname, attrname, config, *args, **kwargs):
+    def __init__(self, encoder, optname, attrname, *args, **kwargs):
         super(BoolOption, self).__init__(*args, **kwargs)
         self.encoder = encoder
         self.setText(optname)
         self.attrname = attrname
-        self.config = config
         self.setTristate(True)
 
-        currentvalue = self.config.getState(encoder).get(attrname)
+        currentvalue = getattr(encoder, attrname)
 
         if currentvalue is not None:
             self.setCheckState(2 if currentvalue else 0)
@@ -170,21 +156,19 @@ class BoolOption(QCheckBox):
         self.stateChanged.connect(self.setOpt)
 
     def setOpt(self, state):
-        encoderstate = self.config.getState(self.encoder)
-
         if state == 0:
-            encoderstate[self.attrname] = False
+            setattr(self.encoder, self.attrname, False)
 
         elif state == 2:
-            encoderstate[self.attrname] = True
+            setattr(self.encoder, self.attrname, True)
 
-        elif self.attrname in encoderstate:
-            del encoderstate[self.attrname]
+        else:
+            setattr(self.encoder, self.attrname, None)
 
 class PerformanceTab(QWidget):
     optionchanged = pyqtSignal()
 
-    def __init__(self, encoder, config, *args, **kwargs):
+    def __init__(self, encoder, *args, **kwargs):
         super(PerformanceTab, self).__init__(*args, **kwargs)
         layout = QVBoxLayout()
         layout.setSpacing(4)
@@ -201,7 +185,7 @@ class PerformanceTab(QWidget):
         --pmode, --no-pmode
         --pme, --no-pme
         """
-        self.preset = Choices(encoder, "Preset", "preset", config,
+        self.preset = Choices(encoder, "Preset", "preset", 
                                  ["ultrafast", "superfast", "veryfast", "faster", "fast",
                                   "medium", "slow", "slower", "veryslow", "placebo"], self)
         self.preset.selection.currentIndexChanged.connect(self.optionchanged.emit)
@@ -212,7 +196,7 @@ class PerformanceTab(QWidget):
             "values control.")
         layout.addWidget(self.preset)
 
-        self.tune = Choices(encoder, "Tune", "tune", config,
+        self.tune = Choices(encoder, "Tune", "tune", 
                         ["None", "psnr", "ssim", "grain", "zerolatency", "fast-decode", "animation"], self)
         self.tune.selection.currentIndexChanged.connect(self.optionchanged.emit)
         self.tune.setToolTip("--tune, -t <string>\n\n"\
@@ -222,7 +206,7 @@ class PerformanceTab(QWidget):
 
         ### TODO: Insert --asm
 
-        self.framethreads = IntOption(encoder, "Frame Threads", "frame-threads", config, -1, 16, 1, self)
+        self.framethreads = IntOption(encoder, "Frame Threads", "frame-threads", -1, 16, 1, self)
         self.framethreads.spinbox.valueChanged.connect(self.optionchanged.emit)
         self.framethreads.setToolTip("--frame-threads, -F <integer>\n\n"\
             "Number of concurrently encoded frames. Using a single frame thread gives a\n"\
@@ -238,7 +222,7 @@ class PerformanceTab(QWidget):
         ### TODO: Insert --pools, --numa-pools
 
 
-        self.slices = IntOption(encoder, "Slices", "slices", config, 0, 16, 1, self)
+        self.slices = IntOption(encoder, "Slices", "slices", 0, 16, 1, self)
         self.slices.spinbox.valueChanged.connect(self.optionchanged.emit)
         self.slices.setToolTip("--slices <integer>\n\n"\
             "Encode each incoming frame as multiple parallel slices that may be decoded\n"\
@@ -249,19 +233,19 @@ class PerformanceTab(QWidget):
             "Default: 1 slice per frame. Experimental feature.")
         layout.addWidget(self.slices)
 
-        self.wpp = BoolOption(encoder, "Wavefront Parallel Processing", "wpp", config, self)
+        self.wpp = BoolOption(encoder, "Wavefront Parallel Processing", "wpp", self)
         self.wpp.stateChanged.connect(self.optionchanged.emit)
         layout.addWidget(self.wpp)
 
-        self.pmode = BoolOption(encoder, "Parallel Mode Decision", "pmode", config, self)
+        self.pmode = BoolOption(encoder, "Parallel Mode Decision", "pmode", self)
         self.pmode.stateChanged.connect(self.optionchanged.emit)
         layout.addWidget(self.pmode)
 
-        self.pme = BoolOption(encoder, "Parallel Motion Estimation", "pme", config, self)
+        self.pme = BoolOption(encoder, "Parallel Motion Estimation", "pme", self)
         self.pme.stateChanged.connect(self.optionchanged.emit)
         layout.addWidget(self.pme)
 
-        self.copypic = BoolOption(encoder, "Copy Picture", "copy-pic", config, self)
+        self.copypic = BoolOption(encoder, "Copy Picture", "copy-pic", self)
         self.copypic.stateChanged.connect(self.optionchanged.emit)
         layout.addWidget(self.copypic)
         layout.addStretch()
@@ -269,13 +253,13 @@ class PerformanceTab(QWidget):
 class ModeDecisionAnalysisTab(QWidget):
     optionchanged = pyqtSignal()
 
-    def __init__(self, encoder, config, *args, **kwargs):
+    def __init__(self, encoder, *args, **kwargs):
         super(ModeDecisionAnalysisTab, self).__init__(*args, **kwargs)
         layout = QVBoxLayout()
         layout.setSpacing(4)
         self.setLayout(layout)
 
-        self.rd = IntOption(encoder, "RDO Level", "rd", config, 0, 6, 1, self)
+        self.rd = IntOption(encoder, "RDO Level", "rd", 0, 6, 1, self)
         self.rd.spinbox.valueChanged.connect(self.optionchanged.emit)
         self.rd.setToolTip("--rd <1..6>\n\n"\
             "Level of RDO in mode decision. The higher the value, the more exhaustive\n"\
@@ -284,7 +268,7 @@ class ModeDecisionAnalysisTab(QWidget):
             "(in general). Default 3")
         layout.addWidget(self.rd)
 
-        self.ctu = Choices(encoder, "Maximum CU Size", "ctu", config, [16, 32, 64], self)
+        self.ctu = Choices(encoder, "Maximum CU Size", "ctu", [16, 32, 64], self)
         self.ctu.selection.currentIndexChanged.connect(self.optionchanged.emit)
         self.ctu.setToolTip("--ctu, -s <64|32|16>\n\n"\
             "Maximum CU size (width and height). The larger the maximum CU size, the\n"\
@@ -294,7 +278,7 @@ class ModeDecisionAnalysisTab(QWidget):
             "Because of this the faster presets use a CU size of 32. Default: 64")
         layout.addWidget(self.ctu)
 
-        self.mincusize = Choices(encoder, "Minimum CU Size", "min-cu-size", config, [8, 16, 32], self)
+        self.mincusize = Choices(encoder, "Minimum CU Size", "min-cu-size", [8, 16, 32], self)
         self.mincusize.selection.currentIndexChanged.connect(self.optionchanged.emit)
         self.mincusize.setToolTip("--min-cu-size <32|16|8>\n\n"\
             "Minimum CU size (width and height). By using 16 or 32 the encoder will not\n"\
@@ -304,7 +288,7 @@ class ModeDecisionAnalysisTab(QWidget):
             "Default: 8 (minimum 8x8 CU for HEVC, best compression efficiency)")
         layout.addWidget(self.mincusize)
 
-        self.limitrefs = IntOption(encoder, "Limit References", "limit-refs", config, -1, 3, 1, self)
+        self.limitrefs = IntOption(encoder, "Limit References", "limit-refs", -1, 3, 1, self)
         self.limitrefs.spinbox.valueChanged.connect(self.optionchanged.emit)
         self.limitrefs.setToolTip("--limit-refs <0|1|2|3>\n\n"\
             "When set to X265_REF_LIMIT_DEPTH (1) x265 will limit the references\n"\
@@ -332,19 +316,19 @@ class ModeDecisionAnalysisTab(QWidget):
 class SliceDecisionTab(QWidget):
     optionchanged = pyqtSignal()
 
-    def __init__(self, encoder, config, *args, **kwargs):
+    def __init__(self, encoder, *args, **kwargs):
         super(SliceDecisionTab, self).__init__(*args, **kwargs)
         layout = QVBoxLayout()
         layout.setSpacing(4)
         self.setLayout(layout)
 
-        self.opengop = BoolOption(encoder, "Open GOP", "open-gop", config, self)
+        self.opengop = BoolOption(encoder, "Open GOP", "open-gop", self)
         self.opengop.stateChanged.connect(self.optionchanged.emit)
         self.opengop.setToolTip("--open-gop, --no-open-gop\n\n"\
             "Enable open GOP, allow I-slices to be non-IDR. Default enabled.")
         layout.addWidget(self.opengop)
 
-        self.keyint = IntOption(encoder, "Maximum Keyframe Interval", "keyint", config, 0, 1440, 1, self)
+        self.keyint = IntOption(encoder, "Maximum Keyframe Interval", "keyint", 0, 1440, 1, self)
         self.keyint.spinbox.valueChanged.connect(self.optionchanged.emit)
         self.keyint.setToolTip("--keyint, -I <integer>\n\n"\
             "Max intra period in frames. A special case of infinite-gop (single keyframe at\n"\
@@ -353,7 +337,7 @@ class SliceDecisionTab(QWidget):
             "refresh sweeps happen. Default 250.")
         layout.addWidget(self.keyint)
 
-        self.minkeyint = IntOption(encoder, "Minimum Keyframe Interval", "min-keyint", config, 0, 1440, 1, self)
+        self.minkeyint = IntOption(encoder, "Minimum Keyframe Interval", "min-keyint", 0, 1440, 1, self)
         self.minkeyint.spinbox.valueChanged.connect(self.optionchanged.emit)
         self.minkeyint.setToolTip("--min-keyint, -i <integer>\n\n"\
             "Minimum GOP size. Scenecuts beyond this interval are coded as IDR and start a\n"\
@@ -362,7 +346,7 @@ class SliceDecisionTab(QWidget):
             "Range of values: >=0 (0: auto).")
         layout.addWidget(self.minkeyint)
 
-        self.scenecut = IntOption(encoder, "Scenecut threshold", "scenecut", config, -1, 100, 1, self)
+        self.scenecut = IntOption(encoder, "Scenecut threshold", "scenecut", -1, 100, 1, self)
         self.scenecut.spinbox.valueChanged.connect(self.optionchanged.emit)
         self.scenecut.setToolTip("--scenecut <integer>, --no-scenecut\n\n"\
             "How aggressively I-frames need to be inserted. The higher the threshold value,\n"\
@@ -370,7 +354,7 @@ class SliceDecisionTab(QWidget):
             "adaptive I frame placement. Default 40.")
         layout.addWidget(self.scenecut)
 
-        self.scenecutbias = FloatOption(encoder, "Scenecut Bias", "scenecut-bias", config, -0.1, 100, 1, 1, self)
+        self.scenecutbias = FloatOption(encoder, "Scenecut Bias", "scenecut-bias", -0.1, 100, 1, 1, self)
         self.scenecutbias.spinbox.valueChanged.connect(self.optionchanged.emit)
         self.scenecutbias.spinbox.setSuffix("%")
         self.scenecutbias.setToolTip("--scenecut-bias <0..100.0>\n\n"\
@@ -381,7 +365,7 @@ class SliceDecisionTab(QWidget):
             "recommended. Default 5.")
         layout.addWidget(self.scenecutbias)
 
-        self.rclookahead = IntOption(encoder, "RC Lookahead", "rc-lookahead", config, -1, 250, 1, self)
+        self.rclookahead = IntOption(encoder, "RC Lookahead", "rc-lookahead", -1, 250, 1, self)
         self.rclookahead.spinbox.valueChanged.connect(self.optionchanged.emit)
         self.rclookahead.setToolTip("--rc-lookahead <integer>\n\n"\
             "Number of frames for slice-type decision lookahead (a key determining factor for\n"\
@@ -391,7 +375,7 @@ class SliceDecisionTab(QWidget):
             "Range of values: Between the maximum consecutive bframe count (--bframes) and 250.")
         layout.addWidget(self.rclookahead)
 
-        self.goplookahead = IntOption(encoder, "GOP Lookahead", "gop-lookahead", config, -1, 250, 1, self)
+        self.goplookahead = IntOption(encoder, "GOP Lookahead", "gop-lookahead", -1, 250, 1, self)
         self.goplookahead.spinbox.valueChanged.connect(self.optionchanged.emit)
         self.goplookahead.setToolTip("--gop-lookahead <integer>\n\n"\
             "Number of frames for GOP boundary decision lookahead. If a scenecut frame is\n"\
@@ -420,11 +404,11 @@ class SliceDecisionTab(QWidget):
 class QualityRateControlTab(QWidget):
     optionchanged = pyqtSignal()
 
-    def __init__(self, encoder, config, *args, **kwargs):
+    def __init__(self, encoder, *args, **kwargs):
         super(QualityRateControlTab, self).__init__(*args, **kwargs)
         self.encoder = encoder
-        self.config = config
-        encoderstate = config.getState(encoder)
+        #self.config = config
+        #encoderstate = config.getState(encoder)
 
         layout = QVBoxLayout()
         layout.setSpacing(4)
@@ -433,10 +417,10 @@ class QualityRateControlTab(QWidget):
         self.rateControlSelection = QComboBox(self)
         self.rateControlSelection.addItem("Not set")
         self.rateControlSelection.insertSeparator(1)
-        self.rateControlSelection.addItem("Bitrate")
-        self.rateControlSelection.addItem("CRF")
-        self.rateControlSelection.addItem("QP")
-        self.rateControlSelection.addItem("Lossless")
+        self.rateControlSelection.addItem("Bitrate", 0)
+        self.rateControlSelection.addItem("CRF", 1)
+        self.rateControlSelection.addItem("QP", 2)
+        self.rateControlSelection.addItem("Lossless", 3)
 
         self.bitrateSpinBox = QSpinBox(self)
         self.bitrateSpinBox.setMinimum(200)
@@ -469,23 +453,27 @@ class QualityRateControlTab(QWidget):
         self.qpSpinBox.setFixedWidth(96)
         self.rcSpacer.setFixedWidth(96)
 
-        if "bitrate" in encoderstate:
-            self.rateControlSelection.setCurrentIndex(0)
-            self.bitrateSpinBox.setValue(encoderstate["bitrate"])
+        if encoder.bitrate is not None:
+            idx = self.rateControlSelection.findData(0)
+            self.rateControlSelection.setCurrentIndex(idx)
+            self.bitrateSpinBox.setValue(encoder.bitrate)
             self.bitrateSpinBox.setVisible(True)
 
-        elif "crf" in encoderstate:
-            self.rateControlSelection.setCurrentIndex(1)
-            self.crfSpinBox.setValue(encoderstate["crf"])
+        elif encoder.crf is not None:
+            idx = self.rateControlSelection.findData(1)
+            self.rateControlSelection.setCurrentIndex(idx)
+            self.crfSpinBox.setValue(encoder.crf)
             self.crfSpinBox.setVisible(True)
 
-        elif "qp" in encoderstate:
-            self.rateControlSelection.setCurrentIndex(2)
-            self.qpSpinBox.setValue(encoderstate["qp"])
+        elif encoder.qp is not None:
+            idx = self.rateControlSelection.findData(2)
+            self.rateControlSelection.setCurrentIndex(idx)
+            self.qpSpinBox.setValue(encoder.qp)
             self.qpSpinBox.setVisible(True)
 
-        elif encoderstate.get("lossless"):
-            self.rateControlSelection.setCurrentIndex(3)
+        elif encoder.lossless:
+            idx = self.rateControlSelection.findData(3)
+            self.rateControlSelection.setCurrentIndex(idx)
 
         else:
             self.rateControlSelection.setCurrentIndex(0)
@@ -550,152 +538,103 @@ class QualityRateControlTab(QWidget):
         layout.addStretch()
 
     def onRateControlModeChange(self, index):
-        encoderstate = self.config.getState(self.encoder)
+        data = self.rateControlSelection.currentData()
 
-        if index == 0:
-            if "bitrate" in encoderstate:
-                del encoderstate["bitrate"]
-
-            if "crf" in encoderstate:
-                del encoderstate["crf"]
-
-            if "qp" in encoderstate:
-                del encoderstate["crf"]
-
-            if "lossless" in encoderstate:
-                del encoderstate["lossless"]
-
-            self.crfSpinBox.setHidden(True)
-            self.qpSpinBox.setHidden(True)
-            self.bitrateSpinBox.setHidden(True)
-            self.rcSpacer.setHidden(False)
-
-        if index == 2:
-            encoderstate["bitrate"] = self.bitrateSpinBox.value()
-
-            if "crf" in encoderstate:
-                del encoderstate["crf"]
-
-            if "qp" in encoderstate:
-                del encoderstate["qp"]
-
-            if "lossless" in encoderstate:
-                del encoderstate["lossless"]
+        if data == 0:
+            self.encoder.bitrate = self.bitrateSpinBox.value()
+            self.encoder.crf = None
+            self.encoder.qp = None
+            self.encoder.lossless = None
 
             self.crfSpinBox.setHidden(True)
             self.qpSpinBox.setHidden(True)
             self.rcSpacer.setHidden(True)
             self.bitrateSpinBox.setHidden(False)
 
-        elif index == 3:
-            encoderstate["crf"] = self.crfSpinBox.value()
-
-            if "bitrate" in encoderstate:
-                del encoderstate["bitrate"]
-
-            if "qp" in encoderstate:
-                del encoderstate["qp"]
-
-            if "lossless" in encoderstate:
-                del encoderstate["lossless"]
+        elif data == 1:
+            self.encoder.bitrate = None
+            self.encoder.crf = self.crfSpinBox.value()
+            self.encoder.qp = None
+            self.encoder.lossless = None
 
             self.bitrateSpinBox.setHidden(True)
             self.qpSpinBox.setHidden(True)
             self.rcSpacer.setHidden(True)
             self.crfSpinBox.setHidden(False)
 
-        elif index == 4:
-            encoderstate["qp"] = self.qpSpinBox.value()
-
-            if "crf" in encoderstate:
-                del encoderstate["crf"]
-
-            if "bitrate" in encoderstate:
-                del encoderstate["bitrate"]
-
-            if "lossless" in encoderstate:
-                del encoderstate["lossless"]
+        elif data == 2:
+            self.encoder.bitrate = None
+            self.encoder.crf = None
+            self.encoder.qp = self.qpSpinBox.value()
+            self.encoder.lossless = None
 
             self.bitrateSpinBox.setHidden(True)
             self.crfSpinBox.setHidden(True)
             self.rcSpacer.setHidden(True)
             self.qpSpinBox.setHidden(False)
 
-        elif index == 5:
-            encoderstate["lossless"] = True
-
-            if "crf" in encoderstate:
-                del encoderstate["crf"]
-
-            if "qp" in encoderstate:
-                del encoderstate["qp"]
-
-            if "bitrate" in encoderstate:
-                del encoderstate["bitrate"]
+        elif data == 3:
+            self.encoder.bitrate = None
+            self.encoder.crf = None
+            self.encoder.qp = None
+            self.encoder.lossless = True
 
             self.bitrateSpinBox.setHidden(True)
             self.crfSpinBox.setHidden(True)
             self.qpSpinBox.setHidden(True)
             self.rcSpacer.setHidden(False)
 
+        else:
+            self.encoder.bitrate = None
+            self.encoder.crf = None
+            self.encoder.qp = None
+            self.encoder.lossless = None
+
+            self.crfSpinBox.setHidden(True)
+            self.qpSpinBox.setHidden(True)
+            self.bitrateSpinBox.setHidden(True)
+            self.rcSpacer.setHidden(False)
+
         self.optionchanged.emit()
 
     def setBitrate(self, value):
-        encoderstate = self.config.getState(self.encoder)
-        encoderstate["bitrate"] = value
+        self.encoder.bitrate = value
         self.optionchanged.emit()
 
     def setCRF(self, value):
-        encoderstate = self.config.getState(self.encoder)
-        encoderstate["crf"] = value
+        self.encoder.crf = value
         self.optionchanged.emit()
 
     def setQP(self, value):
-        encoderstate = self.config.getState(self.encoder)
-        encoderstate["qp"] = value
+        self.encoder.qp = value
         self.optionchanged.emit()
 
 class x265ConfigDlg(QDialog):
-    def __init__(self, encoder, config, *args, **kwargs):
+    def __init__(self, encoder, *args, **kwargs):
         super(x265ConfigDlg, self).__init__(*args, **kwargs)
         self.encoder = encoder
-        self.config = config
         self.setFont(QFont("Dejavu Serif", 8))
         self.setWindowTitle("Configure libx265 settings")
         self.setMinimumWidth(540)
 
         layout = QVBoxLayout()
 
-        #self.frameRateLineEdit = QLineEdit()
-        #self.frameRateLineEdit.setFixedWidth(160)
-        #regex = QRegExp(r"^(\d+(?:\.\d+)?|\.\d+|\d+/\d+)$")
-        #validator = QRegExpValidator(regex)
-        #self.frameRateLineEdit.setValidator(validator)
-        #self.frameRateLineEdit.setText(str(config.fps))
-        #self.frameRateLineEdit.textChanged.connect(self.setFrameRate)
-
-        #frameratelayout = QHBoxLayout()
-        #frameratelayout.addWidget(QLabel("Frame Rate"))
-        #frameratelayout.addStretch()
-        #frameratelayout.addWidget(self.frameRateLineEdit)
-        #layout.addLayout(frameratelayout)
-
         self.tabs = QTabWidget(self)
         layout.addWidget(self.tabs)
 
-        self.ratecontrol = QualityRateControlTab(encoder, config, self.tabs)
+        self.ratecontrol = QualityRateControlTab(encoder, self.tabs)
         self.ratecontrol.optionchanged.connect(self.isModified)
-        self.tabs.addTab(self.ratecontrol, "Rate Control")
+        self.tabs.addTab(self.ratecontrol, "Quality/Rate Control")
 
-        self.performance = PerformanceTab(encoder, config, self.tabs)
+        self.performance = PerformanceTab(encoder, self.tabs)
         self.performance.optionchanged.connect(self.isModified)
         self.tabs.addTab(self.performance, "Performance")
 
-        self.modedec = ModeDecisionAnalysisTab(encoder, config, self.tabs)
+        self.modedec = ModeDecisionAnalysisTab(encoder, self.tabs)
         self.modedec.optionchanged.connect(self.isModified)
         self.tabs.addTab(self.modedec, "Mode Decision/Analysis")
 
-        self.sliceDecision= SliceDecisionTab(encoder, config, self.tabs)
+        self.sliceDecision= SliceDecisionTab(encoder, self.tabs)
         self.sliceDecision.optionchanged.connect(self.isModified)
         self.tabs.addTab(self.sliceDecision, "Slice Decision")
 
@@ -1056,7 +995,6 @@ class x265ConfigDlg(QDialog):
         self.isModified()
 
     def applyAndClose(self):
-        #print(self.bitrateSpinBox.value())
         self.done(1)
         self.close()
 

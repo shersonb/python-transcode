@@ -152,36 +152,6 @@ class DropFrames(BaseVideoFilter, set):
         self.update(state.get("dropframes", []))
         super().__setstate__(state)
 
-    #@cached
-    #def QTableColumns(self):
-        #return [DropFrameCol(self)]
-
-#class DropFrameCol(qtable.BaseColumn):
-    #headerdisplay = "D"
-    #display = ""
-    #width = 48
-    #flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
-    #def __init__(self, dropframes):
-        #self.dropframes = dropframes
-    #def setcheckstate(self, obj, data, index):
-        ##print("Check", data)
-        ##print(self.dropframes, self.checkstate(obj, index))
-        #if self.checkstate(obj, index):
-            #self.dropframes.remove(index)
-        #else:
-            #self.dropframes.add(index)
-    #def checkstate(self, obj, index):
-        #return index in self.dropframes
-
-
-
-
-#import codecfactory.jsoncodec
-#import codecfactory.numeralcodecs
-#dropcodec = codecfactory.ListCodec(hook=DropFrames, allowedtype=DropFrames, item_codec=codecfactory.numeralcodecs.intcodec, begin_delim="DropFrames{", end_delim="}")
-
-#dropbincodec = codecfactory.ListCodec(hook=DropFrames, allowedtype=DropFrames, item_codec=codecfactory.numeralcodecs.urealbincodec, prefix=b"df",
-                                                                    #begin_delim=b"\x02", item_delim=b"\x03", end_delim=b"\x02",
-                                                                    #name="Drop Frames Codec", binary=True)
-
-#movie.filters.filterscodec.appendCodec(dropbincodec)
+    def QtTableColumns(self):
+        from transcode.pyqtgui.qdropframes import DropFrameCol
+        return [DropFrameCol(self)]
