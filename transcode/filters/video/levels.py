@@ -8,6 +8,8 @@ import sys
 from scipy.signal import fftconvolve
 from collections import OrderedDict
 from itertools import islice
+import parallel
+import threading
 
 def histogram(A):
     N = numpy.zeros(1024, dtype=numpy.int0)
@@ -20,12 +22,15 @@ def clip(hist, tol=0.00005):
     minclip = tol*s
     maxclip = (1 - tol)*s
     c = hist.cumsum()
-    for nmin in xrange(1024):
+
+    for nmin in range(1024):
         if c[nmin + 1] >= minclip:
             break
-    for nmax in reversed(xrange(1024)):
+
+    for nmax in reversed(range(1024)):
         if c[nmax - 1] <= maxclip:
             break
+
     return (nmin, nmax)
 
 X = Y = numpy.linspace(-3, 3, 7)
@@ -378,7 +383,8 @@ class Zone(zoned.Zone):
             G = self._G[G, k]
             B = self._B[B, k]
 
-        elif self.rmin == self.gmin == self.bmin == 0 and self.rmax == self.gmax == self.bmax == 255 and self.gamma == 1:
+        elif self.rmin == self.gmin == self.bmin == 0 and self.rmax == self.gmax == self.bmax == 255 \
+                and self.rgamma == self.ggamma == self.bgamma == self.gamma == 1:
             """Nothing is actually being done to the frame."""
             return frame
 
@@ -416,16 +422,34 @@ class Zone(zoned.Zone):
     def _calc_pts_time(self, m=None):
         return self.parent.prev.pts_time(m)
 
-    def analyzeFrames(self, frames=None):
-        if frames is None:
-            frames = self.parent.prev.iterFrames(self.prev_start, self.prev_end)
+    def analyzeFrames(self, iterable=None, notifyprogress=None, notifyfinish=None, notifycancelled=None, cancelled=None):
+        if iterable is None:
+            iterable = self.parent.prev.iterFrames(self.prev_start, self.prev_end)
 
         A = numpy.zeros((3, 1024), dtype=numpy.int0)
+        I = parallel.map(analyzeFrame, iterable)
 
-        for H in parallel.map(analyzeFrame, frames):
+        for k, H in enumerate(I):
             A += numpy.int0(H)
 
+            if callable(notifyprogress):
+                notifyprogress(k)
+
+            if isinstance(cancelled, threading.Event) and cancelled.isSet():
+                I.stop()
+                cancelled.clear()
+                self.histogram = A
+
+                if callable(notifycancelled):
+                    notifycancelled()
+
+                return
+
         self.histogram = A
+
+        if callable(notifyfinish):
+            notifyfinish()
+
         return numpy.array(list(map(clip, A)))*0.25
 
 class Levels(zoned.ZonedFilter):
@@ -454,7 +478,11 @@ class Levels(zoned.ZonedFilter):
 
             zone = zone.next
 
-    #@cachable
-    #def QTableColumns(self):
-        #from movie.qlevels import LevelsCol
-        #return [LevelsCol(self)]
+    @property
+    def QtDlgClass(self):
+        from transcode.pyqtgui.qlevels import QLevels
+        return QLevels
+
+    def QtTableColumns(self):
+        from transcode.pyqtgui.qlevels import LevelsCol
+        return [LevelsCol(self)]
