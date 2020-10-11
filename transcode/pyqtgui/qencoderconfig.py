@@ -86,7 +86,6 @@ class QEncoderConfigDlg(QDialog):
                 self.addBoolOption(opt, scrollwidget, scrolllayout)
 
     def addFloatOption(self, opt, parent, layout=None):
-        #encoderstate = self.config.getState(self.encoder)
         hlayout = QHBoxLayout()
 
         if layout is not None:
@@ -115,7 +114,6 @@ class QEncoderConfigDlg(QDialog):
         widget.valueChanged.connect(partial(self.setOption, opt.name))
 
     def addIntOption(self, opt, parent, layout=None):
-        #encoderstate = self.config.getState(self.encoder)
         value = getattr(self.encoder, opt.name)
         hlayout = QHBoxLayout()
 
@@ -169,7 +167,6 @@ class QEncoderConfigDlg(QDialog):
         optenabled.stateChanged.connect(partial(self.setOptionEnabled, opt.name, widget))
 
     def addStrOption(self, opt, parent, layout=None):
-        #encoderstate = self.config.getState(self.encoder)
         value = getattr(self.encoder, opt.name)
 
         hlayout = QHBoxLayout()
@@ -195,7 +192,6 @@ class QEncoderConfigDlg(QDialog):
         widget.textChanged.connect(partial(self.setOption, opt.name))
 
     def addBoolOption(self, opt, parent, layout=None):
-        #encoderstate = self.config.getState(self.encoder)
         value = getattr(self.encoder, opt.name)
         widget = QCheckBox(opt.name, parent)
         widget.setTristate(True)
@@ -205,7 +201,6 @@ class QEncoderConfigDlg(QDialog):
             layout.addWidget(widget)
 
         if value is not None:
-            #value = encoderstate.get(opt.name, opt.default)
             widget.setCheckState(2 if value else 0)
 
         else:
@@ -216,7 +211,6 @@ class QEncoderConfigDlg(QDialog):
 
     @pyqtSlot(str, QWidget, Qt.CheckState)
     def setOptionEnabled(self, option, widget, state):
-        #encoderstate = self.config.getState(self.encoder)
         widget.setEnabled(state == 2)
 
         if state == 2:
@@ -229,7 +223,6 @@ class QEncoderConfigDlg(QDialog):
             elif isinstance(widget, QComboBox):
                 value = widget.currentData()
 
-            #encoderstate[option] = value
             setattr(self.encoder, option, value)
 
         elif state == 0: # and option in encoderstate:
@@ -239,30 +232,23 @@ class QEncoderConfigDlg(QDialog):
         self.isModified()
 
     def setOption(self, option, value):
-        #encoderstate = self.config.getState(self.encoder)
-
         if isinstance(value, Qt.CheckState):
             if value == 0:
-                #encoderstate[option] = False
                 setattr(self.encoder, option, False)
 
             elif value == 1 and getattr(self.encoder, option) is not None:
-                #del encoderstate[option]
                 setattr(self.encoder, option, None)
 
             elif value == 2:
-                #encoderstate[option] = True
                 setattr(self.encoder, option, True)
 
         else:
-            #encoderstate[option] = value
             setattr(self.encoder, option, value)
 
         self.isModified()
 
     def setOptionFromWidget(self, option, widget):
-        #encoderstate = self.config.getState(self.encoder)
-
+        print(option, widget)
         if isinstance(widget, QCheckBox):
             value = widget.checkState()
 
@@ -279,14 +265,10 @@ class QEncoderConfigDlg(QDialog):
         self.isModified()
 
     def setBitrate(self, value):
-        #encoderstate = self.config.getState(self.encoder)
-
         if value:
-            #encoderstate["bitrate"] = value
             self.encoder.bitrate = value
 
         else:
-            #encoderstate["bitrate"] = None
             self.encoder.bitrate = None
 
         self.isModified()

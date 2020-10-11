@@ -220,4 +220,3 @@ class VFilterEditDlg(QDialog):
             self.parent().setEnabled(True)
 
         QDialog.close(self)
-

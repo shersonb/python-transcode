@@ -142,6 +142,7 @@ class QCodecSelection(QWidget):
 
         self.encoderSelectionComboBox.currentIndexChanged.connect(self.encoderSelectionComboBoxChanged)
         self.configBtn.clicked.connect(self.configureCodec)
+        self.configBtn.setEnabled(track.encoder is not None)
 
     def encoderSelectionComboBoxChanged(self, value):
         data = self.encoderSelectionComboBox.currentData()
@@ -161,6 +162,8 @@ class QCodecSelection(QWidget):
             encoder.__setstate__(dlg.encoder.__getstate__())
 
     def setEncoderSelection(self, encoder):
+        self.configBtn.setEnabled(encoder is not None)
+
         if encoder is not None:
             self.savedencoders[id(self.track), encoder.codec] = encoder
 
@@ -192,6 +195,8 @@ class CodecDelegate(QItemDelegate):
     def createEditor(self, parent, option, index):
         track = index.data(Qt.UserRole)
         editor = QCodecSelection(track, self.savedencoders, parent)
+        editor.encoderSelectionComboBox.currentIndexChanged.connect(partial(self.setModelData, editor=editor,
+                                                                            model=index.model(), index=index))
         return editor
 
     def setEditorData(self, editor, index):
@@ -388,51 +393,60 @@ class FiltersCol(BaseOutputTrackCol):
 class OutputListView(QTreeView):
     contentsChanged = pyqtSignal()
 
-    def __init__(self, input_files, filters, output_file, *args, **kwargs):
+    def __init__(self, input_files, filters, output_file=None, *args, **kwargs):
         ### TODO: Include filters
         super().__init__(*args, **kwargs)
         self.input_files = input_files
         self.filters = filters
+        self._dropIndex = None
+        self.setOutputFile(output_file)
+        self.setFont(QFont("DejaVu Serif", 8))
+
+    def setOutputFile(self, output_file=None):
         self.output_file = output_file
 
-        cols = [
-                TitleCol(input_files, filters, output_file),
-                MapCol(input_files, filters, output_file),
-                OutputLangCol(input_files, filters, output_file),
-                OutputCodecCol(input_files, filters, output_file),
-                FiltersCol(input_files, filters, output_file)
-            ]
+        if output_file is not None:
+            cols = [
+                    TitleCol(self.input_files, self.filters, output_file),
+                    MapCol(self.input_files, self.filters, output_file),
+                    OutputLangCol(self.input_files, self.filters, output_file),
+                    OutputCodecCol(self.input_files, self.filters, output_file),
+                    FiltersCol(self.input_files, self.filters, output_file)
+                ]
 
-        if hasattr(output_file, "trackCols") and callable(output_file.trackCols):
-            for col in output_file.trackCols():
-                cols.append(col(input_files, filters, output_file))
+            if hasattr(output_file, "trackCols") and callable(output_file.trackCols):
+                for col in output_file.trackCols():
+                    cols.append(col(self.input_files, self.filters, output_file))
 
-        self.setModel(QObjectItemModel(output_file.tracks, cols))
+            self.setModel(QObjectItemModel(output_file.tracks, cols))
+            self.model().dataChanged.connect(self.contentsChanged)
 
-        for k, col in enumerate(cols):
-            if callable(col.itemDelegate):
-                self.setItemDelegateForColumn(k, col.itemDelegate(self))
+            for k, col in enumerate(cols):
+                if callable(col.itemDelegate):
+                    self.setItemDelegateForColumn(k, col.itemDelegate(self))
 
-        self.setItemsExpandable(False)
-        self.setIndentation(0)
-        self.setMinimumWidth(640)
-        self.setDragEnabled(True)
-        self.setAcceptDrops(True)
-        self.viewport().setAcceptDrops(True)
-        self.setDefaultDropAction(Qt.MoveAction)
-        self.setDragDropMode(QTableView.DragDrop)
-        self.setDragDropOverwriteMode(False)
-        self.setDropIndicatorShown(True)
-        self._dropIndex = None
-        #self.currentIndexChanged.connect(self.currentRowChanged)
+            self.setItemsExpandable(False)
+            self.setIndentation(0)
+            self.setMinimumWidth(640)
+            self.setDragEnabled(True)
+            self.setAcceptDrops(True)
+            self.viewport().setAcceptDrops(True)
+            self.setDefaultDropAction(Qt.MoveAction)
+            self.setDragDropMode(QTableView.DragDrop)
+            self.setDragDropOverwriteMode(False)
+            self.setDropIndicatorShown(True)
+            #self.currentIndexChanged.connect(self.currentRowChanged)
 
-        for k, col in enumerate(cols):
-            if hasattr(col, "width"):
-                self.setColumnWidth(k, col.width)
-        #for j in range(self.model().rowCount()):
-            #for k in (2, 3):
-                #index = self.model().index(j, k)
-                #self.openPersistentEditor(index)
+            for k, col in enumerate(cols):
+                if hasattr(col, "width"):
+                    self.setColumnWidth(k, col.width)
+            #for j in range(self.model().rowCount()):
+                #for k in (2, 3):
+                    #index = self.model().index(j, k)
+                    #self.openPersistentEditor(index)
+
+        else:
+            self.setModel(QObjectItemModel([], []))
 
     def currentChanged(self, newindex, oldindex):
         if oldindex.isValid():
