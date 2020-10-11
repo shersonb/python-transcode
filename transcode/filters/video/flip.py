@@ -1,26 +1,20 @@
 #!/usr/bin/python
 import numpy
 from .base import BaseVideoFilter
+from ...avarrays import toNDArray, toVFrame
 from av.video import VideoFrame
 
 class HFlip(BaseVideoFilter):
     def _processFrames(self, iterable):
         for frame in iterable:
             if frame.format.name == "rgb24":
-                A = frame.to_ndarray()
-                B = A[:,::-1].copy("C")
+                A = toNDArray(frame)
+                newframe = toVFrame(A[:, ::-1], frame.format.name)
 
             elif frame.format.name == "yuv420p":
-                A = frame.to_ndarray()
-                Y = A[:frame.height]
-                U = A[frame.height:frame.height*5//4].reshape(frame.height//2, frame.width//2)
-                V = A[frame.height*5//4:].reshape(frame.height//2, frame.width//2)
-                Y = Y[:,::-1]
-                U = U[:,::-1].reshape(frame.height//4, frame.width)
-                V = V[:,::-1].reshape(frame.height//4, frame.width)
-                B = numpy.concatenate((Y, U, V), axis=0).copy("C")
+                Y, U, V = toNDArray(frame)
+                newframe = toVFrame((Y[:, ::-1], U[:, ::-1], V[:, ::-1]), frame.format.name)
 
-            newframe = VideoFrame.from_ndarray(B, format=frame.format.name)
             newframe.pts = frame.pts
             newframe.time_base = frame.time_base
             newframe.pict_type = frame.pict_type
@@ -30,20 +24,13 @@ class VFlip(BaseVideoFilter):
     def _processFrames(self, iterable):
         for frame in iterable:
             if frame.format.name == "rgb24":
-                A = frame.to_ndarray()
-                B = A[::-1].copy("C")
+                A = toNDArray(frame)
+                newframe = toVFrame(A[::-1], frame.format.name)
 
             elif frame.format.name == "yuv420p":
-                A = frame.to_ndarray()
-                Y = A[:frame.height]
-                U = A[frame.height:frame.height*5//4].reshape(frame.height//2, frame.width//2)
-                V = A[frame.height*5//4:].reshape(frame.height//2, frame.width//2)
-                Y = Y[::-1]
-                U = U[::-1].reshape(frame.height//4, frame.width)
-                V = V[::-1].reshape(frame.height//4, frame.width)
-                B = numpy.concatenate((Y, U, V), axis=0).copy("C")
+                Y, U, V = toNDArray(frame)
+                newframe = toVFrame((Y[::-1], U[::-1], V[::-1]), frame.format.name)
 
-            newframe = VideoFrame.from_ndarray(B, format=frame.format.name)
             newframe.pts = frame.pts
             newframe.time_base = frame.time_base
             newframe.pict_type = frame.pict_type
