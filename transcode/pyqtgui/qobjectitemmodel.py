@@ -7,9 +7,11 @@ from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxL
                              QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView, QHeaderView,
                              QLineEdit, QComboBox, QFileDialog, QCheckBox, QDoubleSpinBox, QItemDelegate, QComboBox)
 from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush
-from transcode.util import NewConfig
 
 import traceback
+import threading
+_cookies = {}
+_cookie_lock = threading.Lock()
 
 class QObjectItemModel(QAbstractItemModel):
     ROLEMAPPING = {
@@ -183,8 +185,11 @@ class QObjectItemModel(QAbstractItemModel):
             else:
                 items2 = self.items
 
+            if srcparent is destparent and newposition > position:
+                newposition -= 1
+
             item = items1.pop(position)
-            items2.insert(newposition - 1 if newposition > position else newposition, item)
+            items2.insert(newposition, item)
             self.endMoveRows()
 
         return True
@@ -258,19 +263,57 @@ class QObjectItemModel(QAbstractItemModel):
 
         return True
 
-    #def canDropMimeData(self, data, action, row, col, parent):
-        #return True
-        #print((data, action, row, col, parent))
-        #ret = super().canDropMimeData(data, action, row, col, parent)
-        #ret = (row >= 0) and (col >= 0)
-        #print(ret)
-        #return ret
+    def getCookie(self, index):
+        item = index.data(Qt.UserRole)
+        cookie = f"0x{id(self):012x},0x{id(item):012x}"
 
-    #def dropMimeData(self, data, action, row, col, parent):
-        #print("drop", (data, action, row, col, parent))
-        #ret = super().dropMimeData(data, action, row, col, parent)
-        #print(ret)
-        #return ret
+        with _cookie_lock:
+            _cookies[cookie] = item
 
-    #def supportedDropActions(self):
-        #return Qt.CopyAction | Qt.MoveAction
+        return cookie
+
+    def mimeData(self, indexes):
+        data = QMimeData()
+
+        try:
+            data.setData("application/x-qabstractitemmodeldatalist",
+                     b";".join(self.getCookie(index).encode("utf8") for index in indexes))
+
+        except:
+            pass
+
+        return data
+
+    def dropMimeData(self, data, action, row, column, parent):
+        cookies = data.data("application/x-qabstractitemmodeldatalist")
+        items = []
+
+        with _cookie_lock:
+            for cookie in bytes(cookies).decode("utf8").split(";"):
+                if cookie in _cookies.keys():
+                    items.append(_cookies[cookie])
+
+        return self.dropItems(items, action, row, column, parent)
+
+    def findIndex(self, item):
+        return QModelIndex()
+
+    def dropItems(self, items, action, row, column, parent):
+        return False
+
+    def canDropMimeData(self, data, action, row, column, parent):
+        cookies = data.data("application/x-qabstractitemmodeldatalist")
+        items = []
+
+        with _cookie_lock:
+            for cookie in bytes(cookies).decode("utf8").split(";"):
+                if cookie in _cookies.keys():
+                    items.append(_cookies[cookie])
+
+        ret = self.canDropItems(items, action, row, column, parent)
+        print(items, parent.internalPointer(), ret)
+        return ret
+
+    def canDropItems(self, items, action, row, column, parent):
+        return False
+

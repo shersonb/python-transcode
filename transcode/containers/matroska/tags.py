@@ -1,5 +1,5 @@
 import matroska.tags
-import transcode.util
+from transcode.util import ChildList
 from collections import OrderedDict, UserList
 import os
 
@@ -14,7 +14,16 @@ class SimpleTag(object):
         self.default = default
         self.string = string
         self.binary = binary
-        self.subtags = list(subtags)
+        self.subtags = subtags
+        self.parent = parent
+
+    @property
+    def subtags(self):
+        return self._subtags
+
+    @subtags.setter
+    def subtags(self, value):
+        self._subtags = ChildList(value, self)
 
     def prepare(self, level=0, logfile=None):
         if self.string and self.binary:
@@ -72,13 +81,21 @@ class BaseTag(object):
     from copy import deepcopy as copy
     type = None
     typeValue = None
-    simpletags = []
 
     def __init__(self, tracks=[], editions=[], chapters=[], attachments=[]):
         self.tracks = list(tracks)
         self.editions = list(editions)
         self.chapters = list(chapters)
         self.attachments = list(attachments)
+        self.simpletags = []
+
+    @property
+    def simpletags(self):
+        return self._simpletags
+
+    @simpletags.setter
+    def simpletags(self, value):
+        self._simpletags = ChildList(value, self)
 
     def __reduce__(self):
         return self.__class__, (), self.__getstate__()
@@ -132,7 +149,7 @@ class Tag(BaseTag):
                  tracks=[], editions=[], chapters=[], attachments=[]):
         self.typeValue = typeValue
         self.type = type
-        self.simpletags = list(simpletags)
+        self.simpletags = simpletags
         super().__init__(tracks, editions, chapters, attachments)
 
     def __getstate__(self):
@@ -349,8 +366,7 @@ class MovieTag(BaseTag):
         self.comment = state.get("comment")
         super().__setstate__(state)
 
-
-class Tags(transcode.util.ChildList):
+class Tags(ChildList):
     def prepare(self, logfile=None):
         print("--- Tags ---", file=logfile)
         return matroska.tags.Tags([attachment.prepare(logfile) for attachment in self])

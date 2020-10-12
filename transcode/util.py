@@ -96,6 +96,8 @@ class Packet(object):
         return f"Packet(pts={self.pts}, duration={self.duration}, size={self.size}, keyframe={self.keyframe}, track_index={self.track_index})"
 
 class ChildList(collections.UserList):
+    from copy import deepcopy as copy
+
     def __init__(self, items=[], parent=None):
         self.data = list(items)
         self.parent = parent
@@ -571,3 +573,4 @@ class WorkaheadIterator(object):
 
         except queue.Empty:
             pass
+
