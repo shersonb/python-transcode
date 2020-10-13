@@ -37,30 +37,34 @@ class QObjectItemModel(QAbstractItemModel):
         self.columns = columns
         self.vheader = vheader
         self._parents = {}
+        self._itemsgetters = {}
 
     def rowCount(self, parent=QModelIndex()):
-        if parent.isValid():
-            ptr = parent.internalPointer()
-
-            try:
-                return len(ptr)
-
-            except:
-                return 0
-
-        return len(self.items)
+        return len(self.getItems(parent))
 
     def columnCount(self, parent=QModelIndex()):
         return len(self.columns)
 
-    def index(self, row, column, parent=None):
-        if parent and parent.isValid():
-            parent_obj = parent.internalPointer()
+    def getItems(self, parent):
+        if parent.isValid():
+            parent_obj = parent.data(Qt.UserRole)
 
-        else:
-            parent_obj = self.items
+            try:
+                return parent_obj.items
 
-        items = parent_obj
+            except:
+                return None
+
+        return self.items
+
+    def parentObject(self, obj):
+        if obj in self.items:
+            return self.items
+
+        return obj.parent
+
+    def index(self, row, column, parent=QModelIndex()):
+        items = self.getItems(parent)
 
         try:
             item = items[row]
@@ -68,10 +72,6 @@ class QObjectItemModel(QAbstractItemModel):
         except:
             return QModelIndex()
 
-        if id(item) in self._parents and self._parents[id(item)] is not parent_obj:
-            raise ValueError()
-
-        self._parents[id(item)] = parent_obj
 
         if isinstance(item, (int, str, float, complex)):
             return QAbstractItemModel.createIndex(self, row, column)
@@ -79,20 +79,10 @@ class QObjectItemModel(QAbstractItemModel):
         return QAbstractItemModel.createIndex(self, row, column, item)
 
     def parent(self, in_index):
-        if in_index.isValid():  
+        if in_index.isValid():
             item = in_index.internalPointer()
-
-            if item is None:
-                return QModelIndex()
-
-            parent = self._parents[id(item)]
-
-            if parent is self.items:
-                return QModelIndex()
-
-            grandparent = self._parents[id(parent)]
-
-            return QAbstractItemModel.createIndex(self, grandparent.index(parent), 0, parent)
+            parent_obj = self.parentObject(item)
+            return self.findIndex(parent_obj)
 
         return QModelIndex()
 
@@ -173,19 +163,10 @@ class QObjectItemModel(QAbstractItemModel):
 
     def moveRow(self, position, newposition, srcparent=QModelIndex(), destparent=QModelIndex()):
         if self.beginMoveRows(srcparent, position, position, destparent, newposition):
-            if srcparent.isValid():
-                items1 = srcparent.internalPointer()
+            items1 = self.getItems(srcparent)
+            items2 = self.getItems(destparent)
 
-            else:
-                items1 = self.items
-
-            if destparent.isValid():
-                items2 = destparent.internalPointer()
-
-            else:
-                items2 = self.items
-
-            if srcparent is destparent and newposition > position:
+            if items1 is items2 and newposition > position:
                 newposition -= 1
 
             item = items1.pop(position)
@@ -195,17 +176,9 @@ class QObjectItemModel(QAbstractItemModel):
         return True
 
     def insertRow(self, row_id, row, parent=QModelIndex()):
-        if parent.isValid():
-            items = parent.internalPointer()
-
-        else:
-            items = self.items
-
+        items = self.getItems(parent)
         self.beginInsertRows(parent, row_id, row_id)
-
         items.insert(row_id, row)
-
-        self._parents[id(row)] = items
         self.endInsertRows()
         return True
 
@@ -216,16 +189,16 @@ class QObjectItemModel(QAbstractItemModel):
         return True
 
     def removeRow(self, row_id, parent=QModelIndex()):
-        if parent.isValid():
-            items = parent.internalPointer()
-
-        else:
-            items = self.items
-
+        items = self.getItems(parent)
         self.beginRemoveRows(parent, row_id, row_id)
+        item = items[row_id]
+        cookie = f"0x{id(self):012x},0x{id(item):012x}"
+
+        with _cookie_lock:
+            if cookie in _cookies:
+                del _cookies[cookie]
 
         del items[row_id]
-
         self.endRemoveRows()
         return True
 
@@ -249,19 +222,10 @@ class QObjectItemModel(QAbstractItemModel):
 
                 return col_obj.flags
 
-        return Qt.ItemFlags(0)
+        return Qt.ItemIsDropEnabled
 
     def hasChildren(self, index):
-        if index.isValid():
-            ptr = index.internalPointer()
-
-            try:
-                return hasattr(ptr, "__iter__")
-
-            except:
-                return False
-
-        return True
+        return self.getItems(index) is not None and len(self.getItems(index))
 
     def getCookie(self, index):
         item = index.data(Qt.UserRole)
@@ -275,9 +239,16 @@ class QObjectItemModel(QAbstractItemModel):
     def mimeData(self, indexes):
         data = QMimeData()
 
+        cookies = []
+
+        for index in indexes:
+            cookie = self.getCookie(index)
+
+            if cookie not in cookies:
+                cookies.append(cookie)
+
         try:
-            data.setData("application/x-qabstractitemmodeldatalist",
-                     b";".join(self.getCookie(index).encode("utf8") for index in indexes))
+            data.setData("application/x-qabstractitemmodeldatalist", ";".join(cookies).encode("utf8"))
 
         except:
             pass
@@ -296,7 +267,16 @@ class QObjectItemModel(QAbstractItemModel):
         return self.dropItems(items, action, row, column, parent)
 
     def findIndex(self, item):
-        return QModelIndex()
+        if item is self.items:
+            return QModelIndex()
+
+        if item in self.items:
+            return self.index(self.items.index(item), 0)
+
+        parent = self.parentObject(item)
+        parent_index = self.findIndex(parent)
+        siblings = self.getItems(parent)
+        return parent_index.child(siblings.index(item), 0)
 
     def dropItems(self, items, action, row, column, parent):
         return False
@@ -310,10 +290,18 @@ class QObjectItemModel(QAbstractItemModel):
                 if cookie in _cookies.keys():
                     items.append(_cookies[cookie])
 
-        ret = self.canDropItems(items, action, row, column, parent)
-        print(items, parent.internalPointer(), ret)
-        return ret
+        return self.canDropItems(items, action, row, column, parent)
 
     def canDropItems(self, items, action, row, column, parent):
         return False
 
+    def clearCookies(self):
+        prefix = f"0x{id(self):012x},"
+
+        with _cookie_lock:
+            for key in list(_cookies.keys()):
+                if key.startswith(prefix):
+                    del _cookies[key]
+
+    def __del__(self):
+        self.clearCookies()

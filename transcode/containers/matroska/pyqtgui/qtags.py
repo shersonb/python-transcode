@@ -6,12 +6,15 @@ from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractT
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxLayout, QHBoxLayout,
                              QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView, QHeaderView, QSpinBox,
-                             QLineEdit, QComboBox, QFileDialog, QCheckBox, QDoubleSpinBox, QItemDelegate, QComboBox)
+                             QLineEdit, QComboBox, QFileDialog, QCheckBox, QDoubleSpinBox, QItemDelegate,
+                             QMenu, QAction)
 from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QRegExpValidator
 
 from transcode.pyqtgui.qobjectitemmodel import QObjectItemModel, _cookie_lock, _cookies
 from ..tags import Tag, Tags, SimpleTag
 from transcode.pyqtgui.qlangselect import LanguageDelegate, LANGUAGES
+from titlecase import titlecase
+from functools import partial
 
 class TagItemModel(QObjectItemModel):
     def rowCount(self, parent=QModelIndex()):
@@ -86,7 +89,7 @@ class TagItemModel(QObjectItemModel):
             elif isinstance(items1, SimpleTag):
                 item = items1.subtags.pop(position)
 
-            if srcparent is destparent and newposition > position:
+            if items1 is items2 and newposition > position:
                 newposition -= 1
 
             if isinstance(items2, Tags):
@@ -141,7 +144,7 @@ class TagItemModel(QObjectItemModel):
         elif isinstance(items, Tag):
             items.simpletags.insert(row_id, item)
 
-        elif isinstance(items1, SimpleTag):
+        elif isinstance(items, SimpleTag):
             items.subtags.insert(row_id, item)
 
         self.endInsertRows()
@@ -205,11 +208,8 @@ class TagItemModel(QObjectItemModel):
         return QModelIndex()
 
     def dropItems(self, items, action, row, column, parent):
-        if self.rowCount(parent) == 0:
-            row = 0
-
-        else:
-            row %= self.rowCount(parent)
+        if row == -1:
+            row = self.rowCount(parent)
 
         parent_obj = parent.data(Qt.UserRole)
 
@@ -227,7 +227,7 @@ class TagItemModel(QObjectItemModel):
 
                 self.moveRow(old_row, row + k - j, old_parent, parent)
 
-                if old_parent is parent and old_row < row:
+                if old_parent.data(Qt.UserRole) is parent.data(Qt.UserRole) and old_row < row:
                     j += 1
 
             if isinstance(item, Tag):
@@ -260,6 +260,65 @@ class TagItemModel(QObjectItemModel):
     def supportedDropActions(self):
         return Qt.MoveAction
 
+TYPES = [
+        ("COLLECTION", 70),
+        ("EDITION", 60),
+        ("ISSUE", 60),
+        ("VOLUME", 60),
+        ("OPUS", 60),
+        ("SEASON", 60),
+        ("SEQUEL", 60),
+        ("VOLUME", 60),
+        ("ALBUM", 50),
+        ("OPERA", 50),
+        ("CONCERT", 50),
+        ("MOVIE", 50),
+        ("EPISODE", 50),
+        ("PART", 40),
+        ("SESSION", 40),
+        ("TRACK", 30),
+        ("SONG", 30),
+        ("CHAPTER", 30),
+        ("SUBTRACK", 20),
+        ("PART", 20),
+        ("MOVEMENT", 20),
+        ("SCENE", 20),
+        ("SHOT", 10)
+    ]
+
+class NewTagDlg(QDialog):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        self.typeLabel = QLabel("Tag Type:", self)
+        self.typeComboBox = QComboBox(self)
+
+        for (t, tValue) in TYPES:
+            self.typeComboBox.addItem(f"{titlecase(t)} ({tValue})", (t, tValue))
+
+        sublayout = QHBoxLayout()
+        sublayout.addWidget(self.typeLabel)
+        sublayout.addWidget(self.typeComboBox)
+        sublayout.addStretch()
+        layout.addLayout(sublayout)
+
+        sublayout = QHBoxLayout()
+        self.okayBtn = QPushButton("&OK", self)
+        self.okayBtn.clicked.connect(self.applyAndClose)
+        self.cancelBtn = QPushButton("&Cancel", self)
+        self.cancelBtn.clicked.connect(self.close)
+        sublayout.addStretch()
+
+        sublayout.addWidget(self.okayBtn)
+        sublayout.addWidget(self.cancelBtn)
+        layout.addLayout(sublayout)
+
+    def applyAndClose(self):
+        self.done(1)
+        self.close()
+
 class BaseColumn(object):
     checkstate = None
     fontmain = None
@@ -291,12 +350,94 @@ class BaseColumn(object):
         return partial(self.createContextMenu, obj=obj, index=index)
 
     def createContextMenu(self, table, index, obj):
-        return None
+        menu = QMenu(table)
+
+        if isinstance(obj, Tag):
+            newAtBottom = QAction("&New Tag...", table,
+                                  triggered=partial(self.newTag, table=table, model=index.model()))
+
+            insertAbove = QAction("&Insert Tag Before...", table,
+                                  triggered=partial(self.newTag, table=table, row_id=index.row(), model=index.model()))
+
+
+            newSimpleTag = QAction("&New SimpleTag", table,
+                                    triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model()))
+
+            menu.addAction(newAtBottom)
+            menu.addAction(insertAbove)
+            menu.addAction(newSimpleTag)
+
+
+        if isinstance(obj, SimpleTag):
+            if isinstance(obj.parent, Tag):
+                row_id = obj.parent.simpletags.index(obj)
+
+            elif isinstance(obj.parent, SimpleTag):
+                row_id = obj.parent.subtags.index(obj)
+
+            insertSimpleTag = QAction("&Insert SimpleTag Before", table,
+                        triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model(), row_id=row_id))
+
+            appendSimpleTag = QAction("&Add SimpleTag at end", table,
+                        triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model()))
+
+            insertChildSimpleTag = QAction("&Add child SimpleTag", table,
+                        triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model()))
+
+            menu.addAction(insertSimpleTag)
+            menu.addAction(appendSimpleTag)
+            menu.addAction(insertChildSimpleTag)
+
+
+        delete = QAction("&Delete Selected...", table,
+                                triggered=partial(self.deleteTag, table=table, model=index.model()))
+        menu.addAction(delete)
+
+        if len(table.selectedIndexes()):
+            delete.setEnabled(len(table.selectedIndexes()) > 0)
+
+        return menu
+
+    def newTag(self, table, model, row_id=-1):
+        dlg = NewTagDlg(table)
+
+        if dlg.exec_():
+            type, typeValue = dlg.typeComboBox.currentData()
+            tag = Tag(typeValue, type)
+
+            if row_id == -1:
+                row_id = model.rowCount(QModelIndex())
+
+            model.insertRow(row_id, tag)
+
+    def newSimpleTag(self, table, model, parent, row_id=-1):
+        if row_id == -1:
+            row_id = model.rowCount(parent)
+
+        tag = SimpleTag("")
+        model.insertRow(row_id, tag, parent)
+
+    def deleteTag(self, table, model):
+        answer = QMessageBox.question(table, "Delete tags", "Do you wish to delete the selected tags? Any child tags will also be lost!", QMessageBox.Yes | QMessageBox.No)
+
+        if answer == QMessageBox.Yes:
+            selected = {index.data(Qt.UserRole) for index in table.selectedIndexes()}
+
+            for tag in selected.copy():
+                index = model.findIndex(tag)
+
+                if index.isValid():
+                    model.removeRow(index.row(), index.parent())
+
+    def flags(self, index, obj):
+        if isinstance(obj, SimpleTag):
+            return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+
+        return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
 
 class NameCol(BaseColumn):
     width = 256
     headerdisplay = "Tag"
-    flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
 
     def editdata(self, index, obj):
         if isinstance(obj, Tag):
@@ -343,12 +484,6 @@ class LangCol(BaseColumn):
     def itemDelegate(self, parent):
         return LanguageDelegate(parent)
 
-    def flags(self, index, obj):
-        if isinstance(obj, SimpleTag):
-            return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
-
-        return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
-
 class ValueCol(BaseColumn):
     headerdisplay = "Value"
 
@@ -364,6 +499,17 @@ class ValueCol(BaseColumn):
 
         elif isinstance(obj, SimpleTag):
             return obj.string
+
+    def seteditdata(self, index, obj, value):
+        if isinstance(obj, Tag):
+            return None
+
+        elif isinstance(obj, SimpleTag):
+            if isinstance(value, str):
+                obj.string = value
+
+            elif isinstance(value, bytes):
+                obj.data -= value
 
     def display(self, index, obj):
         return self.editdata(index, obj) or ""
@@ -404,4 +550,14 @@ class TagTree(QTreeView):
 
             if hasattr(col, "itemDelegate") and callable(col.itemDelegate):
                 self.setItemDelegateForColumn(k, col.itemDelegate(self))
+
+    def contextMenuEvent(self, event):
+        selected = self.currentIndex()
+        menu = self.model().data(selected, role=Qt.UserRole + 1)
+
+        if callable(menu):
+            menu = menu(self)
+
+        if isinstance(menu, QMenu):
+            menu.exec_(self.mapToGlobal(event.pos()))
 

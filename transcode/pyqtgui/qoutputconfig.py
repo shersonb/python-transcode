@@ -1,18 +1,38 @@
-from .qoutputtracklist import OutputListView
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QLineEdit, QFileDialog, QDialog, QCheckBox, QDoubleSpinBox
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from .qoutputtracklist import OutputTrackList
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
+                             QLineEdit, QFileDialog, QDialog, QCheckBox, QDoubleSpinBox)
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt
 from PyQt5.QtGui import QIcon
 import os
+
+class QCheckBoxMatchHeight(QCheckBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._hwidget = None
+
+    def sizeHint(self):
+        sh = super().sizeHint()
+
+        if isinstance(self._hwidget, QWidget):
+            other = self._hwidget.sizeHint()
+            sh.setHeight(other.height())
+
+        return sh
+
+    def setHeightMatch(self, widget):
+        self._hwidget = widget
+        self.updateGeometry()
 
 class QOutputConfig(QWidget):
     modified = pyqtSignal()
 
-    def __init__(self, input_files, filters, output_file=None, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
-        self.trackTable = OutputListView(input_files, filters, None, self)
+        self.trackTable = OutputTrackList(self)
         self.trackTable.contentsChanged.connect(self.isModified)
         layout.addWidget(self.trackTable)
 
@@ -40,12 +60,15 @@ class QOutputConfig(QWidget):
         layout.addLayout(sublayout)
 
         sublayout = QHBoxLayout()
-        self.targetSizeCheckBox = QCheckBox("&Target File Size (Overrides settings in video encoder)", self)
+        self.targetSizeCheckBox = QCheckBoxMatchHeight("&Target File Size (Overrides settings in video encoder)", self)
+
         self.targetSizeSpinBox = QDoubleSpinBox(self)
         self.targetSizeSpinBox.setMinimum(1)
         self.targetSizeSpinBox.setDecimals(3)
         self.targetSizeSpinBox.setMaximum(65536)
         self.targetSizeSpinBox.setSuffix(" MB")
+
+        self.targetSizeCheckBox.setHeightMatch(self.targetSizeSpinBox)
 
         self.targetSizeCheckBox.stateChanged.connect(self.setTargetSizeMode)
         self.targetSizeSpinBox.valueChanged.connect(self.setTargetSize)
@@ -59,51 +82,52 @@ class QOutputConfig(QWidget):
         self.settingsBtn = QPushButton("Con&figure Container...", self)
         self.settingsBtn.setIcon(QIcon.fromTheme("preferences-other"))
 
-        self.okayBtn = QPushButton("&OK", self)
-        self.applyBtn = QPushButton("&Apply", self)
-        self.resetBtn = QPushButton("&Reset", self)
-        self.resetBtn.clicked.connect(self.reset)
-        self.closeBtn = QPushButton("&Close", self)
+        #self.okayBtn = QPushButton("&OK", self)
+        #self.applyBtn = QPushButton("&Apply", self)
+        #self.resetBtn = QPushButton("&Reset", self)
+        #self.resetBtn.clicked.connect(self.reset)
+        #self.closeBtn = QPushButton("&Close", self)
 
         self.btnlayout = QHBoxLayout()
         self.btnlayout.addWidget(self.settingsBtn)
         self.btnlayout.addStretch()
-        self.btnlayout.addWidget(self.okayBtn)
-        self.btnlayout.addWidget(self.applyBtn)
-        self.btnlayout.addWidget(self.resetBtn)
-        self.btnlayout.addWidget(self.closeBtn)
+        #self.btnlayout.addWidget(self.okayBtn)
+        #self.btnlayout.addWidget(self.applyBtn)
+        #self.btnlayout.addWidget(self.resetBtn)
+        #self.btnlayout.addWidget(self.closeBtn)
         layout.addLayout(self.btnlayout)
 
-        self.setOutputFile(output_file)
+        #if output_file is not None:
+        self.setOutputFile(None)
 
     def setOutputTitle(self, title):
-        self._output_file_copy.title = title
+        output_file.title = title
         self.isModified()
 
     def setOutputPath(self, path):
-        self._output_file_copy.outputpathrel = path
+        output_file.outputpathrel = path
         self.isModified()
 
     def setTargetSize(self, value):
-        self._output_file_copy.targetsize = value*1024**2
+        output_file.targetsize = value*1024**2
         self.isModified()
 
     def setTargetSizeMode(self, flag):
         self.targetSizeSpinBox.setVisible(flag)
 
         if flag:
-            self._output_file_copy.targetsize = self.targetSizeSpinBox.value()*1024**2
+            output_file.targetsize = self.targetSizeSpinBox.value()*1024**2
 
         else:
-            self._output_file_copy.targetsize = None
+            output_file.targetsize = None
 
         self.isModified()
 
     def execBrowseDlg(self):
-        filters = f"{self._output_file_copy.fmtname} Files ({' '.join(f'*{ext}' for ext in self._output_file_copy.extensions)})"
+        filters = f"{output_file.fmtname} Files ({' '.join(f'*{ext}' for ext in output_file.extensions)})"
 
-        if self._output_file_copy.config and self._output_file_copy.config.workingdir:
-            fileName = os.path.join(self._output_file_copy.config.workingdir, self.fileEdit.text())
+        if output_file.config and output_file.config.workingdir:
+            fileName = os.path.join(output_file.config.workingdir, self.fileEdit.text())
 
         else:
             fileName = self.fileEdit.text()
@@ -112,11 +136,11 @@ class QOutputConfig(QWidget):
                 fileName, filters)
 
         if fileName:
-            if self._output_file_copy.config and self._output_file_copy.config.workingdir:
-                fileName = os.path.join(self._output_file_copy.config.workingdir, fileName)
+            if output_file.config and output_file.config.workingdir:
+                fileName = os.path.join(output_file.config.workingdir, fileName)
 
-                if not os.path.relpath(fileName, self._output_file_copy.config.workingdir).startswith("../"):
-                    fileName = os.path.relpath(fileName, self._output_file_copy.config.workingdir)
+                if not os.path.relpath(fileName, output_file.config.workingdir).startswith("../"):
+                    fileName = os.path.relpath(fileName, output_file.config.workingdir)
 
             self.fileEdit.setText(fileName)
 
@@ -126,53 +150,50 @@ class QOutputConfig(QWidget):
 
     def isModified(self):
         self._modified = True
-        self.okayBtn.setEnabled(True)
-        self.applyBtn.setEnabled(True)
-        self.resetBtn.setEnabled(True)
-        self.closeBtn.setText("&Cancel")
+        #self.okayBtn.setEnabled(True)
+        #self.applyBtn.setEnabled(True)
+        #self.resetBtn.setEnabled(True)
+        #self.closeBtn.setText("&Cancel")
         self.modified.emit()
 
     def notModified(self):
         self._modified = True
-        self.okayBtn.setEnabled(False)
-        self.applyBtn.setEnabled(False)
-        self.resetBtn.setEnabled(False)
-        self.closeBtn.setText("&Close")
+        #self.okayBtn.setEnabled(False)
+        #self.applyBtn.setEnabled(False)
+        #self.resetBtn.setEnabled(False)
+        #self.closeBtn.setText("&Close")
 
     def setOutputFile(self, output_file=None):
         self.notModified()
-        self._output_file = output_file
+        self.output_file = output_file
 
         if output_file is not None:
-            self._output_file_copy = output_file.copy()
-            self._output_file_copy.config = output_file.config
-            self.trackTable.setOutputFile(self._output_file_copy)
+            self.trackTable.setOutputFile(output_file)
 
             self.titleEdit.blockSignals(True)
-            self.titleEdit.setText(self._output_file_copy.title or "")
+            self.titleEdit.setText(output_file.title or "")
             self.titleEdit.blockSignals(False)
 
             self.fileEdit.blockSignals(True)
-            self.fileEdit.setText(self._output_file_copy.outputpathrel or "")
+            self.fileEdit.setText(output_file.outputpathrel or "")
             self.fileEdit.blockSignals(False)
 
             self.targetSizeCheckBox.blockSignals(True)
-            self.targetSizeCheckBox.setCheckState(2 if self._output_file_copy.targetsize is not None else 0)
+            self.targetSizeCheckBox.setCheckState(2 if output_file.targetsize is not None else 0)
             self.targetSizeCheckBox.blockSignals(False)
 
-            self.targetSizeSpinBox.setHidden(self._output_file_copy.targetsize is None)
+            self.targetSizeSpinBox.setHidden(output_file.targetsize is None)
 
-            if self._output_file_copy.targetsize:
+            if output_file.targetsize:
                 self.targetSizeSpinBox.blockSignals(True)
-                self.targetSizeSpinBox.setValue(self._output_file_copy.targetsize/1024**2)
+                self.targetSizeSpinBox.setValue(output_file.targetsize/1024**2)
                 self.targetSizeSpinBox.blockSignals(False)
 
             self.browseBtn.setEnabled(True)
 
-            self.settingsBtn.setEnabled(hasattr(self._output_file_copy, "QtDlgClass") and self._output_file_copy.QtDlgClass is not None)
+            self.settingsBtn.setEnabled(hasattr(output_file, "QtDlgClass") and output_file.QtDlgClass is not None)
 
         else:
-            self._output_file_copy = None
             self.trackTable.setOutputFile(None)
             self.settingsBtn.setEnabled(False)
             self.browseBtn.setEnabled(False)
@@ -182,8 +203,8 @@ class QOutputConfig(QWidget):
             self.targetSizeCheckBox.blockSignals(False)
             self.targetSizeSpinBox.setHidden(True)
 
-    def reset(self):
-        self.setOutputFile(self._output_file)
+    #def reset(self):
+        #self.setOutputFile(self._output_file)
 
 class QOutputConfigDlg(QDialog):
     def __init__(self, input_files, filters, output_file=None, *args, **kwargs):

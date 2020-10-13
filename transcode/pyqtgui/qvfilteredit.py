@@ -134,7 +134,6 @@ class VFilterEdit(QWidget):
         self.outputPreviewWindow.setFrameOffset(m)
         self.settingsApplied.emit()
 
-
 class VFilterEditDlg(QDialog):
     def __init__(self, filters, *args, **kwargs):
         super().__init__(*args, **kwargs)

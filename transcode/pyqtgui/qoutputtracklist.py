@@ -10,11 +10,11 @@ from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxL
 from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QStandardItemModel, QStandardItem, QPen, QCursor
 
 from .qobjectitemmodel import QObjectItemModel
-from .qinputtracklist import InputTreeView
 from .qvfilteredit import VFilterEditDlg
 from .qlangselect import LanguageDelegate, LANGUAGES
 from transcode.containers.basereader import BaseReader
 from transcode.containers.basereader import Track as InputTrack
+from transcode.containers.basewriter import BaseWriter
 from transcode.containers.basewriter import Track as OutputTrack
 from transcode.encoders import vencoders, aencoders, sencoders
 from transcode.encoders import createConfigObj as createCodecConfigObj
@@ -253,7 +253,7 @@ class MapCol(BaseOutputTrackCol):
     headerdisplay = "Source"
 
     def display(self, index, track):
-        #input_files = self.config.getItems(self.input_files)
+        #input_files = self.config.getItems(input_files)
 
         if isinstance(track.source, InputTrack):
             file_index = self.input_files.index(track.source.container)
@@ -263,7 +263,7 @@ class MapCol(BaseOutputTrackCol):
             filter_index = self.filters.index(track.source)
             return f"filters:{filter_index}"
 
-        return "???"
+        return ""
 
     tooltip = display
 
@@ -348,102 +348,75 @@ class FiltersCol(BaseOutputTrackCol):
 
         return Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
 
-class OutputListModel(QObjectItemModel):
-    def rowCount(self, parent=QModelIndex()):
+class OutputFmtCol(BaseOutputTrackCol):
+    width = 192
+    headerdisplay = "Format"
+
+    def display(self, index, obj):
+        if isinstance(obj, OutputTrack):
+            fmtlist = []
+
+            if obj.type == "video":
+                if obj.width and obj.height:
+                    fmtlist.append(f"{obj.width}×{obj.height}")
+
+                if obj.sar:
+                    fmtlist.append(f"SAR: {obj.sar}")
+
+                if obj.width and obj.height and obj.sar:
+                    fmtlist.append(f"DAR: {obj.sar*obj.width/obj.height}")
+
+                if obj.rate:
+                    fmtlist.append(f"{obj.rate} fps")
+
+                if obj.format:
+                    fmtlist.append(f"{obj.format}")
+
+            elif obj.type == "audio":
+                if obj.rate:
+                    fmtlist.append(f"{obj.rate}Hz")
+
+                if obj.layout:
+                    fmtlist.append(f"{obj.layout}")
+
+                if obj.format:
+                    fmtlist.append(f"{obj.format}")
+
+            return ", ".join(fmtlist)
+
+    tooltip = display
+
+class OutputTrackModel(QObjectItemModel):
+    def parentObject(self, obj):
+        return self.items
+
+    def getItems(self, parent):
         if parent.isValid():
-            return 0
+            return None
 
-        return len(self.items)
-
-    def index(self, row, column, parent=QModelIndex()):
-        if parent and parent.isValid():
-            return QModelIndex()
-
-        return QAbstractItemModel.createIndex(self, row, column, self.items[row])
-
-    #def removeRow() TODO
-
-    def moveRow(self, position, newposition, srcparent=QModelIndex(), destparent=QModelIndex()):
-        if srcparent.isValid() or destparent.isValid():
-            return False
-
-        if self.beginMoveRows(srcparent, position, position, destparent, newposition):
-            item = self.items.pop(position)
-
-            if srcparent is destparent and newposition > position:
-                newposition -= 1
-
-            items.insert(newposition, item)
-            self.endMoveRows()
-
-        return True
-
-    def parent(self, in_index):
-        return QModelIndex()
-
-    def hasChildren(self, index):
-        return not index.isValid()
-
-    def insertRow(self, row_id, item, parent=QModelIndex()):
-        if parent.isValid():
-            return False
-
-        if self.beginInsertRows(parent, row_id, row_id):
-            self.items.insert(row_id, item)
-            self.endInsertRows()
-
-        return True
-
-    def removeRow(self, row_id, parent=QModelIndex()):
-        if parent.isValid():
-            return False
-
-        if self.beginRemoveRows(parent, row_id, row_id):
-            del self.items[row_id]
-            self.endRemoveRows()
-
-        return True
-
-    def findIndex(self, item):
-        if item not in self.items:
-            return QModelIndex()
-
-        return QModelIndex(self.items.index(item), 0)
+        return self.items
 
     def dropItems(self, items, action, row, column, parent):
         if parent.isValid():
             return False
 
-        if self.rowCount(parent) == 0:
-            row = 0
+        if row == -1:
+            row = self.rowCount(parent)
 
-        else:
-            row %= self.rowCount(parent)
+        j = 0
 
         for k, item in enumerate(items):
-            if isinstance(item, SimpleTag):
-                old_parent = self.findIndex(item.parent)
-
-                if isinstance(item.parent, SimpleTag):
-                    old_row = item.parent.subtags.index(item)
-
-                elif isinstance(item.parent, Tag):
-                    old_row = item.parent.simpletags.index(item)
-
-                self.moveRow(old_row, row + k - j, old_parent, parent)
-
-                if old_parent is parent and old_row < row:
-                    j += 1
-
-            if isinstance(item, Tag):
+            if item in self.items and action == Qt.MoveAction:
                 old_row = self.items.index(item)
-                self.moveRow(old_row, row + k - j)
+                self.moveRow(old_row, row + k - j, parent, parent)
 
                 if old_row < row:
                     j += 1
 
-
-            return False
+            elif isinstance(item, InputTrack) and action == Qt.CopyAction:
+                newtrack = self.items.container.trackclass(item,
+                                        name=item.name, language=item.language)
+                self.insertRow(row + k - j, newtrack, parent)
 
         return True
 
@@ -455,15 +428,12 @@ class OutputListModel(QObjectItemModel):
         parent_obj = parent.data(Qt.UserRole)
 
         for item in items:
-            print(type(item), action, isinstance(item, OutputTrack))
             if isinstance(item, (InputTrack, BaseFilter)) and action == Qt.CopyAction:
                 continue
 
-            print(item in self.items)
             if isinstance(item, OutputTrack) and item in self.items and action == Qt.MoveAction:
                 continue
 
-            print("not valid", item, action)
             return False
 
         return True
@@ -471,18 +441,15 @@ class OutputListModel(QObjectItemModel):
     def supportedDropActions(self):
         return Qt.MoveAction | Qt.CopyAction
 
-
-class OutputListView(QTreeView):
+class OutputTrackList(QTreeView):
     contentsChanged = pyqtSignal()
 
-    def __init__(self, input_files, filters, output_file=None, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.input_files = input_files
-        self.filters = filters
         self.setFont(QFont("DejaVu Serif", 8))
         self.setMinimumWidth(640)
 
-        self.setDragDropMode(QTreeView.InternalMove)
+        self.setDragDropMode(QTreeView.DragDrop)
         self.setDefaultDropAction(Qt.MoveAction)
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
@@ -492,25 +459,29 @@ class OutputListView(QTreeView):
 
         self.setIndentation(0)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.setOutputFile(output_file)
+        self.setOutputFile(None)
 
     def setOutputFile(self, output_file=None):
         self.output_file = output_file
 
         if output_file is not None:
+            input_files = output_file.config.input_files
+            filters = output_file.config.filter_chains
+
             cols = [
-                    TitleCol(self.input_files, self.filters, output_file),
-                    MapCol(self.input_files, self.filters, output_file),
-                    OutputLangCol(self.input_files, self.filters, output_file),
-                    OutputCodecCol(self.input_files, self.filters, output_file),
-                    FiltersCol(self.input_files, self.filters, output_file)
+                    TitleCol(input_files, filters, output_file),
+                    MapCol(input_files, filters, output_file),
+                    OutputFmtCol(input_files, filters, output_file),
+                    OutputLangCol(input_files, filters, output_file),
+                    OutputCodecCol(input_files, filters, output_file),
+                    FiltersCol(input_files, filters, output_file)
                 ]
 
             if hasattr(output_file, "trackCols") and callable(output_file.trackCols):
                 for col in output_file.trackCols():
-                    cols.append(col(self.input_files, self.filters, output_file))
+                    cols.append(col(input_files, filters, output_file))
 
-            self.setModel(OutputListModel(output_file.tracks, cols))
+            self.setModel(OutputTrackModel(output_file.tracks, cols))
             self.model().dataChanged.connect(self.contentsChanged)
 
             for k, col in enumerate(cols):
@@ -537,179 +508,6 @@ class OutputListView(QTreeView):
 
                 if self.model().flags(idx) & Qt.ItemIsEditable:
                     self.openPersistentEditor(self.model().index(newindex.row(), j))
-
-    #def dragLeaveEvent(self, event):
-        #self._dropIndex = None
-        #return super().dragLeaveEvent(event)
-
-    #def startDrag(self, supportedActions):
-        #drag = QDrag(self)
-        #idx = self.currentIndex()
-        #mimedata = self.model().mimeData([idx])
-
-        ##if isinstance(item, movie.output.Track):
-            ##mimedata.setText("output:%d" % self.mkvfile.tracks.index(item))
-
-        #drag.setMimeData(mimedata)
-        #drag.exec_(Qt.CopyAction | Qt.MoveAction, Qt.CopyAction)
-
-    #def dragMoveEvent(self, event):
-        #pos = event.pos()
-        #index = self.indexAt(pos)
-        #data = event.mimeData().text()
-
-        #if False and isinstance(event.source(), QInputTrackTree):
-            #event.setDropAction(Qt.CopyAction)
-
-        #elif event.source() is self:
-            #event.setDropAction(Qt.MoveAction)
-
-        #else:
-            #event.setDropAction(Qt.CopyAction)
-
-        #itemrect = self.visualRect(index)
-
-        #if index.row() < 0:
-            #self._dropIndex = self.model().rowCount()
-
-        #elif (event.pos().y() - itemrect.y()) < itemrect.height()/2:
-            #self._dropIndex = index.row()
-
-        #else:
-            #self._dropIndex = index.row() + 1
-
-
-        ##if event.source() == self:
-            ##if regex.match(r"^output:\d+$", data):
-                ##itemat = self.indexAt(pos)
-                ##itemrect = self.visualRect(itemat)
-                ##if itemat.row() < 0:
-                    ##dropindex = self.model().rowCount()
-                ##elif (event.pos().y() - itemrect.y()) < itemrect.height()/2:
-                    ##dropindex = itemat.row()
-                ##else:
-                    ##dropindex = itemat.row() + 1
-                ###print(dropindex)
-                ##event.accept()
-                ##event.setDropAction(Qt.MoveAction)
-                ##return
-            ##event.accept()
-        ##elif isinstance(event.source(), InputTreeView):
-            ##event.setDropAction(Qt.CopyAction)
-            ##event.accept()
-            ##return
-        ##print(self.currentIndex())
-        #self.viewport().update()
-        #event.accept()
-
-    #def decode_data(self, bytearray):
-        #data = []
-        #item = {}
-        #ds = QDataStream(bytearray)
-
-        #while not ds.atEnd():
-            #row = ds.readInt32()
-            #column = ds.readInt32()
-            #map_items = ds.readInt32()
-
-            #for i in range(map_items):
-                #key = ds.readInt32()
-                #value = QVariant()
-                #ds >> value
-                #item[Qt.ItemDataRole(key)] = value
-            
-            #data.append(item)
-        
-        #return data
-
-    #def dropEvent(self, event):
-        #rect = self.rect()
-        #pos = event.pos()
-        #index = self.indexAt(pos)
-        #itemrect = self.visualRect(index)
-
-        #if index.row() < 0:
-            #dropindex = self.model().rowCount()
-
-        #elif (event.pos().y() - itemrect.y()) < itemrect.height()/2:
-            #dropindex = index.row()
-
-        #else:
-            #dropindex = index.row() + 1
-
-        #source = event.source()
-
-        #if isinstance(source, InputTreeView):
-            #index = source.currentIndex()
-            #obj = index.data(Qt.UserRole)
-
-            #if isinstance(obj, BaseReader):
-                #for k, track in enumerate(obj.tracks):
-                    #try:
-                        #name = track.name
-
-                    #except:
-                        #name = None
-
-                    #try:
-                        #lang = track.language
-
-                    #except:
-                        #lang = None
-
-                    #newtrack = self.output_file.trackclass(track, name=name, language=lang, container=self.output_file)
-                    #self.insertTrack(dropindex + k, newtrack)
-
-                #self.contentsChanged.emit()
-
-            #elif isinstance(obj, InputTrack):
-                #newtrack = self.output_file.trackclass(obj, container=self.output_file)
-                #self.insertTrack(dropindex, newtrack)
-                #self.contentsChanged.emit()
-
-        #elif event.source() == self:
-            #event.accept()
-            #index = self.currentIndex()
-            #self.moveTrack(index.row(), self._dropIndex)
-            #self.contentsChanged.emit()
-
-        #else:
-            #event.ignore()
-
-        #self.viewport().update()
-        #self._dropIndex = None
-
-    #def insertTrack(self, index, track):
-        #self.model().insertRow(index, track)
-        ##self.openPersistentEditor(self.model().index(index, 2))
-        ##self.openPersistentEditor(self.model().index(index, 3))
-        #self.contentsChanged.emit()
-
-    #def moveTrack(self, old_index, new_index):
-        #if new_index > old_index:
-            #I = range(old_index, new_index)
-
-        #else:
-            #I = range(new_index, old_index + 1)
-
-        #self.model().moveRow(old_index, new_index)
-        #self.contentsChanged.emit()
-
-    #def paintEvent(self, event):
-        #painter = QPainter(self.viewport())
-        #self.drawTree(painter, event.region())
-
-        #if self._dropIndex is not None:
-            #if self._dropIndex >= self.model().rowCount():
-                #rect = self.visualRect(self.model().index(self.model().rowCount() - 1, 0))
-                #y = rect.y() + rect.height()
-
-            #else:
-                #y = self.visualRect(self.model().index(self._dropIndex, 0)).y()
-
-            #w = self.viewport().width()
-            #painter.setPen(QPen(Qt.black, 2))
-            #painter.drawLine(0, y, w, y)
 
     def keyPressEvent(self, event):
         key = event.key()
