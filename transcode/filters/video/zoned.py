@@ -621,9 +621,10 @@ class ZonedFilter(llist, BaseVideoFilter):
         self.zone_indices.add(zone.src_start)
 
     def extend(self, zones):
+        n = len(self)
         llist.extend(self, zones)
 
-        for zone in zones:
+        for zone in self[n:]:
             self.zone_indices.add(zone.src_start)
 
     def __delitem__(self, index):
