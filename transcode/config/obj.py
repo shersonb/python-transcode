@@ -1,6 +1,48 @@
-from collections import OrderedDict
+from collections import OrderedDict, UserList
 import pathlib
 import os
+
+class FileList(UserList):
+    def __init__(self, items=[], config=None):
+        self.data = list(items)
+        self.config = config
+
+    @property
+    def config(self):
+        return self._config
+
+    @config.setter
+    def config(self, value):
+        for item in self:
+            item.config = value
+
+        self._config = value
+
+    def append(self, item):
+        item.config = self.config
+        super().append(item)
+
+    def insert(self, index, item):
+        item.config = self.config
+        super().insert(index, item)
+
+    def extend(self, items):
+        k = len(self)
+        super().extend(items)
+        for item in self[k:]:
+            item.config = self.config
+
+    def __reduce__(self):
+        state = self.__getstate__()
+
+        if state:
+            return self.__class__, (), state, iter(self)
+
+        return self.__class__, (), None, iter(self)
+
+    def __getstate__(self):
+        return
+
 
 class Config(object):
     def __init__(self, configname, input_files=[], filter_chains=[], output_files=[]):
@@ -14,6 +56,22 @@ class Config(object):
 
         for file in output_files:
             file.config = self
+
+    @property
+    def input_files(self):
+        return self._input_files
+
+    @input_files.setter
+    def input_files(self, value):
+        self._input_files = FileList(value, self)
+
+    @property
+    def output_files(self):
+        return self._output_files
+
+    @output_files.setter
+    def output_files(self, value):
+        self._output_files = FileList(value, self)
 
     @property
     def configname(self):
