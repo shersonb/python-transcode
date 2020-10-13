@@ -82,22 +82,27 @@ class QOutputConfig(QWidget):
         self.settingsBtn = QPushButton("Con&figure Container...", self)
         self.settingsBtn.setIcon(QIcon.fromTheme("preferences-other"))
 
-        #self.okayBtn = QPushButton("&OK", self)
-        #self.applyBtn = QPushButton("&Apply", self)
-        #self.resetBtn = QPushButton("&Reset", self)
-        #self.resetBtn.clicked.connect(self.reset)
-        #self.closeBtn = QPushButton("&Close", self)
+        # These buttons are added for any parent widget's convenience.
+        # Unhide them and connect their clicked signal as desired.
+        self.okayBtn = QPushButton("&OK", self)
+        self.applyBtn = QPushButton("&Apply", self)
+        self.resetBtn = QPushButton("&Reset", self)
+        self.closeBtn = QPushButton("&Close", self)
+
+        self.okayBtn.setHidden(True)
+        self.applyBtn.setHidden(True)
+        self.resetBtn.setHidden(True)
+        self.closeBtn.setHidden(True)
 
         self.btnlayout = QHBoxLayout()
         self.btnlayout.addWidget(self.settingsBtn)
         self.btnlayout.addStretch()
-        #self.btnlayout.addWidget(self.okayBtn)
-        #self.btnlayout.addWidget(self.applyBtn)
-        #self.btnlayout.addWidget(self.resetBtn)
-        #self.btnlayout.addWidget(self.closeBtn)
+        self.btnlayout.addWidget(self.okayBtn)
+        self.btnlayout.addWidget(self.applyBtn)
+        self.btnlayout.addWidget(self.resetBtn)
+        self.btnlayout.addWidget(self.closeBtn)
         layout.addLayout(self.btnlayout)
 
-        #if output_file is not None:
         self.setOutputFile(None)
 
     def setOutputTitle(self, title):
@@ -116,10 +121,10 @@ class QOutputConfig(QWidget):
         self.targetSizeSpinBox.setVisible(flag)
 
         if flag:
-            output_file.targetsize = self.targetSizeSpinBox.value()*1024**2
+            self.output_file.targetsize = self.targetSizeSpinBox.value()*1024**2
 
         else:
-            output_file.targetsize = None
+            self.output_file.targetsize = None
 
         self.isModified()
 
@@ -150,18 +155,18 @@ class QOutputConfig(QWidget):
 
     def isModified(self):
         self._modified = True
-        #self.okayBtn.setEnabled(True)
-        #self.applyBtn.setEnabled(True)
-        #self.resetBtn.setEnabled(True)
-        #self.closeBtn.setText("&Cancel")
+        self.okayBtn.setEnabled(True)
+        self.applyBtn.setEnabled(True)
+        self.resetBtn.setEnabled(True)
+        self.closeBtn.setText("&Cancel")
         self.modified.emit()
 
     def notModified(self):
         self._modified = True
-        #self.okayBtn.setEnabled(False)
-        #self.applyBtn.setEnabled(False)
-        #self.resetBtn.setEnabled(False)
-        #self.closeBtn.setText("&Close")
+        self.okayBtn.setEnabled(False)
+        self.applyBtn.setEnabled(False)
+        self.resetBtn.setEnabled(False)
+        self.closeBtn.setText("&Close")
 
     def setOutputFile(self, output_file=None):
         self.notModified()
@@ -202,9 +207,6 @@ class QOutputConfig(QWidget):
             self.targetSizeCheckBox.setCheckState(1)
             self.targetSizeCheckBox.blockSignals(False)
             self.targetSizeSpinBox.setHidden(True)
-
-    #def reset(self):
-        #self.setOutputFile(self._output_file)
 
 class QOutputConfigDlg(QDialog):
     def __init__(self, input_files, filters, output_file=None, *args, **kwargs):
