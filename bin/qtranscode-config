@@ -1,0 +1,3 @@
+#!/usr/bin/python3
+import transcode.pyqtgui.qconfig
+transcode.pyqtgui.qconfig.main()
