@@ -21,7 +21,6 @@ from transcode.encoders import vencoders, aencoders, sencoders
 from transcode.encoders import createConfigObj as createCodecConfigObj
 from transcode.filters.filterchain import FilterChain
 from transcode.filters.base import BaseFilter
-from transcode.objwrapper import Collection, ObjectWrapper
 import sys
 import traceback
 import json
