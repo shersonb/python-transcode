@@ -24,7 +24,7 @@ class QCheckBoxMatchHeight(QCheckBox):
         self.updateGeometry()
 
 class QOutputConfig(QWidget):
-    modified = pyqtSignal()
+    contentsModified = pyqtSignal()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -33,7 +33,7 @@ class QOutputConfig(QWidget):
         self.setLayout(layout)
 
         self.trackTable = OutputTrackList(self)
-        self.trackTable.contentsChanged.connect(self.isModified)
+        self.trackTable.contentsModified.connect(self.isModified)
         layout.addWidget(self.trackTable)
 
         self.titleLabel = QLabel("Title:", self)
@@ -81,26 +81,11 @@ class QOutputConfig(QWidget):
 
         self.settingsBtn = QPushButton("Con&figure Container...", self)
         self.settingsBtn.setIcon(QIcon.fromTheme("preferences-other"))
-
-        # These buttons are added for any parent widget's convenience.
-        # Unhide them and connect their clicked signal as desired.
-        self.okayBtn = QPushButton("&OK", self)
-        self.applyBtn = QPushButton("&Apply", self)
-        self.resetBtn = QPushButton("&Reset", self)
-        self.closeBtn = QPushButton("&Close", self)
-
-        self.okayBtn.setHidden(True)
-        self.applyBtn.setHidden(True)
-        self.resetBtn.setHidden(True)
-        self.closeBtn.setHidden(True)
+        self.settingsBtn.clicked.connect(self.configureContainer)
 
         self.btnlayout = QHBoxLayout()
-        self.btnlayout.addWidget(self.settingsBtn)
         self.btnlayout.addStretch()
-        self.btnlayout.addWidget(self.okayBtn)
-        self.btnlayout.addWidget(self.applyBtn)
-        self.btnlayout.addWidget(self.resetBtn)
-        self.btnlayout.addWidget(self.closeBtn)
+        self.btnlayout.addWidget(self.settingsBtn)
         layout.addLayout(self.btnlayout)
 
         self.setOutputFile(None)
@@ -155,18 +140,13 @@ class QOutputConfig(QWidget):
 
     def isModified(self):
         self._modified = True
-        self.okayBtn.setEnabled(True)
-        self.applyBtn.setEnabled(True)
-        self.resetBtn.setEnabled(True)
-        self.closeBtn.setText("&Cancel")
-        self.modified.emit()
+        self.contentsModified.emit()
 
     def notModified(self):
-        self._modified = True
-        self.okayBtn.setEnabled(False)
-        self.applyBtn.setEnabled(False)
-        self.resetBtn.setEnabled(False)
-        self.closeBtn.setText("&Close")
+        self._modified = False
+
+    def modified(self):
+        return self._modified
 
     def setOutputFile(self, output_file=None):
         self.notModified()
@@ -196,17 +176,31 @@ class QOutputConfig(QWidget):
 
             self.browseBtn.setEnabled(True)
 
-            self.settingsBtn.setEnabled(hasattr(output_file, "QtDlgClass") and output_file.QtDlgClass is not None)
+            self.settingsBtn.setEnabled(hasattr(output_file, "QtDlgExec") and callable(output_file.QtDlgExec))
+            self.settingsBtn.setText(f"{output_file.fmtname} Options...")
 
         else:
+            self.titleEdit.blockSignals(True)
+            self.titleEdit.setText("")
+            self.titleEdit.blockSignals(False)
+
+            self.fileEdit.blockSignals(True)
+            self.fileEdit.setText("")
+            self.fileEdit.blockSignals(False)
+
             self.trackTable.setOutputFile(None)
             self.settingsBtn.setEnabled(False)
+            self.settingsBtn.setText("Options...")
             self.browseBtn.setEnabled(False)
 
             self.targetSizeCheckBox.blockSignals(True)
             self.targetSizeCheckBox.setCheckState(1)
             self.targetSizeCheckBox.blockSignals(False)
             self.targetSizeSpinBox.setHidden(True)
+
+    def configureContainer(self):
+        if self.output_file.QtDlgExec(self):
+            self.contentsModified.emit()
 
 class QOutputConfigDlg(QDialog):
     def __init__(self, input_files, filters, output_file=None, *args, **kwargs):

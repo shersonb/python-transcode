@@ -1,34 +1,38 @@
-from PyQt5.QtWidgets import QApplication, QWidget
-import sys
-from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractTableModel, QModelIndex,
-                          QVariant, QItemSelectionModel, QItemSelection, pyqtSignal, pyqtSlot, QMimeData, QByteArray,
-                          QDataStream, QIODevice, QSortFilterProxyModel)
-from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxLayout, QHBoxLayout,
-                             QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView, QHeaderView,
-                             QLineEdit, QComboBox, QFileDialog, QCheckBox, QDoubleSpinBox, QItemDelegate, QComboBox,
-                             QCompleter)
-from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QStandardItemModel, QStandardItem, QPen, QCursor
+from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractTableModel,
+                          QModelIndex, QVariant, QItemSelectionModel, QItemSelection,
+                          pyqtSignal, pyqtSlot, QMimeData, QByteArray, QDataStream,
+                          QIODevice, QSortFilterProxyModel, QFileInfo)
+from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxLayout,
+                             QHBoxLayout, QAbstractItemView, QMessageBox, QPushButton,
+                             QTreeView, QTableView, QHeaderView, QLineEdit, QComboBox,
+                             QFileDialog, QProgressDialog, QCheckBox, QDoubleSpinBox,
+                             QItemDelegate, QComboBox, QCompleter, QFileIconProvider)
+from PyQt5.QtGui import (QFont, QIcon, QDrag, QBrush, QPainter, QStandardItemModel,
+                         QStandardItem, QPen, QCursor)
 
-from .qobjectitemmodel import QObjectItemModel
+#from .qobjectitemmodel import QObjectItemModel
+from .qitemmodel import QItemModel, Node, ChildNodes
 from transcode.containers.basereader import BaseReader, Track
 import sys
 import traceback
+import threading
 import json
 import regex
 import av
 import os
 from functools import partial
-import faulthandler
-faulthandler.enable()
+import types
+import transcode
 
 from .qlangselect import LANGUAGES
+icons = QFileIconProvider()
 
 class BaseInputCol(object):
     fontmain = QFont("DejaVu Serif", 8)
     fontalt = QFont("DejaVu Serif", 12, QFont.Bold, italic=True)
 
     flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
-    textalign = Qt.AlignLeft
+    textalign = Qt.AlignLeft | Qt.AlignVCenter
     bgdata = QBrush()
     itemDelegate = None
 
@@ -110,6 +114,9 @@ class FileTrackCol(BaseInputCol):
             if obj.type == "subtitle":
                 return QIcon.fromTheme("text-x-generic")
 
+        elif isinstance(obj, BaseReader):
+            return icons.icon(QFileInfo(obj.inputpathrel))
+
 class LanguageCol(BaseInputCol):
     width = 96
     headerdisplay = "Language"
@@ -176,8 +183,6 @@ class InputTypeCol(BaseInputCol):
 
             return f"{codec_long} ({codec})"
 
-
-
 class InputFmtCol(BaseInputCol):
     width = 192
     headerdisplay = "Track Format"
@@ -219,27 +224,174 @@ class InputFmtCol(BaseInputCol):
 
     tooltip = display
 
-class InputFileModel(QObjectItemModel):
-    def parentObject(self, obj):
-        if isinstance(obj, BaseReader):
-            return self.items
+class MediaLoad(QProgressDialog):
+    progressstarted = pyqtSignal(float)
+    progress = pyqtSignal(float)
+    progresscomplete = pyqtSignal(float)
+    exceptionCaptured = pyqtSignal(type, BaseException, types.TracebackType)
 
-        elif isinstance(obj, Track):
-            return obj.container
+    def __init__(self, fileName, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setAutoClose(True)
+        self.setAutoReset(False)
+        self.setWindowTitle("Scanning...")
+        self.setLabel(QLabel(f"Scanning {fileName}..."))
 
-    def getItems(self, parent):
+        self.cancelButton = QPushButton("&Cancel")
+        self.setCancelButton(self.cancelButton)
+        self.cancelButton.clicked.connect(self.cancel)
+        self.stopped = False
+
+        self.fileName = fileName
+
+        self.progressstarted.connect(self.setMaximum)
+        self.progress.connect(self.updateValue)
+        self.progresscomplete.connect(self.done)
+        self.progresscomplete.connect(self.close)
+        self.exceptionCaptured.connect(self.handleException)
+
+        self.input_file = None
+        self.thread = None
+
+    def load(self):
+        try:
+            self.input_file = transcode.open(self.fileName)
+
+            if hasattr(self.input_file, "scan") and callable(self.input_file.scan):
+                self.input_file.scan(self.progressStarted, self.packetRead, self.progressComplete)
+
+            self.progressComplete()
+
+        except SystemExit:
+            return
+
+        except BaseException as exc:
+            self.exceptionCaptured.emit(*sys.exc_info())
+
+    def exec_(self):
+        self.thread = threading.Thread(target=self.load)
+        self.thread.start()
+        return super().exec_()
+
+    def progressStarted(self, duration):
+        if self.stopped:
+            sys.exit()
+
+        self.progressstarted.emit(duration)
+
+    def packetRead(self, pts_time):
+        if self.stopped:
+            sys.exit()
+
+        self.progress.emit(pts_time)
+
+    def updateValue(self, value):
+        if value > self.value():
+            self.setValue(value)
+
+    def progressComplete(self):
+        self.progresscomplete.emit(1)
+
+    def cancel(self):
+        self.stopped = True
+
+        if self.thread is not None:
+            self.thread.join()
+
+        self.setValue(0)
+        super().cancel()
+
+    def handleException(self, cls, exc, tb):
+        excmsg = QMessageBox(self)
+        excmsg.setWindowTitle("Error")
+        excmsg.setText("An exception was encountered\n\n%s" % "".join(traceback.format_exception(cls, exc, tb)))              
+        excmsg.setStandardButtons(QMessageBox.Ok)
+        excmsg.setIcon(QMessageBox.Critical)
+        excmsg.exec_()
+        self.close()
+
+class InputFileModel(QItemModel):
+    def dropItems(self, items, action, row, column, parent):
+        node = self.getNode(parent)
+
+        if row == -1:
+            row = self.rowCount(parent)
+
+        j = 0
+
+        if action == Qt.MoveAction:
+            for k, item in enumerate(items):
+                old_row = node.children.index(item)
+                self.moveRow(old_row, row + k - j, parent, parent)
+
+                if old_row < row:
+                    j += 1
+
+        return True
+
+    def canDropUrls(self, urls, action, row, column, parent):
         if parent.isValid():
-            parent_obj = parent.data(Qt.UserRole)
+            return False
 
-            if isinstance(parent_obj, BaseReader):
-                return parent_obj.tracks
+        for url in urls:
+            if url.scheme() != "file":
+                return False
 
-            return None
+            if not os.path.isfile(url.path()):
+                return False
 
-        return self.items
+        return True
+
+    def dropUrls(self, urls, action, row, column, parent):
+        if row == -1:
+            row = self.rowCount(parent)
+
+        k = 0
+        newfiles = []
+
+        for url in urls:
+            progress = MediaLoad(url.path())
+
+            if progress.exec_():
+                newfiles.append(progress.input_file)
+
+            else:
+                return False
+
+        self.insertRows(row, newfiles, parent)
+        return True
+
+    def canDropItems(self, items, action, row, column, parent):
+        if parent.isValid():
+            return False
+
+        for item in items:
+            if item not in self.root.children:
+                return False
+
+        return True
+
+    def supportedDropActions(self):
+        return Qt.MoveAction | Qt.CopyAction
+
+    def supportedDragActions(self):
+        return Qt.MoveAction | Qt.CopyAction
+
+class InputFilesNode(Node):
+    def _wrapChildren(self, children):
+        return InputFilesNodes.fromValues(children, self)
+
+class InputFilesNodes(ChildNodes):
+    @staticmethod
+    def _wrap(value):
+        return InputFileNode(value)
+
+class InputFileNode(Node):
+    def _iterChildren(self):
+        return iter(self.value.tracks)
 
 class QInputTrackList(QTreeView):
-    contentsChanged = pyqtSignal()
+    contentsModified = pyqtSignal()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -247,6 +399,7 @@ class QInputTrackList(QTreeView):
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setInputFiles(None)
+        self.setDefaultDropAction(Qt.CopyAction)
 
     def setInputFiles(self, input_files):
         self.input_files = input_files
@@ -259,11 +412,14 @@ class QInputTrackList(QTreeView):
                     LanguageCol(input_files),
                 ]
 
-            self.setModel(InputFileModel(input_files, cols))
+            root = InputFilesNode(input_files)
+            model = InputFileModel(root, cols)
+            self.setModel(model)
+            model.dataChanged.connect(self.contentsModified)
 
             for k, col in enumerate(cols):
                 if hasattr(col, "width"):
                     self.setColumnWidth(k, col.width)
 
         else:
-            self.setModel(QObjectItemModel([], []))
+            self.setModel(QItemModel(Node(None), []))

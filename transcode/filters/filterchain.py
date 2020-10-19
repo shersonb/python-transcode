@@ -1,5 +1,5 @@
-from transcode.util import llist
-from transcode.filters.base import BaseFilter
+from ..util import llist
+from .base import BaseFilter
 import numpy
 from copy import deepcopy
 
@@ -42,6 +42,10 @@ class FilterChain(llist, BaseFilter):
         We want to keep the original reference to self.source.
         """
         return self.__class__(deepcopy(list(self), memo), prev=self.prev)
+
+    @property
+    def src(self):
+        return self.prev
 
     @property
     def format(self):
@@ -212,17 +216,11 @@ class FilterChain(llist, BaseFilter):
         elif self.prev is not None:
             return self.prev.iterFrames(start, end, whence)
 
-    #def _calc_duration(self):
-        #return self.end.duration
+    #def frameIndexFromPts(self, pts, dir="+"):
+        #return search(self.pts, pts, dir)
 
-    #def _backtranslate_index(self, m):
-        #return self.end.backtranslate_index(m)
-
-    #def _translate_index(self, n):
-        #return self.end.translate_index(n)
-
-    #def _calc_framecount(self):
-        #return self.end.framecount
+    #def frameIndexFromPtsTime(self, pts_time, dir="+"):
+        #return search(self.pts_time, pts_time, dir)
 
     #def QTableColumns(self):
         #cols = []

@@ -3,6 +3,7 @@ from ...util import cached, llist
 import numpy
 from itertools import chain, islice, count
 import time
+from copy import deepcopy
 
 class Zone(object):
     from copy import deepcopy as copy
@@ -273,9 +274,12 @@ class ZonedFilter(llist, BaseVideoFilter):
     zoneclass = None
 
     def __init__(self, zones=[], prev=None, next=None, notify_input=None, notify_output=None):
-        self.zone_indices = {0}
+        self.zone_indices = set()
         llist.__init__(self, zones)
         BaseVideoFilter.__init__(self, prev=prev, next=next, notify_input=notify_input, notify_output=notify_output)
+
+        if not zones:
+            self.insertZoneAt(0)
 
     def __reduce__(self):
         return type(self), (), self.__getstate__(), llist.__iter__(self)
@@ -285,6 +289,41 @@ class ZonedFilter(llist, BaseVideoFilter):
 
     def __setstate__(self, state):
         BaseVideoFilter.__setstate__(self, state)
+
+    def __deepcopy__(self, memo):
+        """
+        Force CLEAR of self before extend.
+        """
+        reduced = self.__reduce__()
+
+        if len(reduced) == 2:
+            cls, args = reduced
+            state = items = dictitems = None
+
+        elif len(reduced) == 3:
+            cls, args, state = reduced
+            items = dictitems = None
+
+        if len(reduced) == 4:
+            cls, args, state, items = reduced
+            dictitems = None
+
+        if len(reduced) == 5:
+            cls, args, state, items, dictitems = reduced
+
+        new = cls(*(deepcopy(arg, memo) for arg in args))
+
+        if state is not None:
+            new.__setstate__(deepcopy(state, memo))
+
+        if items is not None:
+            new.clear()
+            new.extend(deepcopy(item, memo) for item in items)
+
+        if dictitems is not None:
+            new.update(deepcopy(dictitems, memo))
+
+        return new
 
     def reset_cache(self, start=0, end=None, reset_children=True):
         if len(self) and reset_children:
@@ -641,6 +680,10 @@ class ZonedFilter(llist, BaseVideoFilter):
         if zone.src_start in self.zone_indices:
             self.zone_indices.remove(zone.src_start)
 
+    def clear(self):
+        self.zone_indices.clear()
+        super().clear()
+
     @cached
     def framecount(self):
         return self.end.dest_end
@@ -654,11 +697,11 @@ class ZonedFilter(llist, BaseVideoFilter):
         from transcode.pyqtgui.qzones import ZoneDlg
         return ZoneDlg
 
-    def QtDlg(self, zone=None, offset=None, mode=None):
+    def QtDlg(self, zone=None, offset=None, mode=None, parent=None):
         if zone is None:
             zone = self.start
 
-        dlg = self.QtDlgClass(zone)
+        dlg = self.QtDlgClass(zone, parent=parent)
 
         if mode is None:
             mode = dlg.modeBox.currentData()
@@ -675,4 +718,4 @@ class ZonedFilter(llist, BaseVideoFilter):
 
         index = dlg.modeBox.findData(mode)
         dlg.modeBox.setCurrentIndex(index)
-        return dlg
+        return dlg.exec_()

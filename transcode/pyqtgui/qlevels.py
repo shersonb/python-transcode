@@ -197,97 +197,6 @@ class ChannelEditor(QWidget):
         self.histogram.setHistogram(H)
         self.updateClip()
 
-#class QLevelsWidget(QWidget):
-    #setpreviewlabel = pyqtSignal()
-    #loadframe = pyqtSignal(int)
-    #def __init__(self, levels):
-        #super(QLevelsWidget, self).__init__()
-        #self.levels = levels
-
-        #self.rchan = ChannelEditor((128, 0, 0), self)
-        #self.gchan = ChannelEditor((0, 128, 0), self)
-        #self.bchan = ChannelEditor((0, 0, 128), self)
-
-        #self.rchan.minSpinBox.valueChanged.connect(self.updateZoneValues)
-        #self.rchan.gammaSpinBox.valueChanged.connect(self.updateZoneValues)
-        #self.rchan.maxSpinBox.valueChanged.connect(self.updateZoneValues)
-
-        #self.gchan.minSpinBox.valueChanged.connect(self.updateZoneValues)
-        #self.gchan.gammaSpinBox.valueChanged.connect(self.updateZoneValues)
-        #self.gchan.maxSpinBox.valueChanged.connect(self.updateZoneValues)
-
-        #self.bchan.minSpinBox.valueChanged.connect(self.updateZoneValues)
-        #self.bchan.gammaSpinBox.valueChanged.connect(self.updateZoneValues)
-        #self.bchan.maxSpinBox.valueChanged.connect(self.updateZoneValues)
-
-        #self.previewLabel = None
-        #self.currentFrame = None
-
-    #def updatePreview(self):
-        #if self.previewLabel is not None and self.currentFrame is not None:
-            #R, G, B = numpy.moveaxis(self.currentFrame, 2, 0)
-
-            #J, zone = self.levels.zoneAtPrev(self.n)
-
-            #if zone.transition:
-                #k = self.n - zone.prev_start
-                #R = zone._R[R, k]
-                #G = zone._G[G, k]
-                #B = zone._B[B, k]
-            #else:
-                #R = zone._R[R]
-                #G = zone._G[G]
-                #B = zone._B[B]
-
-            #A = numpy.moveaxis((R, G, B), 0, 2)
-            #im = Image.fromarray(A)
-            #qim = im.toqpixmap()
-            #self.previewLabel.setPixmap(qim)
-
-
-    #def updateZoneValues(self):
-        #J, zone = self.levels.zoneAtPrev(self.n)
-        
-        #if not zone.transition:
-            #zone.rmin = self.rchan.minSpinBox.value()
-            #zone.rgamma = self.rchan.gammaSpinBox.value()
-            #zone.rmax = self.rchan.maxSpinBox.value()
-
-            #zone.gmin = self.gchan.minSpinBox.value()
-            #zone.ggamma = self.gchan.gammaSpinBox.value()
-            #zone.gmax = self.gchan.maxSpinBox.value()
-
-            #zone.bmin = self.bchan.minSpinBox.value()
-            #zone.bgamma = self.bchan.gammaSpinBox.value()
-            #zone.bmax = self.bchan.maxSpinBox.value()
-
-            #zone.gamma = self.gammaspinbox.value()
-
-            #self.updatePreview()
-
-            #self.rchan.updateHistogram()
-            #self.gchan.updateHistogram()
-            #self.bchan.updateHistogram()
-
-    ##def loadFrame(self, n=None):
-        ##if self._mode < 2:
-            ##return super().loadFrame(n)
-
-        ##if n is None:
-            ##n = self.slider.value()
-
-        ##try:
-            ##frame = next(self.levels.prev.iterFrames(n))
-        ##except StopIteration:
-            ##return
-
-        ##self.currentFrame = frame.to_rgb().to_ndarray()
-        ##im = frame.to_image()
-        ##qim = im.toqpixmap()
-        ##self.sourceImageLabel.setPixmap(qim)
-        ##self.updatePreview()
-
-
 class QLevels(ZoneDlg):
     zonename = "Levels Zone"
     title = "Levels Editor"
@@ -298,17 +207,17 @@ class QLevels(ZoneDlg):
         self.gchan = ChannelEditor((0, 128, 0), self)
         self.bchan = ChannelEditor((0, 0, 128), self)
 
-        self.rchan.minSpinBox.valueChanged.connect(self.settingsChanged)
-        self.rchan.gammaSpinBox.valueChanged.connect(self.settingsChanged)
-        self.rchan.maxSpinBox.valueChanged.connect(self.settingsChanged)
+        self.rchan.minSpinBox.valueChanged.connect(self.widgetValuesChanged)
+        self.rchan.gammaSpinBox.valueChanged.connect(self.widgetValuesChanged)
+        self.rchan.maxSpinBox.valueChanged.connect(self.widgetValuesChanged)
 
-        self.gchan.minSpinBox.valueChanged.connect(self.settingsChanged)
-        self.gchan.gammaSpinBox.valueChanged.connect(self.settingsChanged)
-        self.gchan.maxSpinBox.valueChanged.connect(self.settingsChanged)
+        self.gchan.minSpinBox.valueChanged.connect(self.widgetValuesChanged)
+        self.gchan.gammaSpinBox.valueChanged.connect(self.widgetValuesChanged)
+        self.gchan.maxSpinBox.valueChanged.connect(self.widgetValuesChanged)
 
-        self.bchan.minSpinBox.valueChanged.connect(self.settingsChanged)
-        self.bchan.gammaSpinBox.valueChanged.connect(self.settingsChanged)
-        self.bchan.maxSpinBox.valueChanged.connect(self.settingsChanged)
+        self.bchan.minSpinBox.valueChanged.connect(self.widgetValuesChanged)
+        self.bchan.gammaSpinBox.valueChanged.connect(self.widgetValuesChanged)
+        self.bchan.maxSpinBox.valueChanged.connect(self.widgetValuesChanged)
 
         layout = QHBoxLayout(self)
         self.setLayout(layout)
@@ -347,7 +256,7 @@ class QLevels(ZoneDlg):
         self.gammaSpinBox.setDecimals(2)
         self.gammaSpinBox.setMinimum(0.25)
         self.gammaSpinBox.setMaximum(4)
-        self.gammaSpinBox.valueChanged.connect(self.settingsChanged)
+        self.gammaSpinBox.valueChanged.connect(self.widgetValuesChanged)
 
         self.suggBtn = QPushButton("&Suggestion", self)
         self.suggBtn.clicked.connect(self.useAutoGamma) # 162523
@@ -506,7 +415,7 @@ class QLevels(ZoneDlg):
         self.gchan.setEnabled(flag)
         self.bchan.setEnabled(flag)
         self.gammaSpinBox.setEnabled(flag)
-        self.settingsChanged()
+        self.widgetValuesChanged()
 
     def _loadZone(self):
         zone = self.zone
@@ -627,7 +536,7 @@ class QLevels(ZoneDlg):
         #self.settingsApplied.emit()
         self.loadFrame()
 
-    def settingsChanged(self):
+    def widgetValuesChanged(self):
         self.updateColors()
         self.updateZoneValues()
         self.isModified()
@@ -635,34 +544,6 @@ class QLevels(ZoneDlg):
     def apply(self):
         self.updateZoneValues()
         super().apply()
-
-    #def _prepareDlgButtons(self, layout=None, index=None):
-        #if layout is None:
-            #layout = self.layout()
-
-        #self.okayBtn = QPushButton("&OK", self)
-        #self.okayBtn.setDefault(True)
-        #self.okayBtn.clicked.connect(self.applyAndClose)
-        #self.applyBtn = QPushButton("&Apply", self)
-        #self.applyBtn.clicked.connect(self.apply)
-        #self.closeBtn = QPushButton("&Close", self)
-        #self.closeBtn.setDefault(True)
-        #self.closeBtn.clicked.connect(self.close)
-
-        #sublayout = QHBoxLayout()
-        #sublayout.addStretch()
-        #sublayout.addWidget(self.okayBtn)
-        #sublayout.addWidget(self.applyBtn)
-        #sublayout.addWidget(self.closeBtn)
-
-        #if isinstance(layout, QGridLayout):
-            #layout.addLayout(sublayout, *index)
-
-        #elif index is not None:
-            #layout.insertLayout(index, sublayout)
-
-        #else:
-            #layout.addLayout(sublayout)
 
 class ZoneAnalysis(QProgressDialog):
     progressstarted = pyqtSignal(int)
@@ -732,6 +613,7 @@ class LevelsCol(ZoneCol):
     def createDlg(self, table, index):
         J, zone = self.filter.zoneAt(index.data(Qt.UserRole))
         dlg = QLevels(zone, table)
+        dlg.contentsModified.connect(table.contentsModified)
         dlg.slider.setValue(self.filter.cumulativeIndexMap[index.data(Qt.UserRole)])
 
         if dlg.exec_():
@@ -739,22 +621,3 @@ class LevelsCol(ZoneCol):
             idx1 = tm.index(0, 0)
             idx2 = tm.index(self.rowCount()-1, self.columnCount()-1)
             tm.dataChanged.emit(idx1, idx2)
-
-
-    #def display(self, obj, index):
-        #K, zone = self.filter.zoneAt(index)
-        #if zone.transition:
-            #return "%d Transition" % K
-        #return "{K} ({zone.rmin:.2f}, {zone.rgamma:.2f}, {zone.rmax:.2f}), ({zone.gmin:.2f}, {zone.ggamma:.2f}, {zone.gmax:.2f}), ({zone.bmin:.2f}, {zone.bgamma:.2f}, {zone.bmax:.2f}), {zone.gamma:.2f}".format(K=K, zone=zone)
-
-    #def bgdata(self, obj, index):
-        #K, zone = self.filter.zoneAt(index)
-        #if index == zone.src_start:
-            #return self.bgcolor1
-        #return self.bgcolor2
-
-    #def fgdata(self, obj, index):
-        #K, zone = self.filter.zoneAt(index)
-        #if index == zone.src_start:
-            #return self.fgcolor1
-        #return self.fgcolor2

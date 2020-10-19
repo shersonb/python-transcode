@@ -1,4 +1,3 @@
-#import ..util
 from ..util import cached, search
 from ..containers.basereader import Track
 from fractions import Fraction as QQ
@@ -36,6 +35,7 @@ class BaseFilter(object):
 
     from copy import deepcopy as copy
     next = None
+    sourceCount = 1
     prev = CacheResettingProperty("prev")
 
     @property
@@ -107,6 +107,9 @@ class BaseFilter(object):
     def dependencies(self):
         if isinstance(self.prev, BaseFilter):
             return self.prev.dependencies.union({self.prev})
+
+        if isinstance(self.prev, Track) and self.prev.container is not None:
+            return {self.prev, self.prev.container}
 
         return {self.prev}
 
@@ -213,6 +216,9 @@ class BaseFilter(object):
 
     def frameIndexFromPts(self, pts, dir="+"):
         return search(self.pts, pts, dir)
+
+    def frameIndexFromPtsTime(self, pts_time, dir="+"):
+        return search(self.pts_time, pts_time + self.time_base/2, dir)
 
     @cached
     def cumulativeIndexMap(self):

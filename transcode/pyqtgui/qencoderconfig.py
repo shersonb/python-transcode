@@ -248,7 +248,6 @@ class QEncoderConfigDlg(QDialog):
         self.isModified()
 
     def setOptionFromWidget(self, option, widget):
-        print(option, widget)
         if isinstance(widget, QCheckBox):
             value = widget.checkState()
 

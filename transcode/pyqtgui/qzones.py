@@ -24,7 +24,6 @@ from av import VideoFrame
 class BaseShadowZone(object):
     def __init__(self, zone):
         self._zone = zone
-        print(zone.prev)
         super().__init__(zone)
         self.__setstate__(zone.__getstate__())
 
@@ -82,7 +81,7 @@ class ZoneDlg(QDialog):
     title = "Zone Editor"
     shadowclass = BaseShadowZone
     zoneChanged = pyqtSignal(Zone)
-    settingsApplied = pyqtSignal()
+    contentsModified = pyqtSignal()
 
     def __init__(self, zone=None, *args, **kwargs):
         super(ZoneDlg, self).__init__(*args, **kwargs)
@@ -421,6 +420,9 @@ class ZoneDlg(QDialog):
                 self.loadZone(prevzone)
                 self.slider.setValue(n)
 
+        self.contentsModified.emit()
+        self.done(1)
+
     @pyqtSlot()
     def prevZone(self):
         self.loadZone(self.zone.prev)
@@ -519,7 +521,8 @@ class ZoneDlg(QDialog):
     @pyqtSlot()
     def apply(self):
         self.zone.__setstate__(self.shadow.__getstate__())
-        self.settingsApplied.emit()
+        self.done(1)
+        self.contentsModified.emit()
         self.notModified()
 
     @pyqtSlot()

@@ -4,6 +4,7 @@ from itertools import count
 from functools import partial
 from fractions import Fraction as QQ
 from PyQt5.QtWidgets import QMenu, QAction, QApplication, QAbstractItemView
+from transcode.containers.basereader import Track
 
 class BaseColumn(object):
     checkstate = None
@@ -48,7 +49,8 @@ class FrameNumberCol(BaseColumn):
 
     def display(self, index, obj):
         n = index.row()
-        if self.srcstream is not None and self.srcstream.pts[n] in set(self.srcstream.index[:, 0]):
+
+        if isinstance(self.srcstream, Track) and self.srcstream.pts[n] in set(self.srcstream.index[:, 0]):
             return f"{index.row()} (K)"
 
         return f"{index.row()}"
@@ -193,11 +195,14 @@ class TimeStampCol(BaseColumn):
     headerdisplay = "Old PTS"
     width = 160
     flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
     def __init__(self, stream=None):
         self.stream = stream
+
     def display(self, index, obj):
         if self.stream is None:
             return "—"
+
         pts = self.stream.pts_time[index.row()]
         sgn = "-" if pts < 0 else ""
         m, s = divmod(abs(pts), 60)
@@ -209,8 +214,10 @@ class NewTimeStampCol(BaseColumn):
     headerdisplay = "New PTS"
     width = 160
     flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
     def __init__(self, filter=None):
         self.filter = filter
+
     def display(self, index, obj):
         for m in count(index.row()):
             n = self.filter.cumulativeIndexMap[m]
@@ -228,6 +235,7 @@ class NewTimeStampCol(BaseColumn):
             m = int(m)
             h, m = divmod(m, 60)
             return "%s%d:%02d:%06.3f (%.3f)" % (sgn, h, m, s, pts)
+
         return "-"
 
     def fgdata(self, index, obj):
@@ -236,29 +244,38 @@ class NewTimeStampCol(BaseColumn):
                 return QColor()
         except:
             return QColor(160, 160, 160)
+
         return QColor(160, 160, 160)
 
 class NewFrameNumberCol(BaseColumn):
     headerdisplay = "New #"
     width = 64
     flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
     def __init__(self, filter=None):
         self.filter = filter
+
     def display(self, index, obj):
         for index in count(index.row()):
             try:
                 n = self.filter.cumulativeIndexMap[index]
+
             except:
                 return "ERR"
+
             if n is not None and n >= 0:
                 return str(n)
+
         return "-"
+
     def fgdata(self, index, obj):
         try:
             if self.filter.cumulativeIndexMap[index.row()] >= 0:
                 return QColor()
+
         except:
             return QColor(160, 160, 160)
+
         return QColor(160, 160, 160)
 
 class DiffCol(BaseColumn):

@@ -14,131 +14,114 @@ from functools import partial
 import traceback
 
 from transcode.util import ConfigStore
-from .qobjectitemmodel import QObjectItemModel
+from .qitemmodel import QIntegerModel
 from .qframetablecolumn import *
 
-class QFrameTableModel(QObjectItemModel):
-    ROLEMAPPING = {
-            Qt.DisplayRole: "display",
-            Qt.ToolTipRole: "tooltip",
-            Qt.DecorationRole: "icon",
-            Qt.SizeHintRole: "sizehint",
-            Qt.EditRole: "editdata",
-            Qt.BackgroundColorRole: "bgcolor",
-            Qt.BackgroundRole: "bgdata",
-            Qt.ForegroundRole: "fgdata",
-            Qt.CheckStateRole: "checkstate",
-            Qt.ItemDataRole: "itemdata",
-            Qt.TextAlignmentRole: "textalign",
-            Qt.FontRole: "font",
-            Qt.UserRole + 1: "contextmenu",
-            Qt.UserRole + 2: "keypress",
-        }
-
-    def hasChildren(self, index):
-        if index.isValid():
-            return False
-
-        return True
-
-    def rowCount(self, parent=QModelIndex()):
-        if parent.isValid():
-            return 0
-
-        return len(self.items)
-
 class FrameTable(QTableView):
-    contentsUpdated = pyqtSignal()
-    def __init__(self, filters, *args, **kwargs):
-        super(QTableView, self).__init__(*args, **kwargs)
-        self.filters = filters
+    contentsModified = pyqtSignal()
 
-        self._initModel(filters)
-        cols = self.colsleft + self.colsright
-
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._initCols()
         model = SortAndFilterProxy()
-        model.setSourceModel(self.datamodel)
+        model.dataChanged.connect(self.contentsModified)
         self.setModel(model)
+        self.setFilters(None)
+        self.verticalHeader().setDefaultSectionSize(self.fontMetrics().height())
 
-        for n, col in enumerate(cols):
-            if hasattr(col, "width"):
-                self.setColumnWidth(n, col.width)
+    def setFont(self, font):
+        super().setFont(font)
+        self.verticalHeader().setDefaultSectionSize(self.fontMetrics().height())
 
-            if hasattr(col, "itemdelegate") and isinstance(col.itemdelegate, QItemDelegate):
-                self.setItemDelegateForColumn(n, col.itemdelegate)
-
-        self.loadFilters(filters)
-
-    def _initModel(self, filters):
-        self.idcol = FrameNumberCol(filters.src)
-        self.tscol = TimeStampCol(filters.src)
+    def _initCols(self):
+        self.idcol = FrameNumberCol(None)
+        self.tscol = TimeStampCol(None)
         self.colsleft = [self.idcol, self.tscol]
 
-        self.id2col = NewFrameNumberCol(filters)
-        self.ts2col = NewTimeStampCol(filters)
-        self.diffcol = DiffCol(filters)
+        self.id2col = NewFrameNumberCol(None)
+        self.ts2col = NewTimeStampCol(None)
+        self.diffcol = DiffCol(None)
         self.colsright = [self.id2col, self.ts2col, self.diffcol]
-        self.datamodel = QFrameTableModel(range(filters.prev.framecount), self.colsleft+self.colsright, self)
+
         self.filter_columns = []
-        self.columns_by_filter = []
 
-    def loadFilters(self, filters):
-        newfiltercols = []
-        headersizes = [self.columnWidth(k) for k in range(self.datamodel.columnCount())]
+    def setFilters(self, filters):
+        self.filters = filters
 
+        if filters is not None:
+            self.columns_by_filter = []
+            self.idcol.srcstream = filters.src
+            self.tscol.stream = filters.src
+            self.id2col.filter = filters
+            self.ts2col.filter = filters
+            self.diffcol.filter = filters
 
-        """Create new filter column list."""
-        for filter in filters:
-            if hasattr(filter, "QtTableColumns"):
-                if callable(filter.QtTableColumns):
-                    filtercols = filter.QtTableColumns()
+            newfiltercols = []
+            headersizes = [self.columnWidth(k) for k in range(self.datamodel.columnCount())]
+
+            self.datamodel = QIntegerModel(filters.prev.framecount, self.colsleft+self.colsright, self)
+            self.model().setSourceModel(self.datamodel)
+
+            """Create new filter column list."""
+            for filter in filters:
+                if hasattr(filter, "QtTableColumns"):
+                    if callable(filter.QtTableColumns):
+                        filtercols = filter.QtTableColumns()
+
+                    else:
+                        filtercols = filter.QtTableColumns
+
+                    newfiltercols.extend(filtercols)
+                    self.columns_by_filter.append(filtercols)
+
+            """Compare new filter column list to old."""
+            for col in self.filter_columns.copy():
+                if col not in newfiltercols:
+                    """Old column does not appear in newfiltercols, so it is removed from the model."""
+                    self.filter_columns.remove(col)
+                    m = self.datamodel.columns.index(col)
+                    self.datamodel.removeColumn(m)
+                    del headersizes[m]
+
+            """Insert new columns, move existing columns."""
+            for n, col in enumerate(newfiltercols, len(self.colsleft)):
+                if col in self.datamodel.columns:
+                    """Column exists in model, so it will just be moved."""
+                    m = self.datamodel.columns.index(col)
+
+                    if m > n: # Should never have m < n.
+                        self.datamodel.moveColumn(m, n)
+                        size = headersizes.pop(m)
+                        headersizes.insert(n, size)
 
                 else:
-                    filtercols = filter.QtTableColumns
+                    """Column is new."""
+                    self.datamodel.insertColumn(n, col)
 
-                newfiltercols.extend(filtercols)
+                    if hasattr(col, "width"):
+                        headersizes.insert(n, col.width)
 
-        """Compare new filter column list to old."""
-        for col in self.filter_columns.copy():
-            if col not in newfiltercols:
-                """Old column does not appear in newfiltercols, so it is removed from the model."""
-                self.filter_columns.remove(col)
-                m = self.datamodel.columns.index(col)
-                self.datamodel.removeColumn(m)
-                del headersizes[m]
+                    else:
+                        headersizes.insert(n, None)
 
-        """Insert new columns, move existing columns."""
-        for n, col in enumerate(newfiltercols, len(self.colsleft)):
-            if col in self.datamodel.columns:
-                """Column exists in model, so it will just be moved."""
-                m = self.datamodel.columns.index(col)
+                    if hasattr(col, "itemdelegate") and isinstance(col.itemdelegate, QItemDelegate):
+                        self.setItemDelegateForColumn(n, col.itemdelegate)
 
-                if m > n: # Should never have m < n.
-                    self.datamodel.moveColumn(m, n)
-                    size = headersizes.pop(m)
-                    headersizes.insert(n, size)
+            for n, size in enumerate(headersizes):
+                if size is not None:
+                    self.setColumnWidth(n, size)
 
-            else:
-                """Column is new."""
-                self.datamodel.insertColumn(n, col)
+            self.filter_columns = newfiltercols
 
-                if hasattr(col, "width"):
-                    headersizes.insert(n, col.width)
-
-                else:
-                    headersizes.insert(n, None)
-
-                if hasattr(col, "itemdelegate") and isinstance(col.itemdelegate, QItemDelegate):
-                    self.setItemDelegateForColumn(n, col.itemdelegate)
-
-        for n, size in enumerate(headersizes):
-            if size is not None:
-                self.setColumnWidth(n, size)
-
-        self.filter_columns = newfiltercols
-        self.id2col.filter = filters
-        self.ts2col.filter = filters
-        self.diffcol.filter = filters
+        else:
+            self.idcol.srcstream = None
+            self.tscol.stream = None
+            self.id2col.filter = None
+            self.ts2col.filter = None
+            self.diffcol.filter = None
+            self.filter_columns = []
+            self.datamodel = QIntegerModel(0, [])
+            self.model().setSourceModel(self.datamodel)
 
     def setCurrentCell(self, row, col):
         current = self.currentIndex()
@@ -227,7 +210,7 @@ class FrameTable(QTableView):
                 except:
                     print(traceback.format_exc(), file=sys.stderr)
 
-        return QTableView.keyPressEvent(self, event)
+        return super().keyPressEvent(event)
 
     def contextMenuEvent(self, event):
         selected = self.currentIndex()
@@ -245,8 +228,10 @@ class FrameTable(QTableView):
 
         if row is None and col is None:
             raise ValueError("Must specify at least one of 'row' or 'col'.")
+
         elif row is None:
             row = current.row()
+
         elif col is None:
             col = current.column()
 
@@ -258,6 +243,82 @@ class FrameTable(QTableView):
 
         self.setCurrentIndex(newindex)
         self.scrollTo(newindex, QAbstractItemView.PositionAtCenter)
+
+    def handleFilterMoved(self, oldindex, newindex):
+        movedcolumns = self.columns_by_filter[oldindex]
+        columns_before_old = self.columns_by_filter[:oldindex]
+        columns_before_new = self.columns_by_filter[:newindex]
+
+        K = len(self.colsleft)
+        M = sum(map(len, columns_before_old))
+        N = sum(map(len, columns_before_new))
+        L = len(movedcolumns)
+
+        if L:
+            self.datamodel.moveColumns(K + M, K + M + L, K + N)
+
+        del self.columns_by_filter[oldindex]
+        del self.filter_columns[K+M: K+M+len(movedcolumns)]
+
+        W1 = [self.columnWidth(k) for k in range(K+M, K+M+L)]
+
+        if newindex > oldindex:
+            newindex -= 1
+            W2 = [self.columnWidth(k) for k in range(K+M+L, K+N)]
+            N -= len(movedcolumns)
+
+        else:
+            W2 = [self.columnWidth(k) for k in range(K+N, K+M)]
+
+        self.columns_by_filter.insert(newindex, movedcolumns)
+
+        for k, col in enumerate(movedcolumns, K+N):
+            self.filter_columns.insert(k, col)
+
+        if newindex > oldindex:
+            W = W2 + W1
+
+        else:
+            W = W1 + W2
+
+        for k, w in enumerate(W, K + min(M, N)):
+            self.setColumnWidth(k, w)
+
+    def handleFilterRemoved(self, index):
+        removedcolumns = self.columns_by_filter[index]
+        columns_before = self.columns_by_filter[:index]
+
+        K = len(self.colsleft)
+        M = sum(map(len, columns_before))
+        L = len(removedcolumns)
+
+        if L:
+            self.datamodel.removeColumns(K + M, K + M + L)
+
+        del self.columns_by_filter[index]
+        del self.filter_columns[K+M: K+M+L]
+
+    def handleFilterInserted(self, index):
+        filter = self.filters[index]
+        K = len(self.colsleft)
+        M = sum(map(len, self.columns_by_filter[:index]))
+
+        if hasattr(filter, "QtTableColumns"):
+            if callable(filter.QtTableColumns):
+                filtercols = filter.QtTableColumns()
+
+            else:
+                filtercols = filter.QtTableColumns
+
+            self.datamodel.insertColumns(K + M, filtercols)
+            self.columns_by_filter.insert(index, filtercols)
+
+            for n, col in enumerate(filtercols, K + M):
+                if hasattr(col, "width") and isinstance(col.width, (int, float)):
+                    self.setColumnWidth(n, col.width)
+
+                if hasattr(col, "itemdelegate") and isinstance(col.itemdelegate, QItemDelegate):
+                    self.setItemDelegateForColumn(n, col.itemdelegate)
 
 class SortAndFilterProxy(QSortFilterProxyModel):
     def __init__(self, filterFunc=None, *args, **kwargs):

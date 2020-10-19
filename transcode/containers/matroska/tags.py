@@ -127,16 +127,16 @@ class BaseTag(object):
         print(f"{self.type} ({self.typeValue}):", file=logfile)
 
         if len(self.tracks):
-            print(f"    Tracks: {', '.join(str(item) for item in self.tracks)}:", file=logfile)
+            print(f"    Target Tracks: {', '.join(str(item) for item in self.tracks)}", file=logfile)
 
         if len(self.editions):
-            print(f"    Editions: {', '.join(str(item) for item in self.editions)}:", file=logfile)
+            print(f"    Target Editions: {', '.join(str(item) for item in self.editions)}", file=logfile)
 
-        if len(self.tracks):
-            print(f"    Chapters: {', '.join(str(item) for item in self.chapters)}:", file=logfile)
+        if len(self.chapters):
+            print(f"    Target Chapters: {', '.join(str(item) for item in self.chapters)}", file=logfile)
 
-        if len(self.tracks):
-            print(f"    Attachments: {', '.join(str(item) for item in self.attachments)}:", file=logfile)
+        if len(self.attachments):
+            print(f"    Target Attachments: {', '.join(str(item) for item in self.attachments)}", file=logfile)
 
         targets = matroska.tags.Targets(self.typeValue, self.type,
                                         self.tracks, self.editions, self.chapters, self.attachments)
@@ -144,13 +144,29 @@ class BaseTag(object):
 
         return matroska.tags.Tag(targets, simpletags)
 
-class Tag(BaseTag):
+class Tag(object):
+    from copy import deepcopy as copy
     def __init__(self, typeValue=None, type=None, simpletags=[],
                  tracks=[], editions=[], chapters=[], attachments=[]):
         self.typeValue = typeValue
         self.type = type
         self.simpletags = simpletags
-        super().__init__(tracks, editions, chapters, attachments)
+        self.tracks = list(tracks)
+        self.editions = list(editions)
+        self.chapters = list(chapters)
+        self.attachments = list(attachments)
+        self.simpletags = []
+
+    @property
+    def simpletags(self):
+        return self._simpletags
+
+    @simpletags.setter
+    def simpletags(self, value):
+        self._simpletags = ChildList(value, self)
+
+    def __reduce__(self):
+        return self.__class__, (), self.__getstate__()
 
     def __getstate__(self):
         state = OrderedDict()
@@ -164,7 +180,17 @@ class Tag(BaseTag):
         if self.simpletags is not None:
             state["simpletags"] = self.simpletags
 
-        state.update(super().__getstate__())
+        if self.tracks:
+            state["tracks"] = self.tracks
+
+        if self.editions:
+            state["editions"] = self.editions
+
+        if self.chapters:
+            state["chapters"] = self.chapters
+
+        if self.attachments:
+            state["attachments"] = self.attachments
 
         return state
 
@@ -172,7 +198,31 @@ class Tag(BaseTag):
         self.typeValue = state.get("typeValue")
         self.type = state.get("type")
         self.simpletags = state.get("simpletags")
-        super().__setstate__(state)
+        self.tracks = state.get("tracks", [])
+        self.editions = state.get("editions", [])
+        self.chapters = state.get("chapters", [])
+        self.attachments = state.get("attachments", [])
+
+    def prepare(self, logfile=None):
+        print(f"{self.type} ({self.typeValue}):", file=logfile)
+
+        if len(self.tracks):
+            print(f"    Target Tracks: {', '.join(str(item) for item in self.tracks)}", file=logfile)
+
+        if len(self.editions):
+            print(f"    Target Editions: {', '.join(str(item) for item in self.editions)}", file=logfile)
+
+        if len(self.chapters):
+            print(f"    Target Chapters: {', '.join(str(item) for item in self.chapters)}", file=logfile)
+
+        if len(self.attachments):
+            print(f"    Target Attachments: {', '.join(str(item) for item in self.attachments)}", file=logfile)
+
+        targets = matroska.tags.Targets(self.typeValue, self.type,
+                                        self.tracks, self.editions, self.chapters, self.attachments)
+        simpletags = [simpletag.prepare(0, logfile) for simpletag in self.simpletags]
+
+        return matroska.tags.Tag(targets, simpletags)
 
 class TVSeriesTag(BaseTag):
     typeValue = 70
@@ -304,7 +354,7 @@ class TVEpisodeTag(BaseTag):
         self.part = state.get("part")
         super().__setstate__(state)
 
-class MovieTag(BaseTag):
+class MovieTag(Tag):
     typeValue = 50
     type = "MOVIE"
 
@@ -313,7 +363,7 @@ class MovieTag(BaseTag):
         self.director = director
         self.date_released = date_released
         self.comment = comment
-        super().__init__(tracks, editions, chapters, attachments)
+        super().__init__(typeValue=50, type="MOVIE", tracks=tracks, editions=editions, chapters=chapters, attachments=attachments)
 
     @property
     def simpletags(self):
@@ -341,6 +391,10 @@ class MovieTag(BaseTag):
 
         return simpletags
 
+    @simpletags.setter
+    def simpletags(self, value):
+        pass
+
     def __getstate__(self):
         state = OrderedDict()
 
@@ -364,7 +418,36 @@ class MovieTag(BaseTag):
         self.director = state.get("director")
         self.date_released = state.get("date_released")
         self.comment = state.get("comment")
-        super().__setstate__(state)
+        #super().__setstate__(state)
+
+    def __reduce__(self):
+        return Tag, (), Tag.__getstate__(self)
+
+#def MovieTag(title=None, director=None, date_released=None, comment=None, tracks=[], editions=[], chapters=[], attachments=[]):
+    #simpletags = []
+
+    #if isinstance(title, dict):
+        #for lang, title in title.items():
+            #simpletags.append(SimpleTag("TITLE", lang, string=title))
+
+    #elif isinstance(title, str):
+        #simpletags.append(SimpleTag("TITLE", string=title))
+
+    #if isinstance(director, str):
+        #simpletags.append(SimpleTag("DIRECTOR", string=director))
+
+    #if isinstance(date_released, (str, int)):
+        #simpletags.append(SimpleTag("DATE_RELEASED", string=date_released))
+
+    #if isinstance(comment, dict):
+        #for lang, comment in comment.items():
+            #simpletags.append(SimpleTag("COMMENT", lang, string=comment))
+
+    #elif isinstance(comment, str):
+        #simpletags.append(SimpleTag("COMMENT", string=comment))
+
+    #return Tag(50, "MOVIE", simpletags,
+                 #tracks, editions, chapters, attachments)
 
 class Tags(ChildList):
     def prepare(self, logfile=None):

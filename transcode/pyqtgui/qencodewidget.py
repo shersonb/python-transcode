@@ -66,9 +66,10 @@ class Graph(QWidget):
     def addPoints(self, points):
         try:
             self.A = numpy.concatenate((self.A, numpy.moveaxis([points], 0, 1)), axis=1)
+
         except:
-            print("Failed to add %s" % points)
             return
+
         self.repaint()
 
     def paintEvent(self, event):

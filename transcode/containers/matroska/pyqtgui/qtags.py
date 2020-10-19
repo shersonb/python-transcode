@@ -1,256 +1,62 @@
 from PyQt5.QtWidgets import QApplication, QWidget
 import sys
 from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractTableModel, QModelIndex,
-                          QVariant, QItemSelectionModel, QItemSelection, pyqtSignal, pyqtSlot, QMimeData,
-                          QByteArray, QDataStream, QIODevice, QRegExp)
+                          QVariant, QItemSelectionModel, QItemSelection, pyqtSignal, pyqtSlot, QMimeData)
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxLayout, QHBoxLayout,
-                             QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView, QHeaderView, QSpinBox,
-                             QLineEdit, QComboBox, QFileDialog, QCheckBox, QDoubleSpinBox, QItemDelegate,
-                             QMenu, QAction)
+                             QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView, QHeaderView, QSpinBox, QFrame,
+                             QLineEdit, QComboBox, QCheckBox, QSpinBox, QDoubleSpinBox, QItemDelegate,
+                             QMenu, QAction, QScrollArea)
 from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QRegExpValidator
 
-from transcode.pyqtgui.qobjectitemmodel import QObjectItemModel, _cookie_lock, _cookies
+from transcode.pyqtgui.qitemmodel import QItemModel, Node, ChildNodes
 from ..tags import Tag, Tags, SimpleTag
 from transcode.pyqtgui.qlangselect import LanguageDelegate, LANGUAGES
 from titlecase import titlecase
 from functools import partial
 
-class TagItemModel(QObjectItemModel):
-    def rowCount(self, parent=QModelIndex()):
-        if parent.isValid():
-            ptr = parent.internalPointer()
+from ..chapters import Editions, EditionEntry, ChapterAtom
+from ...basewriter import TrackList, Track
+from ..attachments import Attachments, AttachedFile
 
-            try:
-                if isinstance(ptr, Tags):
-                    return len(ptr)
-
-                elif isinstance(ptr, Tag):
-                    return len(ptr.simpletags)
-
-                elif isinstance(ptr, SimpleTag):
-                    return len(ptr.subtags)
-
-            except:
-                return 0
-
-        return len(self.items)
-
-    def index(self, row, column, parent=QModelIndex()):
-        if parent and parent.isValid():
-            parent_obj = parent.internalPointer()
-
-        else:
-            parent_obj = self.items
-
-        try:
-            if isinstance(parent_obj, SimpleTag):
-                item = parent_obj.subtags[row]
-
-            elif isinstance(parent_obj, Tag):
-                item = parent_obj.simpletags[row]
-
-            elif isinstance(parent_obj, Tags):
-                item = parent_obj[row]
-
-            else:
-                return QModelIndex()
-
-        except:
-            return QModelIndex()
-
-        if isinstance(item, (int, str, float, complex)):
-            return QAbstractItemModel.createIndex(self, row, column)
-
-        return QAbstractItemModel.createIndex(self, row, column, item)
-
-    #def removeRow() TODO
-
-    def moveRow(self, position, newposition, srcparent=QModelIndex(), destparent=QModelIndex()):
-        if self.beginMoveRows(srcparent, position, position, destparent, newposition):
-            if srcparent.isValid():
-                items1 = srcparent.internalPointer()
-
-            else:
-                items1 = self.items
-
-            if destparent.isValid():
-                items2 = destparent.internalPointer()
-
-            else:
-                items2 = self.items
-
-            if isinstance(items1, Tags):
-                item = items1.pop(position)
-
-            elif isinstance(items1, Tag):
-                item = items1.simpletags.pop(position)
-
-            elif isinstance(items1, SimpleTag):
-                item = items1.subtags.pop(position)
-
-            if items1 is items2 and newposition > position:
-                newposition -= 1
-
-            if isinstance(items2, Tags):
-                items2.insert(newposition, item)
-
-            elif isinstance(items2, Tag):
-                items2.simpletags.insert(newposition, item)
-
-            elif isinstance(items2, SimpleTag):
-                items2.subtags.insert(newposition, item)
-
-            self.endMoveRows()
-
-        return True
-
-    def parent(self, in_index):
-        if in_index.isValid():  
-            item = in_index.internalPointer()
-
-            if item is None:
-                return QModelIndex()
-
-            elif isinstance(item, SimpleTag):
-                parent = item.parent
-
-            else:
-                parent = None
-
-            if isinstance(parent, Tag):
-                return QAbstractItemModel.createIndex(self, self.items.index(parent), 0, parent)
-
-            elif isinstance(parent, SimpleTag):
-                if isinstance(parent.parent, SimpleTag):
-                    return QAbstractItemModel.createIndex(self, parent.parent.subtags.index(parent), 0, parent)
-
-                return QAbstractItemModel.createIndex(self, parent.parent.simpletags.index(parent), 0, parent)
-
-        return QModelIndex()
-
-    def insertRow(self, row_id, item, parent=QModelIndex()):
-        if parent.isValid():
-            items = parent.internalPointer()
-
-        else:
-            items = self.items
-
-        self.beginInsertRows(parent, row_id, row_id)
-
-        if isinstance(items, Tags):
-            items.insert(row_id, item)
-
-        elif isinstance(items, Tag):
-            items.simpletags.insert(row_id, item)
-
-        elif isinstance(items, SimpleTag):
-            items.subtags.insert(row_id, item)
-
-        self.endInsertRows()
-        return True
-
-    def removeRow(self, row_id, parent=QModelIndex()):
-        if parent.isValid():
-            items = parent.internalPointer()
-
-        else:
-            items = self.items
-
-        self.beginRemoveRows(parent, row_id, row_id)
-
-        if isinstance(items, Tags):
-            del items[row_id]
-
-        elif isinstance(items, Tag):
-            del items.simpletags[row_id]
-
-        elif isinstance(items1, SimpleTag):
-            del items.subtags[row_id]
-
-        self.endRemoveRows()
-        return True
-
-    def hasChildren(self, index):
-        if index.isValid():
-            ptr = index.internalPointer()
-
-            try:
-                if isinstance(ptr, Tags):
-                    return len(ptr) > 0
-
-                elif isinstance(ptr, Tag):
-                    return len(ptr.simpletags) > 0
-
-                elif isinstance(ptr, SimpleTag):
-                    return len(ptr.subtags) > 0
-
-            except:
-                return False
-
-        return True
-
-    def findIndex(self, item):
-        if isinstance(item, Tags):
-            return QModelIndex()
-
-        elif isinstance(item, Tag):
-            if item in self.items:
-                return self.index(self.items.index(item), 0)
-
-        elif isinstance(item, SimpleTag):
-            if isinstance(item.parent, Tag):
-                return self.findIndex(item.parent).child(item.parent.simpletags.index(item), 0)
-
-            elif isinstance(item.parent, SimpleTag):
-                return self.findIndex(item.parent).child(item.parent.subtags.index(item), 0)
-
-        return QModelIndex()
-
+class TagItemModel(QItemModel):
     def dropItems(self, items, action, row, column, parent):
         if row == -1:
             row = self.rowCount(parent)
 
-        parent_obj = parent.data(Qt.UserRole)
+        node = self.getNode(parent)
 
         j = 0
 
         for k, item in enumerate(items):
-            if isinstance(item, SimpleTag):
-                old_parent = self.findIndex(item.parent)
+            old_parent = self.findIndex(item.parent)
+            old_row = item.parent.index(item)
+            self.moveRow(old_row, row + k - j, old_parent, parent)
 
-                if isinstance(item.parent, SimpleTag):
-                    old_row = item.parent.subtags.index(item)
-
-                elif isinstance(item.parent, Tag):
-                    old_row = item.parent.simpletags.index(item)
-
-                self.moveRow(old_row, row + k - j, old_parent, parent)
-
-                if old_parent.data(Qt.UserRole) is parent.data(Qt.UserRole) and old_row < row:
-                    j += 1
-
-            if isinstance(item, Tag):
-                old_row = self.items.index(item)
-                self.moveRow(old_row, row + k - j)
-
-                if old_row < row:
-                    j += 1
+            if self.getNode(old_parent) is self.getNode(parent) and old_row < row:
+                j += 1
 
 
             return False
 
         return True
 
-
     def canDropItems(self, items, action, row, column, parent):
-        parent_obj = parent.data(Qt.UserRole)
+        node = self.getNode(parent)
 
         for item in items:
-            if isinstance(item, SimpleTag) and isinstance(parent_obj, (SimpleTag, Tag)):
+            o = item
+
+            while o.parent is not None:
+                o = o.parent
+
+            if o is not self.root:
+                return False
+
+            if isinstance(item.value, SimpleTag) and isinstance(node.value, (SimpleTag, Tag)):
                 continue
 
-            if isinstance(item, Tag) and not parent.isValid():
+            if isinstance(item.value, Tag) and isinstance(node.value, Tags):
                 continue
 
             return False
@@ -259,6 +65,162 @@ class TagItemModel(QObjectItemModel):
 
     def supportedDropActions(self):
         return Qt.MoveAction
+
+class TagsNode(Node):
+    def _wrapChildren(self, children):
+        return TagsChildren.fromValues(children, self)
+
+class TagsChildren(ChildNodes):
+    @staticmethod
+    def _wrap(value):
+        return TagNode(value)
+
+class TagNode(Node):
+    def _wrapChildren(self, children):
+        return TagChildren.fromValues(children, self)
+
+    def _iterChildren(self):
+        return self.value.simpletags
+
+class TagChildren(ChildNodes):
+    @staticmethod
+    def _wrap(value):
+        return SimpleTagNode(value)
+
+    def _append(self, value):
+        self.parent.value.simpletags.append(value)
+
+    def _insert(self, index, value):
+        self.parent.value.simpletags.insert(index, value)
+    
+    def _extend(self, values):
+        self.parent.value.simpletags.extend(values)
+
+    def _delitem(self, index):
+        del self.parent.value.simpletags[index]
+
+    def _setitem(self, index, value):
+        self.parent.value.simpletags[index] = value
+
+class SimpleTagNode(Node):
+    def _wrapChildren(self, children):
+        return SimpleTagChildren.fromValues(children, self)
+
+    def _iterChildren(self):
+        return self.value.subtags
+
+class SimpleTagChildren(ChildNodes):
+    @staticmethod
+    def _wrap(value):
+        return SimpleTagNode(value)
+
+    def _append(self, value):
+        self.parent.value.subtags.append(value)
+
+    def _insert(self, index, value):
+        self.parent.value.subtags.insert(index, value)
+    
+    def _extend(self, values):
+        self.parent.value.subtags.extend(values)
+
+    def _delitem(self, index):
+        del self.parent.value.subtags[index]
+
+    def _setitem(self, index, value):
+        self.parent.value.subtags[index] = value
+
+class TagItemCol(object):
+    def __init__(self, editions, tracks, attachments,
+                 targeteditions, targetchapters, targettracks, targetattachments):
+        self.editions = editions
+        self.tracks = tracks
+        self.attachments = attachments
+
+        self.targeteditions = targeteditions
+        self.targetchapters = targetchapters
+        self.targettracks = targettracks
+        self.targetattachments = targetattachments
+
+    def checkstate(self, index, obj):
+        if isinstance(obj, EditionEntry):
+            return 2 if obj.UID in self.targeteditions else 0
+
+        elif isinstance(obj, ChapterAtom):
+            return 2 if obj.UID in self.targetchapters else 0
+
+        elif isinstance(obj, Track):
+            return 2 if obj.trackUID in self.targettracks else 0
+
+        elif isinstance(obj, AttachedFile):
+            return 2 if obj.UID in self.targetattachments else 0
+
+    def setcheckstate(self, index, obj, state):
+        if state == 0:
+            if isinstance(obj, EditionEntry):
+                self.targeteditions.remove(obj.UID)
+
+            elif isinstance(obj, ChapterAtom):
+                self.targetchapters.remove(obj.UID)
+
+            elif isinstance(obj, Track):
+                self.targettracks.remove(obj.trackUID)
+
+            elif isinstance(obj, AttachedFile):
+                self.targetattachments.remove(obj.UID)
+
+        elif state == 2:
+            if isinstance(obj, EditionEntry):
+                self.targeteditions.append(obj.UID)
+                self.targeteditions.sort()
+
+            elif isinstance(obj, ChapterAtom):
+                self.targetchapters.append(obj.UID)
+                self.targetchapters.sort()
+
+            elif isinstance(obj, Track):
+                self.targettracks.append(obj.trackUID)
+                self.targettracks.sort()
+
+            elif isinstance(obj, AttachedFile):
+                self.targetattachments.append(obj.UID)
+                self.targetattachments.sort()
+
+    def display(self, index, obj):
+        if isinstance(obj, Editions):
+            return "Chapter Editions"
+
+        elif isinstance(obj, TrackList):
+            return "Tracks"
+
+        if isinstance(obj, Attachments):
+            return "Attachments"
+
+        if isinstance(obj, EditionEntry):
+            return f"Edition {obj.parent.chapters.index(obj)}"
+
+        if isinstance(obj, Track):
+            return f"{obj.track_index}: {obj.name}"
+
+        if isinstance(obj, AttachedFile):
+            return f"{obj.parent.attachments.index(obj)}: {obj.fileName}"
+
+        if isinstance(obj, ChapterAtom):
+            if len(obj.displays):
+                return f"{obj.parent.index(obj) + 1}. {obj.displays[0].string}"
+
+            return f"Chapter {obj.parent.index(obj) + 1}"
+
+        return repr(obj)
+
+    def flags(self, index, obj):
+        if isinstance(obj, (EditionEntry, ChapterAtom, Track, AttachedFile)):
+            return Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
+
+        return Qt.ItemIsEnabled
+
+class OutputFileNode(Node):
+    def _iterChildren(self):
+        return (self.value.tracks, self.value.chapters, self.value.attachments)
 
 TYPES = [
         ("COLLECTION", 70),
@@ -286,6 +248,217 @@ TYPES = [
         ("SHOT", 10)
     ]
 
+NESTING_NAMES = ["ORIGINAL", "SAMPLE", "COUNTRY"]
+ORGANIZATION = ["TOTAL_PARTS", "PART_NUMBER", "PART_OFFSET"]
+TITLES = ["TITLE", "SUBTITLE"]
+NESTED_INFO = ["URL", "SORT_WITH", "INSTRUMENTS", "EMAIL",
+               "ADDRESS", "FAX", "PHONE"]
+ENTITIES = [
+        "DIRECTOR", "ASSISTANT_DIRECTOR",
+        "DIRECTOR_OF_PHOTOGRAPHY", "SOUND_ENGINEER",
+        "ART_DIRECTOR", "PRODUCTION_DESIGNER", "CHOREGRAPHER",
+        "COSTUME_DESIGNER", "ACTOR", "CHARACTER", "WRITTEN_BY",
+        "SCREENPLAY_BY", "EDITED_BY", "PRODUCER", "COPRODUCER",
+        "EXECUTIVE_PRODUCER", "DISTRIBUTED_BY", "MASTERED_BY",
+        "ARTIST", "LEAD_PERFORMER", "ACCOMPANIEMENT",
+        "COMPOSER", "ARRANGER", "LYRICS", "LYRICIST",
+        "CONDUCTOR",
+        "ENCODED_BY", "MIXED_BY", "REMIXED_BY",
+        "PRODUCTION_STUDIO", "THANKS_TO", "PUBLISHER", "LABEL"
+    ]
+
+SEARCH_CLASS = [
+        "GENRE",
+        "MOOD",
+        "ORIGINAL_MEDIA_TYPE",
+        "CONTENT_TYPE",
+        "SUBJECT",
+        "DESCRIPTION",
+        "KEYWORDS",
+        "SUMMARY",
+        "SYNOPSIS",
+        "INITIAL_KEY",
+        "PERIOD",
+        "LAW_RATING",
+    ]
+
+TEMPORAL = [
+        "DATE_RELEASED",
+        "DATE_RECORDED",
+        "DATE_ENCODED",
+        "DATE_TAGGED",
+        "DATE_DIGITIZED",
+        "DATE_WRITTEN",
+        "DATE_PURCHASED",
+    ]
+
+SPATIAL = [
+        "RECORDING_LOCATION",
+        "COMPOSITION_LOCATION",
+        "COMPOSER_NATIONALITY",
+    ]
+
+PERSONAL = [
+        "COMMENT",
+        "PLAY_COUNTER",
+        "RATING",
+    ]
+
+TECHNICAL = [
+        "ENCODER",
+        "ENCODER_SETTINGS",
+        "BPS",
+        "FPS",
+        "BPM",
+        "MEASURE",
+        "TUNING",
+        "REPLAYGAIN_GAIN",
+        "REPLAYGAIN_PEAK",
+    ]
+
+IDENTIFIERS = [
+        "ISRC",
+        "MCDI",
+        "ISBN",
+        "BARCODE",
+        "CATALOG_NUMBER",
+        "LABEL_CODE",
+        "LCCN",
+        "IMDB",
+        "TMDB",
+        "TVDB",
+    ]
+
+COMMERCIAL = [
+        "PURCHASE_ITEM",
+        "PURCHASE_INFO",
+        "PURCHASE_OWNER",
+        "PURCHASE_PRICE",
+        "PURCHASE_CURRENCY",
+    ]
+
+LEGAL = [
+        "COPYRIGHT",
+        "PRODUCTION_COPYRIGHT",
+        "LICENSE",
+        "TERMS_OF_USE",
+    ]
+
+SECTIONS = [
+        ("Titles", TITLES),
+        ("Temporal", TEMPORAL),
+        ("Organization", ORGANIZATION),
+        ("Entities", ENTITIES),
+        ("Nesting", NESTING_NAMES),
+        ("Search/Classification", SEARCH_CLASS),
+        ("Spatial", SPATIAL),
+        ("Personal", PERSONAL),
+        ("Technical", TECHNICAL),
+        ("Identifiers", IDENTIFIERS),
+        ("Commercial", COMMERCIAL),
+        ("Legal", LEGAL)
+        ]
+
+BINARY = {"ICRA", "REPLAYGAIN_GAIN", "REPLAYGAIN_PEAK",
+          "MCDI"}
+
+AUTOSELECT = {
+        ("COLLECTION", 70): {"TITLE", "TOTAL_PARTS"},
+        ("EDITION", 60): {"TITLE"},
+        #("ISSUE", 60),
+        #("VOLUME", 60),
+        #("OPUS", 60),
+        ("SEASON", 60): {"TOTAL_PARTS", "PART_NUMBER", "DATE_RELEASED"},
+        #("SEQUEL", 60),
+        #("VOLUME", 60),
+        #("ALBUM", 50),
+        #("OPERA", 50),
+        #("CONCERT", 50),
+        ("MOVIE", 50): {
+            "TITLE", "DIRECTOR", "ASSISTANT_DIRECTOR",
+            "DIRECTOR_OF_PHOTOGRAPHY", "SOUND_ENGINEER",
+            "ART_DIRECTOR", "PRODUCTION_DESIGNER", "CHOREGRAPHER",
+            "COSTUME_DESIGNER", "ACTOR", "CHARACTER", "WRITTEN_BY",
+            "SCREENPLAY_BY", "EDITED_BY", "PRODUCER", "COPRODUCER",
+            "EXECUTIVE_PRODUCER", "DISTRIBUTED_BY", "PRODUCTION_STUDIO",
+            "DATE_RELEASED"
+            },
+        ("EPISODE", 50): {
+            "TITLE", "PART_NUMBER", "DIRECTOR", "ACTOR",
+            "WRITTEN_BY", "PRODUCER", "COPRODUCER"
+            "EXECUTIVE_PRODUCER", "SCREENPLAY_BY", "DATE_RELEASED"},
+        #("PART", 40),
+        #("SESSION", 40),
+        #("TRACK", 30),
+        #("SONG", 30),
+        #("CHAPTER", 30),
+        #("SUBTRACK", 20),
+        #("PART", 20),
+        #("MOVEMENT", 20),
+        #("SCENE", 20),
+        #("SHOT", 10)
+    }
+
+SUBTAGS = {
+    "ACTOR": ["CHARACTER"]
+    }
+
+class NewSimpleTags(QWidget):
+    contentsModified = pyqtSignal()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        self._tags = []
+
+        for k, (section, items) in enumerate(SECTIONS):
+            if k > 0:
+                frame = QFrame(self)
+                frame.setFrameStyle(QFrame.HLine)
+                layout.addWidget(frame)
+
+            hlayout = QHBoxLayout()
+            label = QLabel(section, self)
+            f = self.font()
+            f.setPointSize(14)
+            f.setItalic(True)
+            f.setBold(QFont.Bold)
+            label.setFont(f)
+            hlayout.addWidget(label)
+            hlayout.addStretch()
+
+            layout.addLayout(hlayout)
+
+            for item in items:
+                hlayout = QHBoxLayout()
+                checkBox = QCheckBox(titlecase(item.replace("_", " ")), self)
+
+                spinBox = QSpinBox(self)
+                spinBox.setMinimum(1)
+                spinBox.setMaximum(512)
+                spinBox.valueChanged.connect(self.contentsModified)
+                spinBox.setPrefix("×")
+                spinBox.setEnabled(False)
+
+                checkBox.stateChanged.connect(partial(self.checkChanged, spinBox))
+
+                hlayout.addWidget(checkBox)
+                hlayout.addStretch()
+                hlayout.addWidget(spinBox)
+                layout.addLayout(hlayout)
+                self._tags.append((item, checkBox, spinBox))
+
+    def checkChanged(self, spinBox, state):
+        spinBox.setEnabled(state == 2)
+        self.contentsModified.emit()
+
+    def tags(self):
+        return [(item, checkBox.checkState(), spinBox.value()) for (item, checkBox, spinBox) in self]
+
+    def __iter__(self):
+        return iter(self._tags)
+
 class NewTagDlg(QDialog):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -296,13 +469,21 @@ class NewTagDlg(QDialog):
         self.typeComboBox = QComboBox(self)
 
         for (t, tValue) in TYPES:
-            self.typeComboBox.addItem(f"{titlecase(t)} ({tValue})", (t, tValue))
+            self.typeComboBox.addItem(f"{titlecase(t)} ({tValue})", [t, tValue])
 
         sublayout = QHBoxLayout()
         sublayout.addWidget(self.typeLabel)
         sublayout.addWidget(self.typeComboBox)
         sublayout.addStretch()
         layout.addLayout(sublayout)
+
+        scrollArea = QScrollArea(self)
+        scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+        self.newTags = NewSimpleTags(scrollArea)
+        scrollArea.setWidget(self.newTags)
+        layout.addWidget(scrollArea)
 
         sublayout = QHBoxLayout()
         self.okayBtn = QPushButton("&OK", self)
@@ -315,9 +496,25 @@ class NewTagDlg(QDialog):
         sublayout.addWidget(self.cancelBtn)
         layout.addLayout(sublayout)
 
+        self.typeComboBox.currentIndexChanged.connect(self.autoSelectSubtags)
+
     def applyAndClose(self):
         self.done(1)
         self.close()
+
+    def autoSelectSubtags(self):
+        data = self.typeComboBox.currentData()
+        autoselect = AUTOSELECT.get(tuple(data), {})
+
+        for tag, checkBox, spinBox in self.newTags:
+            if tag in autoselect:
+                checkBox.setCheckState(2)
+
+            else:
+                checkBox.setCheckState(0)
+
+    def selectedTags(self):
+        return [(tag, count) for (tag, checkstate, count) in self.newTags.tags() if checkstate]
 
 class BaseColumn(object):
     checkstate = None
@@ -352,6 +549,11 @@ class BaseColumn(object):
     def createContextMenu(self, table, index, obj):
         menu = QMenu(table)
 
+        if isinstance(obj, Tags):
+            newAtBottom = QAction("&New Tag...", table,
+                                  triggered=partial(self.newTag, table=table, model=index.model()))
+            menu.addAction(newAtBottom)
+
         if isinstance(obj, Tag):
             newAtBottom = QAction("&New Tag...", table,
                                   triggered=partial(self.newTag, table=table, model=index.model()))
@@ -378,6 +580,9 @@ class BaseColumn(object):
             insertSimpleTag = QAction("&Insert SimpleTag Before", table,
                         triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model(), row_id=row_id))
 
+            insertAfterTag = QAction(f"&Insert '{titlecase(obj.name.replace('_', ' '))}' After", table,
+                        triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model(), row_id=row_id+1, tagname=obj.name))
+
             appendSimpleTag = QAction("&Add SimpleTag at end", table,
                         triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model()))
 
@@ -385,12 +590,20 @@ class BaseColumn(object):
                         triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model()))
 
             menu.addAction(insertSimpleTag)
+            menu.addAction(insertAfterTag)
+
             menu.addAction(appendSimpleTag)
             menu.addAction(insertChildSimpleTag)
 
+            for childtag in SUBTAGS.get(obj.name, set()):
+                addChildSimpleTag = QAction(f"&Add child '{titlecase(childtag.replace('_', ' '))}' SimpleTag", table,
+                        triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model(), tagname=childtag))
+                menu.addAction(addChildSimpleTag)
+
+
 
         delete = QAction("&Delete Selected...", table,
-                                triggered=partial(self.deleteTag, table=table, model=index.model()))
+                                triggered=table.askDeleteSelected)
         menu.addAction(delete)
 
         if len(table.selectedIndexes()):
@@ -399,35 +612,56 @@ class BaseColumn(object):
         return menu
 
     def newTag(self, table, model, row_id=-1):
+        if model is None:
+            model = table.model()
+
+        existing = [(tag.type, tag.typeValue) for tag in self.tags]
         dlg = NewTagDlg(table)
+
+        for (type, typeValue) in TYPES:
+            if (type, typeValue) not in existing:
+                cbindex = dlg.typeComboBox.findData([type, typeValue])
+
+                if cbindex >= 0:
+                    dlg.typeComboBox.setCurrentIndex(cbindex)
+                    break
+
+        else:
+            dlg.typeComboBox.setCurrentIndex(0)
 
         if dlg.exec_():
             type, typeValue = dlg.typeComboBox.currentData()
             tag = Tag(typeValue, type)
+
+            for simpleTag, N in dlg.selectedTags():
+                for k in range(N):
+                    tag.simpletags.append(SimpleTag(simpleTag))
 
             if row_id == -1:
                 row_id = model.rowCount(QModelIndex())
 
             model.insertRow(row_id, tag)
 
-    def newSimpleTag(self, table, model, parent, row_id=-1):
+    def newSimpleTag(self, table, model, parent, row_id=-1, tagname=""):
+        if model is None:
+            model = table.model()
+
+        for col_id, col in enumerate(model.columns):
+            if isinstance(col, ValueCol):
+                break
+
+        else:
+            col_id = 0
+
         if row_id == -1:
             row_id = model.rowCount(parent)
 
-        tag = SimpleTag("")
+        tag = SimpleTag(tagname)
         model.insertRow(row_id, tag, parent)
 
-    def deleteTag(self, table, model):
-        answer = QMessageBox.question(table, "Delete tags", "Do you wish to delete the selected tags? Any child tags will also be lost!", QMessageBox.Yes | QMessageBox.No)
-
-        if answer == QMessageBox.Yes:
-            selected = {index.data(Qt.UserRole) for index in table.selectedIndexes()}
-
-            for tag in selected.copy():
-                index = model.findIndex(tag)
-
-                if index.isValid():
-                    model.removeRow(index.row(), index.parent())
+        idx = model.index(row_id, col_id, parent)
+        table.setCurrentIndex(idx)
+        table.edit(idx)
 
     def flags(self, index, obj):
         if isinstance(obj, SimpleTag):
@@ -435,27 +669,88 @@ class BaseColumn(object):
 
         return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
 
+class TagNameDelegate(QItemDelegate):
+    def createEditor(self, parent, option, index):
+        obj = index.data(Qt.UserRole)
+
+        if isinstance(obj, SimpleTag):
+            widget = QComboBox(parent)
+            widget.setEditable(True)
+
+            for k, (section, items) in enumerate(SECTIONS):
+                if k > 0:
+                    widget.insertSeparator(len(widget))
+
+                for item in items:
+                    widget.addItem(titlecase(item.replace("_", " ")), item)
+
+        elif isinstance(obj, Tag):
+            widget = QComboBox(parent)
+
+            for (type, typeValue) in TYPES:
+                widget.addItem(f"{titlecase(type)} ({typeValue})", [type, typeValue])
+
+        return widget
+
+    def setEditorData(self, editor, index):
+        obj = index.data(Qt.UserRole)
+        data = index.data(Qt.EditRole)
+
+        if isinstance(obj, Tag):
+            cbindex = editor.findData(list(data))
+            editor.setCurrentIndex(cbindex)
+
+        elif isinstance(obj, SimpleTag):
+            cbindex = editor.findData(data)
+
+            if cbindex >= 0:
+                editor.setCurrentIndex(cbindex)
+
+            else:
+                editor.setCurrentText(titlecase(data.replace("_", " ")))
+
+    def setModelData(self, editor, model, index):
+        obj = index.data(Qt.UserRole)
+        data = editor.currentData()
+
+        if isinstance(obj, Tag) and data:
+            model.setData(index, editor.currentData(), Qt.EditRole)
+
+        elif isinstance(obj, SimpleTag):
+            model.setData(index, editor.currentText().upper().replace(" ", "_"))
+
 class NameCol(BaseColumn):
     width = 256
     headerdisplay = "Tag"
+    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
 
     def editdata(self, index, obj):
         if isinstance(obj, Tag):
-            return (obj.typeValue, obj.type)
+            return (obj.type, obj.typeValue)
 
         elif isinstance(obj, SimpleTag):
             return obj.name
 
-    def display(self, index, obj):
+    def seteditdata(self, index, obj, data):
         if isinstance(obj, Tag):
-            return f"{obj.type} ({obj.typeValue})"
+            (obj.type, obj.typeValue) = data
 
         elif isinstance(obj, SimpleTag):
-            return f"{obj.name}"
+            obj.name = data
+
+    def display(self, index, obj):
+        if isinstance(obj, Tag):
+            return f"{titlecase(obj.type)} ({obj.typeValue})"
+
+        elif isinstance(obj, SimpleTag):
+            return f"{titlecase(obj.name.replace('_', ' '))}"
+
+    def itemDelegate(self, parent):
+        return TagNameDelegate(parent)
 
 class TagLanguageDelegate(LanguageDelegate):
     def createEditor(self, parent, option, index):
-        if isinstance(index.data(Qt.UserData), SimpleTag):
+        if isinstance(index.data(Qt.UserRole), SimpleTag):
             return super().createEditor(parent, option, index)
 
 class LangCol(BaseColumn):
@@ -467,6 +762,10 @@ class LangCol(BaseColumn):
             return obj.language
 
         return ""
+
+    def seteditdata(self, index, obj, value):
+        if isinstance(obj, SimpleTag):
+            obj.language = value
 
     def display(self, index, obj):
         if isinstance(obj, SimpleTag):
@@ -520,36 +819,19 @@ class ValueCol(BaseColumn):
 
         return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
 
-class TagTree(QTreeView):
-    def __init__(self, tags, tracks, editions, attachments, *args, **kwargs):
-        super(TagTree, self).__init__(*args, **kwargs)
-        self.tags = tags
-        self.tracks = tracks
-        self.editions = editions
-        self.attachments = attachments
-
+class QTagTree(QTreeView):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setMinimumWidth(540)
         self.setDragDropMode(QTreeView.InternalMove)
         self.setDefaultDropAction(Qt.MoveAction)
+        self.setSelectionMode(QTreeView.ExtendedSelection)
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
+        self.setData(None, None, None, None)
 
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
-
-        cols = [
-                NameCol(tags, tracks, editions, attachments),
-                LangCol(tags, tracks, editions, attachments),
-                ValueCol(tags, tracks, editions, attachments),
-            ]
-
-        self.setModel(TagItemModel(tags, cols))
-
-        for k, col in enumerate(cols):
-            if hasattr(col, "width") and isinstance(col.width, int):
-                self.setColumnWidth(k, col.width)
-
-            if hasattr(col, "itemDelegate") and callable(col.itemDelegate):
-                self.setItemDelegateForColumn(k, col.itemDelegate(self))
 
     def contextMenuEvent(self, event):
         selected = self.currentIndex()
@@ -560,4 +842,101 @@ class TagTree(QTreeView):
 
         if isinstance(menu, QMenu):
             menu.exec_(self.mapToGlobal(event.pos()))
+
+    def setData(self, tags, tracks, editions, attachments):
+        self.tags = tags
+        self.tracks = tracks
+        self.editions = editions
+        self.attachments = attachments
+
+        if self.tags is not None:
+            cols = [
+                    NameCol(tags, tracks, editions, attachments),
+                    LangCol(tags, tracks, editions, attachments),
+                    ValueCol(tags, tracks, editions, attachments),
+                ]
+
+            root = TagsNode(tags)
+            model = TagItemModel(root, cols)
+            self.setModel(model)
+
+            for k, col in enumerate(cols):
+                if hasattr(col, "width") and isinstance(col.width, int):
+                    self.setColumnWidth(k, col.width)
+
+                if hasattr(col, "itemDelegate") and callable(col.itemDelegate):
+                    self.setItemDelegateForColumn(k, col.itemDelegate(self))
+
+        else:
+            self.setModel(QItemModel(Node(None), []))
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        modifiers = event.modifiers()
+        idx = self.currentIndex()
+        row = idx.row()
+        col = idx.column()
+        model = self.model()
+
+        selected = sorted(idx.row() for idx in self.selectionModel().selectedRows())
+
+        if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
+            self.askDeleteSelected()
+
+        super().keyPressEvent(event)
+
+    def askDeleteSelected(self):
+        answer = QMessageBox.question(self, "Delete tags", "Do you wish to delete the selected tags? Any child tags will also be lost!", QMessageBox.Yes | QMessageBox.No)
+
+        if answer == QMessageBox.Yes:
+            self.deleteSelected()
+
+    def deleteSelected(self):
+        model = self.model()
+        sm = self.selectionModel()
+        selected = {model.getNode(index) for index in sm.selectedRows()}
+        removed = set()
+
+        for node in selected:
+            parent = node.parent
+
+            if node not in removed:
+                model.removeRow(parent.index(node), model.findIndex(parent))
+                removed.add(node)
+
+                if node.descendants is not None:
+                    removed.update(node.descendants)
+
+class QTagsWidget(QWidget):
+    contentsModified = pyqtSignal()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        self.tagTree = QTagTree(self)
+        layout.addWidget(self.tagTree)
+
+        btnlayout = QHBoxLayout()
+        layout.addLayout(btnlayout)
+
+        self.addTagBtn = QPushButton("&Add top-level tag", self)
+        self.addSubTagBtn = QPushButton("&Add simple tag", self)
+        self.removeTagBtn = QPushButton("&Delete selected", self)
+        self.removeTagBtn.clicked.connect(self.tagTree.askDeleteSelected)
+
+        btnlayout.addWidget(self.addTagBtn)
+        btnlayout.addWidget(self.addSubTagBtn)
+        btnlayout.addWidget(self.removeTagBtn)
+        btnlayout.addStretch()
+
+    def setData(self, tags, tracks, editions, attachments):
+        self.tagTree.setData(tags, tracks, editions, attachments)
+
+        if tags is not None:
+            self.tagTree.model().dataChanged.connect(self.contentsModified)
+            self.tagTree.model().rowsInserted.connect(self.contentsModified)
+            self.tagTree.model().rowsRemoved.connect(self.contentsModified)
+            self.tagTree.model().rowsMoved.connect(self.contentsModified)
 

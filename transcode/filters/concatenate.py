@@ -10,6 +10,7 @@ from fractions import Fraction as QQ
 
 class Concatenate(BaseVideoFilter, BaseAudioFilter):
     __name__ = "Concatenate"
+    sourceCount = "+"
 
     def __init__(self, segments=[], time_base=QQ(1, 10**9), **kwargs):
         self.segments = list(segments)
@@ -317,6 +318,9 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
     def extend(self, segments):
         self.segments.extend(segments)
+
+    def clear(self):
+        self.segments.clear()
 
     def __reduce__(self):
         return type(self), (), self.__getstate__(), iter(self.segments)

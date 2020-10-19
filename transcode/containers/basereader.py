@@ -12,6 +12,8 @@ from itertools import count
 
 class Track(object):
     from copy import deepcopy as copy
+    name = None
+    language = None
 
     def __init__(self):
         self.container = None
@@ -27,6 +29,9 @@ class Track(object):
 
     def frameIndexFromPts(self, pts, dir="+"):
         return search(self.pts, pts, dir)
+
+    def frameIndexFromPtsTime(self, pts_time, dir="+"):
+        return search(self.pts_time, pts_time, dir)
 
     def __reduce__(self):
         state = self.__getstate__()

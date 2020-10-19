@@ -205,7 +205,8 @@ class MatroskaReader(basereader.BaseReader):
             track.container = self
 
     def scan(self, notifystart=None, notifyprogress=None, notifyfinish=None):
-        progress = 0
+        if callable(notifystart):
+            notifystart(int(self.mkvfile.segment.info.duration))
 
         tracksDict = {track.trackNumber: track for track in self.tracks if track.trackEntry.trackType in (1, 2, 17)}
         trackPts = {track.trackNumber: [] for track in self.tracks if track.trackEntry.trackType in (1, 2, 17)}
@@ -234,6 +235,9 @@ class MatroskaReader(basereader.BaseReader):
 
                 ptslist.append((pts, size, duration))
 
+                if callable(notifyprogress):
+                    notifyprogress(int((pts + (duration or 0))/10**6))
+
         for track in self.tracks:
             if track.trackNumber not in trackIndices:
                 continue
@@ -243,6 +247,9 @@ class MatroskaReader(basereader.BaseReader):
 
             track.index = numpy.array(sorted(trackIndices[track.trackNumber]))
             track.pts, track.sizes, track.durations = numpy.array(sorted(trackPts[track.trackNumber])).transpose()
+
+        if callable(notifyfinish):
+            notifyfinish()
 
     @property
     def chapters(self):

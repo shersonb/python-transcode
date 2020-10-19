@@ -165,6 +165,8 @@ class Scene(zoned.Zone):
         return N
 
 class Scenes(zoned.ZonedFilter):
+    """Inserts key frames at scene changes, realigns timestamps."""
+
     zoneclass = Scene
 
     def __str__(self):

@@ -132,6 +132,9 @@ class BaseVideoFilter(BaseFilter):
     def frameIndexFromPts(self, pts, dir="+"):
         return search(self.pts, pts, dir)
 
+    def frameIndexFromPtsTime(self, pts_time, dir="+"):
+        return search(self.pts_time, pts_time, dir)
+
     @cached
     def cumulativeIndexMap(self):
         if hasattr(self.prev, "cumulativeIndexMap"):

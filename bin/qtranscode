@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 import argparse
+import os
 import sys
 import time
+
 from transcode.config.ebml import ConfigElement
 from transcode.filters.video.keyframes import KeyFrames
 from transcode.filters.filterchain import FilterChain
@@ -10,7 +12,7 @@ import transcode.pyqtgui.qencodewidget
 
 parser = argparse.ArgumentParser(description="Encoder.")
 parser.add_argument("file", action='store', help="Config file")
-parser.add_argument("-n", action='store', help="Select stream to transcode.", default=0, type=int)
+parser.add_argument("-n", action='store', help="Select output file to transcode.", default=0, type=int)
 parser.add_argument("--pass", "-p", dest="p", action='append', help="Encode pass", default=[], type=int)
 parser.add_argument("--quit-on-complete", "-q", dest="q", action='store_true', help="Exit on complete.")
 parser.add_argument("--keyframe-analysis", "-k", dest="k", action='store_true', help="Analyze keyframes.")

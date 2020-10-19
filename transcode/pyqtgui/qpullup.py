@@ -243,7 +243,6 @@ class YBlendCheckCol(BaseFrameRateCol):
 
     def setcheckstate(self, index, obj, data):
         K, zone = self.filter.zoneAt(obj)
-        print(obj, obj)
 
         if self.checkstate(index, obj):
             zone.yblend = False

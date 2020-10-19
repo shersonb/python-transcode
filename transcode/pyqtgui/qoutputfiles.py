@@ -1,33 +1,27 @@
-from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex
+from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex, pyqtSignal, QFileInfo
 from PyQt5.QtGui import QFont, QIcon, QBrush, QPen
-from PyQt5.QtWidgets import QTreeView, QAbstractItemView, QWidget, QHBoxLayout, QVBoxLayout, QMenu, QAction
+from PyQt5.QtWidgets import (QTreeView, QAbstractItemView, QWidget, QHBoxLayout, QVBoxLayout,
+                             QMenu, QAction, QMessageBox, QFileIconProvider)
 
-from .qobjectitemmodel import QObjectItemModel
+#from .qobjectitemmodel import QObjectItemModel
+from .qitemmodel import QItemModel, Node
 from transcode.containers import writers
 from functools import partial
 
-class OutputFilesModel(QObjectItemModel):
-    def parentObject(self, obj):
-        return self.items
+icons = QFileIconProvider()
 
-    def getItems(self, parent):
-        if parent.isValid():
-            return None
-
-        return self.items
-
+class OutputFilesModel(QItemModel):
     def dropItems(self, items, action, row, column, parent):
-        if parent.isValid():
-            return False
+        node = self.getNode(parent)
 
         if row == -1:
             row = self.rowCount(parent)
 
         j = 0
 
-        for k, item in enumerate(items):
-            if item in self.items and action == Qt.MoveAction:
-                old_row = self.items.index(item)
+        if action == Qt.MoveAction:
+            for k, item in enumerate(items):
+                old_row = node.children.index(item)
                 self.moveRow(old_row, row + k - j, parent, parent)
 
                 if old_row < row:
@@ -36,19 +30,22 @@ class OutputFilesModel(QObjectItemModel):
         return True
 
     def canDropItems(self, items, action, row, column, parent):
+        if parent.isValid():
+            return False
+
         for item in items:
-            if item not in self.items:
+            if item not in self.root.children:
                 return False
 
-        return
+        return True
 
     def supportedDropActions(self):
         return Qt.MoveAction
 
 class OutputFileCol(object):
     headerdisplay = "File"
-    font = QFont("DejaVu Serif", 8)
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+    font = QFont("DejaVu Serif", 12, QFont.Bold, italic=True)
+    flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
     textalign = Qt.AlignLeft | Qt.AlignVCenter
     bgdata = QBrush()
     itemDelegate = None
@@ -60,6 +57,9 @@ class OutputFileCol(object):
         return f"{self.output_files.index(obj)}: {obj.outputpathrel}"
 
     tooltip = display
+
+    def icon(self, index, obj):
+        return icons.icon(QFileInfo(obj.outputpathrel))
 
     def contextmenu(self, index, obj):
         return partial(self.createContextMenu, obj=obj, index=index)
@@ -80,9 +80,36 @@ class OutputFileCol(object):
                            table, triggered=partial(self.addFile, table=table, model=index.model(), cls=writer, row_id=index.row()))
             insertSubMenu.addAction(item)
 
+        delete = QAction("Delete selected...",
+                        table, triggered=partial(self.deleteFile, table=table, model=index.model()))
+
+        if len(table.selectedIndexes()) == 0:
+            delete.setDisabled(True)
+
+        menu.addAction(delete)
         return menu
 
+    def deleteFile(self, table, model):
+        selected = {index.data(Qt.UserRole) for index in table.selectedIndexes()}
+
+        if len(selected) == 1:
+            answer = QMessageBox.question(table, "Confirm delete output file", "Do you wish to delete the selected output file?", QMessageBox.Yes | QMessageBox.No)
+
+        elif len(selected) > 1:
+            answer = QMessageBox.question(table, "Confirm delete output files", "Do you wish to delete the selected output files?", QMessageBox.Yes | QMessageBox.No)
+
+        if answer == QMessageBox.Yes:
+
+            for tag in selected.copy():
+                index = model.findIndex(tag)
+
+                if index.isValid():
+                    model.removeRow(index.row(), index.parent())
+
     def addFile(self, table, model, cls, row_id=-1):
+        if model is None:
+            model = table.model()
+
         if row_id == -1:
             row_id = model.rowCount(QModelIndex())
 
@@ -90,8 +117,11 @@ class OutputFileCol(object):
         filename = f"untitled{ext}"
         output_file = cls(filename, tracks=[])
         model.insertRow(row_id, output_file, QModelIndex())
+        table.setCurrentIndex(model.index(row_id, 0, QModelIndex()))
 
 class QOutputFileList(QTreeView):
+    contentsModified = pyqtSignal()
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFont(QFont("DejaVu Serif", 8))
@@ -116,8 +146,8 @@ class QOutputFileList(QTreeView):
                     OutputFileCol(output_files),
                 ]
 
-            self.setModel(OutputFilesModel(output_files, cols))
-            self.model().dataChanged.connect(self.contentsChanged)
+            self.setModel(OutputFilesModel(Node(output_files), cols))
+            self.model().dataChanged.connect(self.contentsModified)
 
             for k, col in enumerate(cols):
                 if hasattr(col, "width"):
@@ -127,10 +157,7 @@ class QOutputFileList(QTreeView):
                     self.setItemDelegateForColumn(k, col.itemDelegate(self))
 
         else:
-            self.setModel(QObjectItemModel([], []))
-
-    def contentsChanged(self, idx1, idx2):
-        pass
+            self.setModel(QItemModel(Node(None), []))
 
     def contextMenuEvent(self, event):
         selected = self.currentIndex()
@@ -143,9 +170,12 @@ class QOutputFileList(QTreeView):
             menu.exec_(self.mapToGlobal(event.pos()))
 
 class QOutputFiles(QWidget):
+    contentsModified = pyqtSignal()
+
     def __init__(self, output_files=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         layout = QVBoxLayout()
         self.setLayout(layout)
         self.outputFileList = QOutputFileList(output_files, self)
         layout.addWidget(self.outputFileList)
+        self.outputFileList.contentsModified.connect(self.contentsModified)

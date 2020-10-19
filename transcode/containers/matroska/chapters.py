@@ -1,15 +1,16 @@
 import matroska.chapters
-import transcode.util
+from transcode.util import ChildList, llist
 from collections import OrderedDict, UserList
 
 class ChapterDisplay(object):
     from copy import deepcopy as copy
 
-    def __init__(self, string, languages=["eng"], langIETF=[], countries=["us"]):
+    def __init__(self, string, languages=["eng"], langIETF=[], countries=["us"], parent=None):
         self.string = string
         self.languages = languages.copy()
         self.langIETF = langIETF.copy()
         self.countries = countries.copy()
+        self.parent = parent
 
     def prepare(self, logfile=None):
         print(f"        Name: {self.string}", file=logfile)
@@ -53,6 +54,14 @@ class ChapterAtom(object):
         self.parent = parent
 
     @property
+    def displays(self):
+        return self._displays
+
+    @displays.setter
+    def displays(self, value):
+        self._displays = ChildList(value, self)
+
+    @property
     def mkvfile(self):
         if self.parent:
             return self.parent.parent
@@ -93,6 +102,9 @@ class ChapterAtom(object):
     def timeEnd(self):
         if self.parent:
             if self.parent.ordered and self.segment and self.segment.vtrack:
+                if self.endFrame is None:
+                    return
+
                 if self.segment.vtrack.filters:
                     k = -1
                     n = self.endFrame
@@ -124,14 +136,20 @@ class ChapterAtom(object):
         m, ms = divmod(self.timeStart, 60*10**9)
         s1 = ms/10**9
         h1, m1 = divmod(m, 60)
-        m, ms = divmod(self.timeEnd, 60*10**9)
-        s2 = ms/10**9
-        h2, m2 = divmod(m, 60)
+
         print(f"    Chapter {self.parent.index(self) + 1}: {', '.join(flagstrings)}", file=logfile)
         ebml = matroska.chapters.ChapterAtom(self.UID, self.timeStart, self.timeEnd, self.hidden, self.enabled,
                 chapterSegmentUID=self.segmentUID, chapterSegmentEditionUID=self.segmentEditionUID,
                 chapterTrack=self.tracks, chapterDisplays=[display.prepare(logfile) for display in self.displays])
-        print(f"        Time: {h1}:{m1:02d}:{s1:06.3f} — {h2}:{m2:02d}:{s2:06.3f}", file=logfile)
+        if self.timeEnd:
+            m, ms = divmod(self.timeEnd, 60*10**9)
+            s2 = ms/10**9
+            h2, m2 = divmod(m, 60)
+            print(f"        Time: {h1}:{m1:02d}:{s1:06.3f} — {h2}:{m2:02d}:{s2:06.3f}", file=logfile)
+
+        else:
+            print(f"        Time: {h1}:{m1:02d}:{s1:06.3f} — ?:??:??.???", file=logfile)
+
         return ebml
 
     def __reduce__(self):
@@ -176,7 +194,7 @@ class ChapterAtom(object):
         self.physicalEquiv = state.get("physicalEquiv")
         self.tracks = state.get("tracks")
 
-class EditionEntry(transcode.util.llist):
+class EditionEntry(llist):
     def __init__(self, chapters=[], UID=None, hidden=False, default=False, ordered=False, parent=None):
         self.UID = UID
         self.hidden = hidden
@@ -222,7 +240,7 @@ class EditionEntry(transcode.util.llist):
         
         return matroska.chapters.EditionEntry(self.UID, self.hidden, self.default, [chapter.prepare(logfile) for chapter in self], self.ordered)
 
-class Editions(transcode.util.ChildList):
+class Editions(ChildList):
     def prepare(self, logfile=None):
         print("--- Chapters ---", file=logfile)
         return matroska.chapters.Chapters([edition.prepare(logfile) for edition in self])

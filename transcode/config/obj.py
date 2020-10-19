@@ -45,7 +45,7 @@ class FileList(UserList):
 
 
 class Config(object):
-    def __init__(self, configname, input_files=[], filter_chains=[], output_files=[]):
+    def __init__(self, configname=None, input_files=[], filter_chains=[], output_files=[]):
         self.configname = configname
         self.input_files = input_files
         self.filter_chains = filter_chains
@@ -79,14 +79,24 @@ class Config(object):
 
     @configname.setter
     def configname(self, value):
-        self._configname = pathlib.Path(value)
+        if value is not None:
+            self._configname = pathlib.Path(value)
+
+        else:
+            self._configname = None
 
     @property
     def workingdir(self):
-        return self.configname.parent
+        if self.configname is not None:
+            return self.configname.parent
+
+        return os.getcwd()
 
     @property
     def configstem(self):
+        if self.configname is None:
+            return
+
         if self.configname.suffix.upper() in (".XZ", ".BZ2", ".GZ"):
             configname = pathlib.Path(self.configname.stem)
 

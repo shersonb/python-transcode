@@ -529,6 +529,25 @@ class MatroskaWriter(basewriter.BaseWriter):
     def time_base(self):
         return QQ(1, 10**9)
 
+    @property
+    def dependencies(self):
+        from .attachments import AttachmentRef
+        dep = super().dependencies
+
+        if self.attachments:
+            for attachment in self.attachments:
+                if isinstance(attachment.source, AttachmentRef):
+                    dep.add(attachment.source.source)
+
+        return dep
+
     def trackCols(self):
         from .pyqtgui.qtracklist import cols
         return cols
+
+    def QtDlgExec(self, parent=None):
+        from .pyqtgui.qmatroskaconfig import QMatroskaConfigDlg
+        dlg = QMatroskaConfigDlg(parent)
+        dlg.setOutputFile(self)
+
+        return dlg.exec_()

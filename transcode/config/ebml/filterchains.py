@@ -100,6 +100,7 @@ class FilterElement(ebml.serialization.Object):
             del environ["zoneclass"]
 
         if self.zones:
+            obj.clear()
             zones = self.zones.toObj(environ, refs)
             obj.extend(zones)
 
@@ -149,6 +150,9 @@ class SubFilter(ebml.serialization.Object):
 
         if self.zones:
             zones = self.zones.toObj(environ, refs)
+            obj.clear()
+            if len(obj):
+                raise ValueError(repr(obj))
             obj.extend(zones)
 
     def _saveItems(self, items, environ, refs):
@@ -185,6 +189,7 @@ class FilterChainElement(ebml.serialization.Object):
 
     def _restoreItems(self, obj, environ, refs):
         if self.filters:
+            obj.clear()
             filters = [filter.toObj(environ, refs) for filter in self.filters]
             obj.extend(filters)
 
@@ -227,6 +232,7 @@ class ConcatenateElement(ebml.serialization.Object):
 
     def _restoreItems(self, obj, environ, refs):
         if self.segments:
+            obj.clear()
             segments = [refs[ref] for ref in self.segments]
             obj.extend(segments)
 

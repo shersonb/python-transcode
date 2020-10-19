@@ -63,7 +63,7 @@ class QScenes(ZoneDlg):
         else:
             self.zone.parent.fixpts = 0
 
-        self.settingsApplied.emit()
+        self.contentsModified.emit()
 
 class BaseSceneCol(ZoneCol, QObject):
     analysisstarted = pyqtSignal()
@@ -167,6 +167,7 @@ class BaseSceneCol(ZoneCol, QObject):
     def sceneDlg(self, table, index):
         J, zone = self.filter.zoneAt(index.row())
         dlg = QScenes(zone, table)
+        dlg.contentsModified.connect(table.contentsModified)
         dlg.zoneChanged.connect(partial(self.scrollTableToZone, table))
         dlg.slider.setValue(self.filter.cumulativeIndexMap[index.row()])
         dlg.exec_()
@@ -184,7 +185,7 @@ class BaseSceneCol(ZoneCol, QObject):
             elif not check and k in self.filter.zone_indices: # and zone is self.filter[0]:
                 self.filter.removeZoneAt(k)
 
-        table.contentsUpdated.emit()
+        table.contentsModified.emit()
 
     def autoScenes(self, table):
         if len(self.filter) <= 1 or \
@@ -242,7 +243,7 @@ class BaseSceneCol(ZoneCol, QObject):
                     self.filter.insertZoneAt(int(k))
 
             self.filter.fixpts = fixpts
-            table.contentsUpdated.emit()
+            table.contentsModified.emit()
 
     def scenesFromKeyFrames(self, table):
         answer = QMessageBox.question(table, "Scenes from Key Frames", "Current zone settings will be lost! Do you wish to proceed?", QMessageBox.Yes | QMessageBox.No)
@@ -253,7 +254,7 @@ class BaseSceneCol(ZoneCol, QObject):
             for k in self.filter.src.keyframes:
                 self.filter.insertZoneAt(k)
 
-            table.contentsUpdated.emit()
+            table.contentsModified.emit()
 
     def startAnalysis(self, table, start, end):
         #table.setDisabled(True)
@@ -273,7 +274,7 @@ class BaseSceneCol(ZoneCol, QObject):
         #table.setEnabled(True)
         self.analysisprogress.disconnect()
         self.analysisended.disconnect()
-        table.contentsUpdated.emit()
+        table.contentsModified.emit()
         table.setFocus()
 
     def _keyPressFunc(self, table, event):
@@ -329,7 +330,7 @@ class SceneCol(BaseSceneCol):
             idx1 = table.model().index(0, 0)
             idx2 = table.model().index(table.model().rowCount()-1, table.model().columnCount()-1)
             table.model().dataChanged.emit(idx1, idx2)
-            table.contentsUpdated.emit()
+            table.contentsModified.emit()
 
             return True
 
@@ -340,8 +341,9 @@ class ContentCol(BaseSceneCol):
     headerdisplay = "Score"
 
     def display(self, index, n):
-        while self.filter.prev.cumulativeIndexMap[n] < 0:
-            n += 1
+        if isinstance(self.filter.prev, BaseVideoFilter):
+            while self.filter.prev.cumulativeIndexMap[n] < 0:
+                n += 1
 
         if n > 0 and self.filter.stats is not None and \
                 self.filter.stats.shape[0] >= n and \
@@ -364,8 +366,9 @@ class DeltaHueCol(BaseSceneCol):
     headerdisplay = "\u2206Hue"
 
     def display(self, index, n):
-        while self.filter.prev.cumulativeIndexMap[n] < 0:
-            n += 1
+        if isinstance(self.filter.prev, BaseVideoFilter):
+            while self.filter.prev.cumulativeIndexMap[n] < 0:
+                n += 1
 
         if n > 0 and self.filter.stats is not None and \
                 self.filter.stats.shape[0] >= n and \
@@ -386,8 +389,9 @@ class DeltaSatCol(BaseSceneCol):
     headerdisplay = "\u2206Sat"
 
     def display(self, index, n):
-        while self.filter.prev.cumulativeIndexMap[n] < 0:
-            n += 1
+        if isinstance(self.filter.prev, BaseVideoFilter):
+            while self.filter.prev.cumulativeIndexMap[n] < 0:
+                n += 1
 
         if n > 0 and self.filter.stats is not None and \
                 self.filter.stats.shape[0] >= n and \
@@ -408,8 +412,9 @@ class DeltaLumCol(BaseSceneCol):
     headerdisplay = "\u2206Lum"
 
     def display(self, index, n):
-        while self.filter.prev.cumulativeIndexMap[n] < 0:
-            n += 1
+        if isinstance(self.filter.prev, BaseVideoFilter):
+            while self.filter.prev.cumulativeIndexMap[n] < 0:
+                n += 1
 
         if n > 0 and self.filter.stats is not None and \
                 self.filter.stats.shape[0] >= n and \

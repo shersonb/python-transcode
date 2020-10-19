@@ -9,7 +9,8 @@ from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxL
                              QCompleter)
 from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QStandardItemModel, QStandardItem, QPen, QCursor
 
-from .qobjectitemmodel import QObjectItemModel
+from .qitemmodel import QItemModel, Node, ChildNodes
+
 from .qvfilteredit import VFilterEditDlg
 from .qlangselect import LanguageDelegate, LANGUAGES
 from transcode.containers.basereader import BaseReader
@@ -33,7 +34,7 @@ faulthandler.enable()
 
 class BaseOutputTrackCol(object):
     font = QFont("DejaVu Serif", 8)
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+    flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled 
     textalign = Qt.AlignLeft | Qt.AlignVCenter
     bgdata = QBrush()
     itemDelegate = None
@@ -184,7 +185,9 @@ class FilterEditor(QPushButton):
 
     def configureFilters(self):
         if self.filters().type == "video":
-            dlg = VFilterEditDlg(self.filters().copy(), self)
+            dlg = VFilterEditDlg(self)
+            filters = self.filters().copy()
+            dlg.setFilters(filters)
 
             if dlg.exec_():
                 self.setFilters(dlg.filters)
@@ -214,7 +217,7 @@ class FiltersDelegate(QItemDelegate):
 class TitleCol(BaseOutputTrackCol):
     headerdisplay = "Track"
     width = 256
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
 
     def __init__(self, input_files, filters, output_file):
         super().__init__(input_files, filters, output_file, "name")
@@ -253,8 +256,6 @@ class MapCol(BaseOutputTrackCol):
     headerdisplay = "Source"
 
     def display(self, index, track):
-        #input_files = self.config.getItems(input_files)
-
         if isinstance(track.source, InputTrack):
             file_index = self.input_files.index(track.source.container)
             return f"{file_index}:{track.source.track_index}"
@@ -270,7 +271,7 @@ class MapCol(BaseOutputTrackCol):
 class OutputLangCol(BaseOutputTrackCol):
     width = 120
     headerdisplay = "Language"
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled 
 
     def __init__(self, input_files, filters, output_file):
         super().__init__(input_files, filters, output_file, "language")
@@ -290,7 +291,7 @@ class OutputLangCol(BaseOutputTrackCol):
 
 class OutputCodecCol(BaseOutputTrackCol):
     headerdisplay = "Codec"
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled 
     width = 256
 
     def __init__(self, input_files, filters, output_file):
@@ -344,9 +345,50 @@ class FiltersCol(BaseOutputTrackCol):
 
     def flags(self, index, track):
         if track.encoder is not None:
-            return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+            return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled 
 
-        return Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+        return Qt.ItemIsSelectable | Qt.ItemIsDragEnabled 
+
+class DelayDelegate(QItemDelegate):
+    def createEditor(self, parent, option, index):
+        editor = QDoubleSpinBox(parent)
+        editor.setMinimum(0)
+        editor.setDecimals(3)
+        editor.setSingleStep(0.125)
+        editor.setSpecialValueText("No delay")
+        editor.setSuffix(" seconds")
+        editor.setMaximum(3*3600)
+        return editor
+
+    def setEditorData(self, editor, index):
+        editor.setValue(index.data(Qt.EditRole))
+
+    def setModelData(self, editor, model, index):
+        model.setData(index, editor.value(), Qt.EditRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        editor.setGeometry(option.rect)
+
+class DelayCol(BaseOutputTrackCol):
+    headerdisplay = "Delay"
+    width = 128
+    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled 
+
+    def __init__(self, input_files, filters, output_file):
+        super().__init__(input_files, filters, output_file, "delay")
+
+    def display(self, index, track):
+        delay = self.editdata(index, track)
+
+        if isinstance(delay, (int, float)):
+            return f"{delay:.3f} seconds"
+
+        return "0.000 seconds"
+
+    tooltip = display
+
+    def itemDelegate(self, parent):
+        return DelayDelegate(parent)
 
 class OutputFmtCol(BaseOutputTrackCol):
     width = 192
@@ -386,16 +428,7 @@ class OutputFmtCol(BaseOutputTrackCol):
 
     tooltip = display
 
-class OutputTrackModel(QObjectItemModel):
-    def parentObject(self, obj):
-        return self.items
-
-    def getItems(self, parent):
-        if parent.isValid():
-            return None
-
-        return self.items
-
+class OutputTrackModel(QItemModel):
     def dropItems(self, items, action, row, column, parent):
         if parent.isValid():
             return False
@@ -405,21 +438,22 @@ class OutputTrackModel(QObjectItemModel):
 
         j = 0
 
-        for k, item in enumerate(items):
-            if item in self.items and action == Qt.MoveAction:
-                old_row = self.items.index(item)
+        if action == Qt.CopyAction:
+            for k, item in enumerate(items):
+                newtrack = self.root.value.trackclass(item.value,
+                    name=item.value.name, language=item.value.language)
+
+                self.insertRow(row + k - j, newtrack, parent)
+
+        elif action == Qt.MoveAction:
+            for k, item in enumerate(items):
+                old_row = self.root.index(item)
                 self.moveRow(old_row, row + k - j, parent, parent)
 
                 if old_row < row:
                     j += 1
 
-            elif isinstance(item, InputTrack) and action == Qt.CopyAction:
-                newtrack = self.items.container.trackclass(item,
-                                        name=item.name, language=item.language)
-                self.insertRow(row + k - j, newtrack, parent)
-
         return True
-
 
     def canDropItems(self, items, action, row, column, parent):
         if parent.isValid():
@@ -427,27 +461,53 @@ class OutputTrackModel(QObjectItemModel):
 
         parent_obj = parent.data(Qt.UserRole)
 
-        for item in items:
-            if isinstance(item, (InputTrack, BaseFilter)) and action == Qt.CopyAction:
-                continue
+        if action == Qt.CopyAction:
+            for item in items:
+                if not isinstance(item.value, (InputTrack, BaseFilter)):
+                    return False
 
-            if isinstance(item, OutputTrack) and item in self.items and action == Qt.MoveAction:
-                continue
-
-            return False
+        elif action == Qt.MoveAction:
+            for item in items:
+                if not isinstance(item.value, OutputTrack) or item not in self.root.children:
+                    return False
 
         return True
 
     def supportedDropActions(self):
         return Qt.MoveAction | Qt.CopyAction
 
+class OutputFileNode(Node):
+    def _iterChildren(self):
+        return iter(self.value.tracks)
+
+    def _wrapChildren(self, children):
+        return OutputTrackNodes.fromValues(children, self)
+
+class OutputTrackNodes(ChildNodes):
+    def _append(self, value):
+        self.parent.value.tracks.append(value)
+
+    def _insert(self, index, value):
+        self.parent.value.tracks.insert(index, value)
+    
+    def _extend(self, values):
+        self.parent.value.tracks.extend(values)
+
+    def _delitem(self, index):
+        del self.parent.value.tracks[index]
+
+    def _setitem(self, index, value):
+        self.parent.value.tracks[index] = value
+
 class OutputTrackList(QTreeView):
-    contentsChanged = pyqtSignal()
+    contentsModified = pyqtSignal()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFont(QFont("DejaVu Serif", 8))
         self.setMinimumWidth(640)
+
+        self.setEditTriggers(QTreeView.SelectedClicked | QTreeView.EditKeyPressed)
 
         self.setDragDropMode(QTreeView.DragDrop)
         self.setDefaultDropAction(Qt.MoveAction)
@@ -474,15 +534,17 @@ class OutputTrackList(QTreeView):
                     OutputFmtCol(input_files, filters, output_file),
                     OutputLangCol(input_files, filters, output_file),
                     OutputCodecCol(input_files, filters, output_file),
-                    FiltersCol(input_files, filters, output_file)
+                    FiltersCol(input_files, filters, output_file),
+                    DelayCol(input_files, filters, output_file)
                 ]
 
             if hasattr(output_file, "trackCols") and callable(output_file.trackCols):
                 for col in output_file.trackCols():
                     cols.append(col(input_files, filters, output_file))
 
-            self.setModel(OutputTrackModel(output_file.tracks, cols))
-            self.model().dataChanged.connect(self.contentsChanged)
+            root = OutputFileNode(output_file)
+            self.setModel(OutputTrackModel(root, cols))
+            self.model().dataChanged.connect(self.contentsModified)
 
             for k, col in enumerate(cols):
                 if hasattr(col, "width"):
@@ -492,7 +554,7 @@ class OutputTrackList(QTreeView):
                     self.setItemDelegateForColumn(k, col.itemDelegate(self))
 
         else:
-            self.setModel(QObjectItemModel([], []))
+            self.setModel(QItemModel(Node(None), []))
 
     def currentChanged(self, newindex, oldindex):
         if oldindex.isValid():
@@ -536,5 +598,4 @@ class OutputTrackList(QTreeView):
         for k, row in enumerate(selected):
             self.model().removeRow(row - k)
 
-        self.contentsChanged.emit()
-
+        self.contentsModified.emit()

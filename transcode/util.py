@@ -266,11 +266,13 @@ class llist(collections.UserList):
 
     @property
     def start(self):
-        return self[0]
+        if len(self):
+            return self[0]
 
     @property
     def end(self):
-        return self[-1]
+        if len(self):
+            return self[-1]
 
 class cached(property):
     def __init__(self, fget=None, fset=None, fdel=None, doc=None):

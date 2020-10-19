@@ -11,6 +11,7 @@ from fractions import Fraction as QQ
 import regex
 
 class Crop(BaseVideoFilter):
+    """Crop Video."""
     __name__ = "Crop"
 
     def __init__(self, croptop=0, cropbottom=0, cropleft=0, cropright=0,
@@ -99,25 +100,31 @@ class Crop(BaseVideoFilter):
 
             yield newframe
 
-    #@classmethod
-    #def qinitialize(cls, prev, parent):
-        #from movie.qcropandresize import CropDlg
-        #dlg = CropDlg(0, 0, 0, 0, prev, parent)
-        #if dlg.exec_():
-            #cnr = cls(dlg.cropTop.value(), dlg.cropBottom.value(), dlg.cropLeft.value(), dlg.cropRight.value())
-            #return cnr
+    @classmethod
+    def QtInitialize(cls, prev, parent=None):
+        from transcode.pyqtgui.qcropandresize import CropDlg
 
-    #def qconfig(self, parent):
-        #from movie.qcropandresize import CropDlg
-        #dlg = CropDlg(self.croptop, self.cropbottom, self.cropleft, self.cropright, self.prev, parent)
-        #if dlg.exec_():
-            #self.croptop = dlg.cropTop.value()
-            #self.cropbottom = dlg.cropBottom.value()
-            #self.cropleft = dlg.cropLeft.value()
-            #self.cropright = dlg.cropRight.value()
-            #return True
+        dlg = CropDlg(0, 0, 0, 0, prev, parent)
+
+        if dlg.exec_():
+            return cls(dlg.cropTop.value(), dlg.cropBottom.value(),
+                       dlg.cropLeft.value(), dlg.cropRight.value())
+
+    def QtDlg(self, parent):
+        from transcode.pyqtgui.qcropandresize import CropDlg
+
+        dlg = CropDlg(self.croptop, self.cropbottom,
+                      self.cropleft, self.cropright, self.prev, parent)
+
+        if dlg.exec_():
+            self.croptop = dlg.cropTop.value()
+            self.cropbottom = dlg.cropBottom.value()
+            self.cropleft = dlg.cropLeft.value()
+            self.cropright = dlg.cropRight.value()
+            return True
 
 class Resize(BaseVideoFilter):
+    """Resize video."""
     __name__ = "Resize"
 
     getinitkwargs = ["width", "height", "sar", "resample", "box"]
@@ -192,51 +199,61 @@ class Resize(BaseVideoFilter):
             newframe.pict_type = frame.pict_type
             yield newframe
 
-    #@classmethod
-    #def qinitialize(cls, prev, parent):
-        #from movie.qcropandresize import ResizeDlg
-        #dlg = ResizeDlg(parent)
-        #dlg.setWindowTitle("Configure Resize")
-        #if prev is not None:
-            #if prev.width is not None:
-                #dlg.width.setValue(prev.width)
-            #if prev.height is not None:
-                #dlg.height.setValue(prev.height)
-            #if prev.sar is not None:
-                #dlg.sar.setText(str(prev.sar))
-        #val = dlg.exec_()
+    @classmethod
+    def QtInitialize(cls, prev, parent=None):
+        from transcode.pyqtgui.qcropandresize import ResizeDlg
+        dlg = ResizeDlg(parent)
 
-        #if val:
-            #sar = dlg.sar.text()
-            #if regex.match(r"^\d+/\d+$", sar):
-                #sar = QQ(sar)
-            #elif regex.match(r"^\d+$", sar):
-                #sar = int(sar)
-            #else:
-                #sar = float(sar)
-            #cnr = cls(width=dlg.width.value(), height=dlg.height.value(), sar=sar)
-            #return cnr
+        if prev is not None:
+            if prev.width is not None:
+                dlg.width.setValue(prev.width)
 
-    #def qconfig(self, parent):
-        #from movie.qcropandresize import ResizeDlg
-        #dlg = ResizeDlg(parent)
-        #dlg.setWindowTitle("Configure Resize")
-        #dlg.width.setValue(self.width)
-        #dlg.height.setValue(self.height)
-        #dlg.sar.setText(str(self.sar))
-        #val = dlg.exec_()
+            if prev.height is not None:
+                dlg.height.setValue(prev.height)
 
-        #if val:
-            #sar = dlg.sar.text()
-            #if regex.match(r"^\d+/\d+$", sar):
-                #self.sar = QQ(sar)
-            #elif regex.match(r"^\d+$", sar):
-                #self.sar = int(sar)
-            #else:
-                #self.sar = float(sar)
-            #self.width = dlg.width.value()
-            #self.height = dlg.height.value()
-            #return True
+            if prev.sar is not None:
+                dlg.sar.setText(str(prev.sar))
+
+        val = dlg.exec_()
+
+        if val:
+            sar = dlg.sar.text()
+
+            if regex.match(r"^\d+/\d+$", sar):
+                sar = QQ(sar)
+
+            elif regex.match(r"^\d+$", sar):
+                sar = int(sar)
+
+            else:
+                sar = float(sar)
+
+            return cls(width=dlg.width.value(), height=dlg.height.value(), sar=sar)
+
+    def QtDlg(self, parent):
+        from transcode.pyqtgui.qcropandresize import ResizeDlg
+        dlg = ResizeDlg(parent)
+
+        dlg.width.setValue(self.width)
+        dlg.height.setValue(self.height)
+        dlg.sar.setText(str(self.sar))
+        val = dlg.exec_()
+
+        if val:
+            sar = dlg.sar.text()
+
+            if regex.match(r"^\d+/\d+$", sar):
+                self.sar = QQ(sar)
+
+            elif regex.match(r"^\d+$", sar):
+                self.sar = int(sar)
+
+            else:
+                self.sar = float(sar)
+
+            self.width = dlg.width.value()
+            self.height = dlg.height.value()
+            return True
 
 class CropZone(zoned.Zone):
     def __init__(self, src_start, croptop=0, cropbottom=0, cropleft=0, cropright=0, rowanalysis=None, colanalysis=None,
@@ -388,6 +405,7 @@ class CropZone(zoned.Zone):
             yield newframe
 
 class CropScenes(zoned.ZonedFilter):
+    """Crop video in zones. Resizes to a common size."""
     zoneclass = CropZone
     #getinitkwargs = ["zones", "width", "height", "sar", "resample", "box"]
 
@@ -417,69 +435,81 @@ class CropScenes(zoned.ZonedFilter):
         self.sar = state.get("sar", 1)
         super().__setstate__(state)
 
-    def __repr__(self):
+    def __str__(self):
         if self is None:
             return "Crop/Resize Scenes"
 
         if len(self) == 1:
-            return "Crop/Resize Scenes (1 zone, width=%d, height=%d, sar=%s)" % (self.width, self.height, self.sar)
+            return f"Crop/Resize Scenes (1 zone, width={self.width}, height={self.height}, sar={self.sar})"
 
-        return "Crop/Resize Scenes (%d zones, width=%d, height=%d, sar=%s)" % (len(self), self.width, self.height, self.sar)
+        return f"Crop/Resize Scenes ({len(self)} zones, width={self.width}, height={self.height}, sar={self.sar})"
 
     def __str__(self):
         if self is None:
             return "Crop/Resize Scenes"
 
         if len(self) == 1:
-            return "Crop/Resize Scenes (1 zone, width=%d, height=%d, sar=%s)" % (self.width, self.height, self.sar)
+            return f"Crop/Resize Scenes (1 zone, width={self.width}, height={self.height}, sar={self.sar})"
 
-        return "Crop/Resize Scenes (%d zones, width=%d, height=%d, sar=%s)" % (len(self), self.width, self.height, self.sar)
+        return f"Crop/Resize Scenes ({len(self)} zones, width={self.width}, height={self.height}, sar={self.sar})"
 
-    #@classmethod
-    #def qinitialize(cls, prev, parent):
-        #from movie.qcropandresize import ResizeDlg
-        #dlg = ResizeDlg(parent)
-        #dlg.setWindowTitle("Configure Resize")
-        #if prev is not None:
-            #if prev.width is not None:
-                #dlg.width.setValue(prev.width)
-            #if prev.height is not None:
-                #dlg.height.setValue(prev.height)
-            #if prev.sar is not None:
-                #dlg.sar.setText(str(prev.sar))
-        #val = dlg.exec_()
+    @classmethod
+    def QtInitialize(cls, prev, parent=None):
+        from transcode.pyqtgui.qcropandresize import ResizeDlg
+        dlg = ResizeDlg(parent)
 
-        #if val:
-            #sar = dlg.sar.text()
-            #if regex.match(r"^\d+/\d+$", sar):
-                #sar = QQ(sar)
-            #elif regex.match(r"^\d+$", sar):
-                #sar = int(sar)
-            #else:
-                #sar = float(sar)
-            #cnr = cls([], width=dlg.width.value(), height=dlg.height.value(), sar=sar)
-            #return cnr
+        if prev is not None:
+            if prev.width is not None:
+                dlg.width.setValue(prev.width)
 
-    #def qconfig(self, parent):
-        #from movie.qcropandresize import ResizeDlg
-        #dlg = ResizeDlg(parent)
-        #dlg.setWindowTitle("Configure Resize")
-        #dlg.width.setValue(self.width)
-        #dlg.height.setValue(self.height)
-        #dlg.sar.setText(str(self.sar))
-        #val = dlg.exec_()
+            if prev.height is not None:
+                dlg.height.setValue(prev.height)
 
-        #if val:
-            #sar = dlg.sar.text()
-            #if regex.match(r"^\d+/\d+$", sar):
-                #self.sar = QQ(sar)
-            #elif regex.match(r"^\d+$", sar):
-                #self.sar = int(sar)
-            #else:
-                #self.sar = float(sar)
-            #self.width = dlg.width.value()
-            #self.height = dlg.height.value()
-            #return True
+            if prev.sar is not None:
+                dlg.sar.setText(str(prev.sar))
+
+        val = dlg.exec_()
+
+        if val:
+            sar = dlg.sar.text()
+
+            if regex.match(r"^\d+/\d+$", sar):
+                sar = QQ(sar)
+
+            elif regex.match(r"^\d+$", sar):
+                sar = int(sar)
+
+            else:
+                sar = float(sar)
+
+            cnr = cls([], width=dlg.width.value(), height=dlg.height.value(), sar=sar)
+            return cnr
+
+    def QtDlg(self, parent):
+        from transcode.pyqtgui.qcropandresize import ResizeDlg
+
+        dlg = ResizeDlg(parent)
+        dlg.setWindowTitle("Configure Resize")
+        dlg.width.setValue(self.width)
+        dlg.height.setValue(self.height)
+        dlg.sar.setText(str(self.sar))
+        val = dlg.exec_()
+
+        if val:
+            sar = dlg.sar.text()
+
+            if regex.match(r"^\d+/\d+$", sar):
+                self.sar = QQ(sar)
+
+            elif regex.match(r"^\d+$", sar):
+                self.sar = int(sar)
+
+            else:
+                self.sar = float(sar)
+
+            self.width = dlg.width.value()
+            self.height = dlg.height.value()
+            return True
 
     @property
     def sar(self):
@@ -518,7 +548,6 @@ class CropScenes(zoned.ZonedFilter):
                 zone_iterable = frames
 
             A = zone.analyzeFrames(zone_iterable)
-            print("% 6d-% 6d: %s" % (zone.src_start, zone.src_end, A))
 
             zone = zone.next_zone
 

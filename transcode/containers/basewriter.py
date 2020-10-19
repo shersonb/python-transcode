@@ -502,6 +502,18 @@ class Track(abc.ABC):
     def frameIndexFromPts(self, pts, dir="+"):
         return search(self.pts, pts, dir)
 
+    @property
+    def dependencies(self):
+        dep = set()
+
+        if self.filters is not None:
+            dep.update(self.filters.dependencies)
+
+        if hasattr(self.source, "dependencies"):
+            dep.update(self.source.dependencies)
+
+        return dep
+
 class BaseWriter(abc.ABC):
     """
     Base class for output containers.
@@ -1062,4 +1074,8 @@ class BaseWriter(abc.ABC):
 
     def unpauseMux(self):
         self._unpaused.set()
+
+    @property
+    def dependencies(self):
+        return {track.dependencies for track in self.tracks}
 

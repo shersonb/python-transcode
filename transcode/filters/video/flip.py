@@ -5,6 +5,11 @@ from ...avarrays import toNDArray, toVFrame
 from av.video import VideoFrame
 
 class HFlip(BaseVideoFilter):
+    """Horizontal Flip."""
+
+    def __str__(self):
+        return "Horizontal Flip"
+
     def _processFrames(self, iterable):
         for frame in iterable:
             if frame.format.name == "rgb24":
@@ -21,6 +26,11 @@ class HFlip(BaseVideoFilter):
             yield newframe
 
 class VFlip(BaseVideoFilter):
+    """Vertical Flip."""
+
+    def __str__(self):
+        return "Vertical Flip"
+
     def _processFrames(self, iterable):
         for frame in iterable:
             if frame.format.name == "rgb24":

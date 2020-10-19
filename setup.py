@@ -16,7 +16,7 @@ setup(
         'transcode.filters.video',
         'transcode.containers',
         'transcode.containers.matroska',
-        'transcode.containers.matroska.pyqtgui'
+        'transcode.containers.matroska.pyqtgui',
         'transcode.encoders',
         'transcode.encoders.audio',
         'transcode.encoders.video',
@@ -25,9 +25,12 @@ setup(
         'transcode.encoders.libfdk_aac',
         'transcode.pyqtgui',
         ],
-    scripts=['bin/qtranscode'],
+    scripts=[
+        'bin/qtranscode',
+        'bin/qtranscode-config'
+        ],
     install_requires=[
-            'ebml', 'matroska'
+        'ebml', 'matroska'
         ],
     license="MIT"
 )
