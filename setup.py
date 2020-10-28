@@ -24,13 +24,13 @@ setup(
         'transcode.encoders.ac3',
         'transcode.encoders.libfdk_aac',
         'transcode.pyqtgui',
-        ],
+    ],
     scripts=[
         'bin/qtranscode',
         'bin/qtranscode-config'
-        ],
+    ],
     install_requires=[
-        'ebml', 'matroska'
-        ],
+        'ebml', 'matroska', 'titlecase', 'ass', 'av'
+    ],
     license="MIT"
 )
