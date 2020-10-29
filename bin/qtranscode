@@ -12,10 +12,14 @@ import transcode.pyqtgui.qencodewidget
 
 parser = argparse.ArgumentParser(description="Encoder.")
 parser.add_argument("file", action='store', help="Config file")
-parser.add_argument("-n", action='store', help="Select output file to transcode.", default=0, type=int)
-parser.add_argument("--pass", "-p", dest="p", action='append', help="Encode pass", default=[], type=int)
-parser.add_argument("--quit-on-complete", "-q", dest="q", action='store_true', help="Exit on complete.")
-parser.add_argument("--keyframe-analysis", "-k", dest="k", action='store_true', help="Analyze keyframes.")
+parser.add_argument("-n", action='store',
+                    help="Select output file to transcode.", default=0, type=int)
+parser.add_argument("--pass", "-p", dest="p", action='append',
+                    help="Encode pass", default=[], type=int)
+parser.add_argument("--quit-on-complete", "-q", dest="q",
+                    action='store_true', help="Exit on complete.")
+parser.add_argument("--keyframe-analysis", "-k", dest="k",
+                    action='store_true', help="Analyze keyframes.")
 args = parser.parse_args()
 config = ConfigElement.load(args.file)
 outfile = config.output_files[args.n]
@@ -25,7 +29,8 @@ app = QApplication(sys.argv)
 with open(f"{config.configstem}-{args.n}.log", "a") as logfile:
     if args.k:
         statsfile = f"{config.configstem}-{outfile.file_index}.{outfile.vtrack.track_index:d}-{outfile.vtrack.encoder.codec}-multipass.log"
-        encoder_overrides = [None]*outfile.vtrack.track_index + [{"pass_": 1, "slow-firstpass": False, "crf": 28, "stats": statsfile}]
+        encoder_overrides = [None]*outfile.vtrack.track_index + \
+            [{"pass_": 1, "slow-firstpass": False, "crf": 28, "stats": statsfile}]
 
         inputIframes = set()
         outputIframes = set()
@@ -40,7 +45,8 @@ with open(f"{config.configstem}-{args.n}.log", "a") as logfile:
                 k = outfile.vtrack.frameIndexFromPts(packet.pts)
                 outputIframes.add(k)
 
-        dlg = transcode.pyqtgui.qencodewidget.QEncodeDialog(outfile, encoderoverrides=encoder_overrides, logfile=logfile)
+        dlg = transcode.pyqtgui.qencodewidget.QEncodeDialog(
+            outfile, encoderoverrides=encoder_overrides, logfile=logfile)
         dlg.packetreceived.connect(notifymux)
         dlg.framesenttoencoder.connect(notifyvencode)
         dlg.autoClose.setChecked(True)
@@ -51,12 +57,14 @@ with open(f"{config.configstem}-{args.n}.log", "a") as logfile:
         diff = inputIframes.difference(outputIframes)
 
         if len(diff):
-            print("Warning: The following are in 'inputIframes' but not 'outputIframes': %s" % sorted(diff), file=logfile)
+            print("Warning: The following are in 'inputIframes' but not 'outputIframes': %s" % sorted(
+                diff), file=logfile)
             print("Adding Forced Key Frames to configuration.", file=logfile)
 
             if outfile.vtrack.filters is None:
                 kf = KeyFrames()
-                outfile.vtrack.filters = FilterChain([kf], prev=outfile.vtrack.source)
+                outfile.vtrack.filters = FilterChain(
+                    [kf], prev=outfile.vtrack.source)
 
             elif len(outfile.vtrack.filters) and isinstance(outfile.vtrack.filters[-1], KeyFrames):
                 kf = outfile.vtrack.filters[-1]
@@ -70,16 +78,17 @@ with open(f"{config.configstem}-{args.n}.log", "a") as logfile:
                 kf.add(int(n))
 
             T = time.localtime()
-            os.rename(args.file, f"{args.file}-backup-{T.tm_year:04d}.{T.tm_mon:02d}.{T.tm_mday:02d}-{T.tm_hour:02d}.{T.tm_min:02d}.{T.tm_sec:02d}")
+            os.rename(
+                args.file, f"{args.file}-backup-{T.tm_year:04d}.{T.tm_mon:02d}.{T.tm_mday:02d}-{T.tm_hour:02d}.{T.tm_min:02d}.{T.tm_sec:02d}")
             ConfigElement.save(config, args.file)
 
     else:
         if len(args.p) == 0:
             args.p.append(0)
 
-
         for k, pass_ in enumerate(args.p):
-            dlg = transcode.pyqtgui.qencodewidget.QEncodeDialog(outfile, pass_=pass_, logfile=logfile)
+            dlg = transcode.pyqtgui.qencodewidget.QEncodeDialog(
+                outfile, pass_=pass_, logfile=logfile)
             dlg.autoClose.setChecked(k < len(args.p) - 1 or args.q)
 
             if not dlg.exec_():
