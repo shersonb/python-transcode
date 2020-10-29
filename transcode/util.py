@@ -250,7 +250,7 @@ class llist(collections.UserList):
         item.next = olditem.next
         olditem.next = olditem.prev = olditem.parent = None
         item.parent = self
-        super().__setitem__(self, index, item)
+        super().__setitem__(index, item)
 
     def pop(self, index):
         item = self[index]
@@ -262,7 +262,7 @@ class llist(collections.UserList):
             self[index + 1].prev = item.prev
 
         item.next = item.prev = item.parent = None
-        return super().pop(self, index)
+        return super().pop(index)
 
     @property
     def start(self):
@@ -316,212 +316,20 @@ def numpify(m, dtype=numpy.int0):
 
     raise TypeError("Cannot convert value into a numpy object with dtype=%s." % dtype.__name__)
 
-class ConfigStore(object):
-    """
-    Storage used to hold object states, items, and dict items temporarily until commit.
-    """
+def applyState(obj, state=None, items=None, dictitems=None):
+    if state is not None:
+        obj.__setstate__(state)
 
-    def __init__(self, objects=[]):
-        self._objects = {}
-        self._states = {}
-        self._items = {}
-        self._dicts = {}
+    if items is not None or dictitems is not None:
+        obj.clear()
 
-        for obj in objects:
-            self.addObject(obj)
+    if items is not None:
+        for item in items:
+            obj.append(deepcopy(item, memo))
 
-    def addObject(self, obj):
-        n = id(obj)
-
-        try:
-            reduced = obj.__reduce__()
-
-        except TypeError:
-            if isinstance(obj, list):
-                self._objects[n] = obj
-                self._items[n] = list(obj)
-
-            if isinstance(obj, dict):
-                self._objects[n] = obj
-                self._dicts[n] = obj.copy()
-
-            return
-
-        if len(reduced) <= 2:
-            return
-
-        if len(reduced) == 3:
-            constructor, args, state = reduced
-            items = dct = None
-
-        if len(reduced) == 4:
-            constructor, args, state, items = reduced
-            dct = None
-
-        if len(reduced) >= 5:
-            constructor, args, state, items, dct, *_ = reduced
-
-        self._objects[n] = obj
-
-        if state is not None:
-            self._states[n] = state
-
-        if items is not None:
-            self._items[n] = list(items)
-
-        if dct is not None:
-            self._dicts[n] = dict(dct)
-
-    def __contains__(self, obj):
-        return id(obj) in self._objects
-
-    def getState(self, obj):
-        if obj not in self:
-            self.addObject(obj)
-
-        try:
-            return self._states[id(obj)]
-
-        except KeyError:
-            raise ValueError(f"{obj.__class__.__name__} object has no state.")
-
-    def setState(self, obj, state):
-        self._objects[id(obj)] = obj
-        self._states[id(obj)] = state
-
-    def getItems(self, obj):
-        if obj not in self:
-            self.addObject(obj)
-
-        try:
-            return self._items[id(obj)]
-
-        except KeyError:
-            raise ValueError(f"{obj.__class__.__name__} object has no items.")
-
-    def setItems(self, obj, items):
-        self._objects[id(obj)] = obj
-        self._items[id(obj)] = items
-
-    def getDict(self, obj):
-        if obj not in self:
-            self.addObject(obj)
-
-        try:
-            return self._dicts[id(obj)]
-
-        except KeyError:
-            raise ValueError(f"{obj.__class__.__name__} object has no dict.")
-
-    def setDict(self, obj, dct):
-        self._objects[id(obj)] = obj
-        self._dicts[id(obj)] = dct
-
-    def update(self, other):
-        self._objects.update(other._objects)
-        self._states.update(other._states)
-        self._items.update(other._items)
-        self._dicts.update(other._dicts)
-
-    def commit(self):
-        for (n, obj) in self._objects.items():
-            if n in self._states:
-                obj.__setstate__(self._states[n])
-
-            if n in self._items:
-                obj.clear()
-                obj.extend(self._items[n])
-
-            if n in self._dicts:
-                obj.clear()
-                obj.update(self._dicts[n])
-
-class NewConfig(object):
-    def __init__(self, oldconfig):
-        self._oldconfig = oldconfig
-        self._newconfig = ConfigStore()
-
-    def copyConfig(self, obj):
-        if obj not in self._oldconfig:
-            self._newconfig.addObject(obj)
-            return
-
-        n = id(obj)
-        self._newconfig._objects[n] = obj
-
-        try:
-            state = self._oldconfig.getState(obj)
-
-        except KeyError:
-            pass
-
-        else:
-            if isinstance(state, (dict, list)):
-                self._newconfig.saveState(obj, state.copy())
-
-            else:
-                self._newconfig.saveState(obj, state)
-
-        try:
-            items = self._oldconfig.getItems(obj)
-
-        except KeyError:
-            pass
-
-        else:
-            self._newconfig.saveItems(obj, items.copy())
-
-        try:
-            dct = self._oldconfig.getDict(obj)
-
-        except KeyError:
-            pass
-
-        else:
-            self._newconfig.saveDict(obj, dct.copy())
-
-    def getState(self, obj):
-        if obj in self._newconfig:
-            return self._newconfig.getState(obj)
-
-        state = self._oldconfig.getState(obj)
-
-        if isinstance(state, (list, dict)):
-            state = state.copy()
-
-        self._newconfig.setState(obj, state)
-        return state
-
-    def getItems(self, obj):
-        if obj in self._newconfig:
-            return self._newconfig.getItems(obj)
-
-        items = self._oldconfig.getItems(obj).copy()
-        self._newconfig.setItems(obj, items)
-        return items
-
-    def getDict(self, obj):
-        if obj in self._newconfig:
-            return self._newconfig.getDict(obj)
-
-        dct = self._oldconfig.getDict(obj).copy()
-        self._newconfig.setItems(obj, dct)
-        return dct
-
-    def setState(self, obj, state):
-        self._objects[id(obj)] = obj
-        self._states[id(obj)] = state
-
-    def setItems(self, obj, items):
-        self._objects[id(obj)] = obj
-        self._items[id(obj)] = items
-
-    def setDict(self, obj, dct):
-        self._objects[id(obj)] = obj
-        self._dicts[id(obj)] = dct
-
-    def save(self):
-        self._oldconfig.update(self._newconfig)
+    if dictitems is not None:
+        for key, value in dictitems:
+            obj[deepcopy(key, memo)] = deepcopy(value, memo)
 
 class WorkaheadIterator(object):
     def __init__(self, iterator, maxqueue=50):
