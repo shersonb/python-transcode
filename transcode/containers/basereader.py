@@ -1,14 +1,12 @@
 import av
 import threading
-import time
 import os
-import sys
 from ..util import cached, search
 from collections import OrderedDict
 import numpy
 from av import VideoFrame
 import gc
-from itertools import count
+
 
 class Track(object):
     from copy import deepcopy as copy
@@ -105,7 +103,8 @@ class Track(object):
 
         elif whence == "pts":
             if start >= self.pts[0]:
-                startindex = self.frameIndexFromPts(start, "-" if self.type is "audio" else "+")
+                startindex = self.frameIndexFromPts(
+                    start, "-" if self.type is "audio" else "+")
 
             else:
                 startindex = 0
@@ -122,7 +121,8 @@ class Track(object):
 
         elif whence == "seconds":
             if start/self.time_base >= self.pts[0]:
-                startindex = self.frameIndexFromPts(start/self.time_base, "-" if self.type is "audio" else "+")
+                startindex = self.frameIndexFromPts(
+                    start/self.time_base, "-" if self.type is "audio" else "+")
 
             else:
                 startindex = 0
@@ -138,7 +138,7 @@ class Track(object):
                 endpts = None
 
         if isinstance(self.index, numpy.ndarray) and self.index.ndim == 2 \
-            and self.index.size and startpts >= self.index[0, 0]:
+                and self.index.size and startpts >= self.index[0, 0]:
             key_index = self.keyIndexFromPts(startpts)
 
         else:
@@ -168,7 +168,8 @@ class Track(object):
 
         elif whence == "pts":
             if start >= self.pts[0]:
-                startindex = self.frameIndexFromPts(start, "-" if self.type is "audio" else "+")
+                startindex = self.frameIndexFromPts(
+                    start, "-" if self.type is "audio" else "+")
 
             else:
                 startindex = 0
@@ -185,7 +186,8 @@ class Track(object):
 
         elif whence == "seconds":
             if start/self.time_base >= self.pts[0]:
-                startindex = self.frameIndexFromPts(start/self.time_base, "-" if self.type is "audio" else "+")
+                startindex = self.frameIndexFromPts(
+                    start/self.time_base, "-" if self.type is "audio" else "+")
 
             else:
                 startindex = 0
@@ -201,7 +203,7 @@ class Track(object):
                 endpts = None
 
         if isinstance(self.index, numpy.ndarray) and self.index.ndim == 2 \
-            and self.index.size and startpts >= self.index[0, 0]:
+                and self.index.size and startpts >= self.index[0, 0]:
             key_index = self.keyIndexFromPts(startpts)
 
         else:
@@ -230,8 +232,10 @@ class Track(object):
 
                 for frame, pts1, pts2 in zip(decoder.decode(avpacket), iterpts1, iterpts2):
                     if self.type == "audio":
-                        pts1 = int(int((pts1 - self.pts[0])/self.defaultDuration + 0.5)*self.defaultDuration + 0.5) + self.pts[0]
-                        pts2 = int(int((pts2 - self.pts[0])/self.defaultDuration + 0.5)*self.defaultDuration + 0.5) + self.pts[0]
+                        pts1 = int(int(
+                            (pts1 - self.pts[0])/self.defaultDuration + 0.5)*self.defaultDuration + 0.5) + self.pts[0]
+                        pts2 = int(int(
+                            (pts2 - self.pts[0])/self.defaultDuration + 0.5)*self.defaultDuration + 0.5) + self.pts[0]
 
                     if pts2 <= startpts:
                         continue
@@ -243,7 +247,6 @@ class Track(object):
                     frame.pts = pts1
 
                     yield frame
-
 
             for frame, pts in zip(decoder.decode(), iterpts1):
                 if pts < startpts:
@@ -273,9 +276,11 @@ class Track(object):
 
             else:
                 frames = self._frame_cache[n] = []
-                c = self._gop_read_conditions[n] = threading.Condition(self._lock)
+                c = self._gop_read_conditions[n] = threading.Condition(
+                    self._lock)
                 self._cache_order.insert(0, n)
-                t = threading.Thread(target=self._decodeGOP, args=(n, frames, c))
+                t = threading.Thread(
+                    target=self._decodeGOP, args=(n, frames, c))
                 t.start()
 
                 while len(self._cache_order) > 10:
@@ -336,7 +341,8 @@ class Track(object):
 
                 for frame, pts in zip(decoder.decode(avpacket), iterpts):
                     if self.type == "audio":
-                        pts = int(int((pts - self.pts[0])/self.defaultDuration + 0.5)*self.defaultDuration + 0.5) + self.pts[0]
+                        pts = int(int(
+                            (pts - self.pts[0])/self.defaultDuration + 0.5)*self.defaultDuration + 0.5) + self.pts[0]
 
                     frame.pts = pts
 
@@ -344,16 +350,17 @@ class Track(object):
                         frame.pict_type = 0
 
                     with c:
-                        frames.append((frame.to_ndarray(), frame.format.name, frame.pict_type.name, frame.pts))
+                        frames.append(
+                            (frame.to_ndarray(), frame.format.name, frame.pict_type.name, frame.pts))
                         c.notifyAll()
 
                     if last_pts is not None and pts >= last_pts:
                         return
 
-
             for frame, pts in zip(decoder.decode(), iterpts):
                 if self.type == "audio":
-                    pts = int(int((pts - self.pts[0])/self.defaultDuration + 0.5)*self.defaultDuration + 0.5) + self.pts[0]
+                    pts = int(int(
+                        (pts - self.pts[0])/self.defaultDuration + 0.5)*self.defaultDuration + 0.5) + self.pts[0]
 
                 frame.pts = pts
 
@@ -361,12 +368,12 @@ class Track(object):
                     frame.pict_type = 0
 
                 with c:
-                    frames.append((frame.to_ndarray(), frame.format.name, frame.pict_type.name, frame.pts))
+                    frames.append(
+                        (frame.to_ndarray(), frame.format.name, frame.pict_type.name, frame.pts))
                     c.notifyAll()
 
                 if last_pts is not None and pts >= last_pts:
                     return
-
 
         finally:
             decoder.close()
@@ -389,6 +396,7 @@ class Track(object):
     def defaultDuration(self):
         return None
 
+
 class BaseReader(object):
     from copy import deepcopy as copy
 
@@ -405,13 +413,15 @@ class BaseReader(object):
         else:
             self._populatetracks()
             #self.tracks = []
-            #self.scan()
+            # self.scan()
 
     def _open(self):
-        raise NotImplementedError(f"{self.__class__.__name__}._open not implemented.")
+        raise NotImplementedError(
+            f"{self.__class__.__name__}._open not implemented.")
 
     def _populatetracks(self):
-        raise NotImplementedError(f"{self.__class__.__name__}._populatetracks not implemented.")
+        raise NotImplementedError(
+            f"{self.__class__.__name__}._populatetracks not implemented.")
 
     def __reduce__(self):
         state = self.__getstate__()
@@ -474,5 +484,3 @@ class BaseReader(object):
     def inputpathabs(self):
         """Input file absolute path."""
         return os.path.abspath(self.inputpath)
-
-

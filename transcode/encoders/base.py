@@ -4,6 +4,7 @@ from fractions import Fraction as QQ
 from ..util import Packet
 from ..avarrays import toNDArray, toAFrame, aconvert
 
+
 class EncoderContext(object):
     def __init__(self, codec, framesource, notifyencode=None, logfile=None, **kwargs):
         if isinstance(codec, av.Codec):
@@ -98,11 +99,11 @@ class EncoderContext(object):
 
         if packet.pts is None or self._encoder.type == "audio":
             packet = Packet(data=packet.to_bytes(), pts=self._pts, duration=packet.duration,
-                        keyframe=packet.is_keyframe, time_base=packet.time_base)
+                            keyframe=packet.is_keyframe, time_base=packet.time_base)
 
         else:
             packet = Packet(data=packet.to_bytes(), pts=packet.pts, duration=packet.duration,
-                        keyframe=packet.is_keyframe, time_base=packet.time_base)
+                            keyframe=packet.is_keyframe, time_base=packet.time_base)
 
         self._pts = packet.pts + packet.duration
         self._packetsEncoded += 1
@@ -111,6 +112,7 @@ class EncoderContext(object):
 
     def __iter__(self):
         return self
+
 
 class EncoderConfig(object):
     format = None
@@ -134,15 +136,17 @@ class EncoderConfig(object):
 
         for option, value in options.items():
             if option.replace("-", "_").rstrip("_") not in slots2:
-                raise ValueError(f"Invalid option '{option}' for codec '{codec}'.")
+                raise ValueError(
+                    f"Invalid option '{option}' for codec '{codec}'.")
 
-            self.options[slots[slots2.index(option.replace("-", "_").rstrip("_"))]] = value
+            self.options[slots[slots2.index(
+                option.replace("-", "_").rstrip("_"))]] = value
 
     def create(self, framesource,
-                width=None, height=None, sample_aspect_ratio=None,
-                rate=None, pix_fmt=None, format=None, time_base=None,
-                bitrate=None, channels=None, layout=None,
-                notifyencode=None, logfile=None, **override):
+               width=None, height=None, sample_aspect_ratio=None,
+               rate=None, pix_fmt=None, format=None, time_base=None,
+               bitrate=None, channels=None, layout=None,
+               notifyencode=None, logfile=None, **override):
 
         slots = list(self.optionslots)
         slots2 = [slot.replace("-", "_") for slot in slots]
@@ -150,18 +154,22 @@ class EncoderConfig(object):
 
         for option, value in override.items():
             if option.replace("-", "_").rstrip("_") not in slots2:
-                raise ValueError(f"Invalid option '{option}' for codec '{self.codec}'.")
+                raise ValueError(
+                    f"Invalid option '{option}' for codec '{self.codec}'.")
 
-            override2[slots[slots2.index(option.replace("-", "_").rstrip("_"))]] = value
+            override2[slots[slots2.index(
+                option.replace("-", "_").rstrip("_"))]] = value
 
         options = self.options.copy()
         options.update(override2)
-        options = {key: val for (key, val) in options.items() if val is not None}
+        options = {key: val for (
+            key, val) in options.items() if val is not None}
         return EncoderContext(self.codec, framesource, notifyencode, logfile,
-                                   width=width, height=height, sample_aspect_ratio=sample_aspect_ratio,
-                                   rate=rate, pix_fmt=pix_fmt, format=format, time_base=time_base, channels=channels, layout=layout,
-                                   bit_rate=int(bitrate*1000 if bitrate is not None else self.bitrate*1000),
-                                   options=options)
+                              width=width, height=height, sample_aspect_ratio=sample_aspect_ratio,
+                              rate=rate, pix_fmt=pix_fmt, format=format, time_base=time_base, channels=channels, layout=layout,
+                              bit_rate=int(
+                                  bitrate*1000 if bitrate is not None else self.bitrate*1000),
+                              options=options)
 
     @property
     def optionslots(self):

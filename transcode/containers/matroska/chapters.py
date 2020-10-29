@@ -2,6 +2,7 @@ import matroska.chapters
 from transcode.util import ChildList, llist
 from collections import OrderedDict, UserList
 
+
 class ChapterDisplay(object):
     from copy import deepcopy as copy
 
@@ -14,8 +15,10 @@ class ChapterDisplay(object):
 
     def prepare(self, logfile=None):
         print(f"        Name: {self.string}", file=logfile)
-        print(f"            Lanugages: {', '.join(self.languages)}", file=logfile)
-        print(f"            Countries: {', '.join(self.countries)}", file=logfile)
+        print(
+            f"            Lanugages: {', '.join(self.languages)}", file=logfile)
+        print(
+            f"            Countries: {', '.join(self.countries)}", file=logfile)
         return matroska.chapters.ChapterDisplay(self.string, self.languages,
                                                 self.langIETF, self.countries)
 
@@ -33,6 +36,7 @@ class ChapterDisplay(object):
         self.languages = state.get("languages", ["eng"])
         self.langIETF = state.get("langIETF", [])
         self.countries = state.get("countries", ["us"])
+
 
 class ChapterAtom(object):
     from copy import deepcopy as copy
@@ -137,18 +141,21 @@ class ChapterAtom(object):
         s1 = ms/10**9
         h1, m1 = divmod(m, 60)
 
-        print(f"    Chapter {self.parent.index(self) + 1}: {', '.join(flagstrings)}", file=logfile)
+        print(
+            f"    Chapter {self.parent.index(self) + 1}: {', '.join(flagstrings)}", file=logfile)
         ebml = matroska.chapters.ChapterAtom(self.UID, self.timeStart, self.timeEnd, self.hidden, self.enabled,
-                chapterSegmentUID=self.segmentUID, chapterSegmentEditionUID=self.segmentEditionUID,
-                chapterTrack=self.tracks, chapterDisplays=[display.prepare(logfile) for display in self.displays])
+                                             chapterSegmentUID=self.segmentUID, chapterSegmentEditionUID=self.segmentEditionUID,
+                                             chapterTrack=self.tracks, chapterDisplays=[display.prepare(logfile) for display in self.displays])
         if self.timeEnd:
             m, ms = divmod(self.timeEnd, 60*10**9)
             s2 = ms/10**9
             h2, m2 = divmod(m, 60)
-            print(f"        Time: {h1}:{m1:02d}:{s1:06.3f} — {h2}:{m2:02d}:{s2:06.3f}", file=logfile)
+            print(
+                f"        Time: {h1}:{m1:02d}:{s1:06.3f} — {h2}:{m2:02d}:{s2:06.3f}", file=logfile)
 
         else:
-            print(f"        Time: {h1}:{m1:02d}:{s1:06.3f} — ?:??:??.???", file=logfile)
+            print(
+                f"        Time: {h1}:{m1:02d}:{s1:06.3f} — ?:??:??.???", file=logfile)
 
         return ebml
 
@@ -194,6 +201,7 @@ class ChapterAtom(object):
         self.physicalEquiv = state.get("physicalEquiv")
         self.tracks = state.get("tracks")
 
+
 class EditionEntry(llist):
     def __init__(self, chapters=[], UID=None, hidden=False, default=False, ordered=False, parent=None):
         self.UID = UID
@@ -233,12 +241,14 @@ class EditionEntry(llist):
             flagstrings.append("Ordered")
 
         if len(flagstrings):
-            print(f"Edition Entry {self.UID} ({', '.join(flagstrings)})", file=logfile)
+            print(
+                f"Edition Entry {self.UID} ({', '.join(flagstrings)})", file=logfile)
 
         else:
             print(f"Edition Entry {self.UID}", file=logfile)
-        
+
         return matroska.chapters.EditionEntry(self.UID, self.hidden, self.default, [chapter.prepare(logfile) for chapter in self], self.ordered)
+
 
 class Editions(ChildList):
     def prepare(self, logfile=None):

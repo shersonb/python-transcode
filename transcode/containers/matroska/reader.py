@@ -7,17 +7,18 @@ import os
 from ...util import Packet
 
 codecs = {
-        "V_MPEGH/ISO/HEVC": "hevc",
-        "V_MPEG2": "mpeg2video",
-        "A_AC3": "ac3",
-        "A_AAC": "aac",
-        "A_DTS": "dts",
-        "V_MS/VFW/FOURCC": "vc1",
-        "S_TEXT/ASS": "ass",
-        "S_VOBSUB": "dvdsub",
-        "V_MPEG4/ISO/AVC": "h264",
-        "S_HDMV/PGS": "pgssub"
-    }
+    "V_MPEGH/ISO/HEVC": "hevc",
+    "V_MPEG2": "mpeg2video",
+    "A_AC3": "ac3",
+    "A_AAC": "aac",
+    "A_DTS": "dts",
+    "V_MS/VFW/FOURCC": "vc1",
+    "S_TEXT/ASS": "ass",
+    "S_VOBSUB": "dvdsub",
+    "V_MPEG4/ISO/AVC": "h264",
+    "S_HDMV/PGS": "pgssub"
+}
+
 
 class Track(basereader.Track):
     def __getstate__(self):
@@ -139,7 +140,8 @@ class Track(basereader.Track):
             return "subtitle"
 
         else:
-            raise ValueError(f"Unsupported TrackType: {self.trackEntry.trackType}")
+            raise ValueError(
+                f"Unsupported TrackType: {self.trackEntry.trackType}")
 
     def iterPackets(self, start=0, whence="pts"):
         if whence == "pts":
@@ -165,7 +167,7 @@ class Track(basereader.Track):
 
         start_pts, startClusterPosition, startBlockPosition = self.index[start]
         packets = self.container.demux(startClusterPosition=startClusterPosition,
-                    startBlockPosition=startBlockPosition, trackNumber=self.trackNumber)
+                                       startBlockPosition=startBlockPosition, trackNumber=self.trackNumber)
         pkts_list = []
 
         for packet in packets:
@@ -186,6 +188,7 @@ class Track(basereader.Track):
     @property
     def time_base(self):
         return self.container.time_base
+
 
 class MatroskaReader(basereader.BaseReader):
     trackclass = Track
@@ -208,9 +211,12 @@ class MatroskaReader(basereader.BaseReader):
         if callable(notifystart):
             notifystart(int(self.mkvfile.segment.info.duration))
 
-        tracksDict = {track.trackNumber: track for track in self.tracks if track.trackEntry.trackType in (1, 2, 17)}
-        trackPts = {track.trackNumber: [] for track in self.tracks if track.trackEntry.trackType in (1, 2, 17)}
-        trackIndices = {track.trackNumber: [] for track in self.tracks if track.trackEntry.trackType in (1, 2, 17)}
+        tracksDict = {
+            track.trackNumber: track for track in self.tracks if track.trackEntry.trackType in (1, 2, 17)}
+        trackPts = {track.trackNumber: []
+                    for track in self.tracks if track.trackEntry.trackType in (1, 2, 17)}
+        trackIndices = {track.trackNumber: []
+                        for track in self.tracks if track.trackEntry.trackType in (1, 2, 17)}
 
         for cluster in self.mkvfile.segment.iterClusters():
             clusterOffset = cluster.offsetInParent
@@ -224,7 +230,8 @@ class MatroskaReader(basereader.BaseReader):
                 if trackEntry.codec == "vc1" and (keyframe or not discardable) \
                         and len(index) and index[-1][0] == -1:
                     _, prevClusterOffset, prevBlockOffset = index[-1]
-                    index[-1] = (ptslist[-1][0], prevClusterOffset, prevBlockOffset)
+                    index[-1] = (ptslist[-1][0],
+                                 prevClusterOffset, prevBlockOffset)
 
                 if keyframe or len(index) == 0:
                     if trackEntry.codec == "vc1":
@@ -246,7 +253,8 @@ class MatroskaReader(basereader.BaseReader):
                 del trackIndices[track.trackNumber][-1]
 
             track.index = numpy.array(sorted(trackIndices[track.trackNumber]))
-            track.pts, track.sizes, track.durations = numpy.array(sorted(trackPts[track.trackNumber])).transpose()
+            track.pts, track.sizes, track.durations = numpy.array(
+                sorted(trackPts[track.trackNumber])).transpose()
 
         if callable(notifyfinish):
             notifyfinish()
@@ -268,12 +276,12 @@ class MatroskaReader(basereader.BaseReader):
         return QQ(1, 10**9)
 
     def demux(self, startClusterPosition=None, startBlockPosition=None, trackNumber=None):
-        track_index = [track.trackNumber for track in self.tracks].index(trackNumber)
+        track_index = [track.trackNumber for track in self.tracks].index(
+            trackNumber)
 
         for packet in self.mkvfile.demux(startClusterPosition=startClusterPosition,
-                    startBlockPosition=startBlockPosition, trackNumber=trackNumber):
+                                         startBlockPosition=startBlockPosition, trackNumber=trackNumber):
             yield Packet(data=packet.data, pts=packet.pts, duration=packet.duration,
                          time_base=self.time_base, keyframe=packet.keyframe,
                          invisible=packet.invisible, discardable=packet.discardable,
                          referenceBlocks=packet.referenceBlocks, track_index=track_index)
-

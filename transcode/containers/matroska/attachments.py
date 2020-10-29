@@ -6,6 +6,7 @@ import mimetypes
 import os
 from copy import deepcopy
 
+
 class AttachmentRef(object):
     from copy import copy
 
@@ -21,8 +22,8 @@ class AttachmentRef(object):
         We want to keep the original reference to self.source.
         """
         memo.update({
-                id(self.source): self.source,
-            })
+            id(self.source): self.source,
+        })
 
         reduced = self.__reduce__()
 
@@ -62,7 +63,8 @@ class AttachmentRef(object):
                     return attachment
 
             else:
-                raise KeyError(f"Attachment with fileUID {self.UID} not found.")
+                raise KeyError(
+                    f"Attachment with fileUID {self.UID} not found.")
 
         raise KeyError(f"Attachment with fileUID {self.UID} not found.")
 
@@ -77,6 +79,7 @@ class AttachmentRef(object):
     @property
     def description(self):
         return self.attachment.description
+
 
 class AttachedFile(object):
     from copy import deepcopy as copy
@@ -147,7 +150,8 @@ class AttachedFile(object):
             return attachment
 
         elif isinstance(self.source, pathlib.Path):
-            attachment = matroska.attachments.AttachedFile.fromPath(str(self.source), self.mimeType, self.UID, self.description)
+            attachment = matroska.attachments.AttachedFile.fromPath(
+                str(self.source), self.mimeType, self.UID, self.description)
             attachment.fileName = self.fileName
             return attachment
 
@@ -188,7 +192,8 @@ class AttachedFile(object):
     def sourcerel(self):
         """Input file path relative to config path."""
         if isinstance(self.source, pathlib.Path) and self.parent and self.parent.config:
-            relpath = os.path.relpath(self.source, self.parent.config.workingdir)
+            relpath = os.path.relpath(
+                self.source, self.parent.config.workingdir)
 
             if relpath.startswith("../"):
                 return self.source
@@ -211,6 +216,7 @@ class AttachedFile(object):
         """Input file absolute path."""
         if isinstance(self.source, pathlib.Path):
             return os.path.abspath(self.source)
+
 
 class Attachments(transcode.util.ChildList):
     def prepare(self, logfile=None):

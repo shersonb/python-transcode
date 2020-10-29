@@ -25,13 +25,16 @@ for codec in sorted(av.codecs_available):
         if c.type == "subtitle":
             sencoders[codec] = c.long_name
 
+
 def createConfigObj(codec):
     if codec in encoders:
         return encoders[codec]()
 
     return EncoderConfig(codec)
 
+
 encoders = {}
+
 
 def scan():
     _path = os.path.split(__file__)[0]
@@ -55,6 +58,7 @@ def scan():
 
             if isinstance(_cls, type) and issubclass(_cls, EncoderConfig) and\
                     _cls not in (EncoderConfig,) and hasattr(_cls, "codec"):
-                        encoders[_cls.codec] = _cls
+                encoders[_cls.codec] = _cls
+
 
 scan()

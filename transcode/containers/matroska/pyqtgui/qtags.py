@@ -6,7 +6,7 @@ from PyQt5 import QtCore
 from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxLayout, QHBoxLayout,
                              QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView, QHeaderView, QSpinBox, QFrame,
                              QLineEdit, QComboBox, QCheckBox, QSpinBox, QDoubleSpinBox, QItemDelegate,
-                             QMenu, QAction, QScrollArea)
+                             QMenu, QAction, QScrollArea, QFileDialog)
 from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QRegExpValidator
 
 from transcode.pyqtgui.qitemmodel import QItemModel, Node, ChildNodes
@@ -18,6 +18,9 @@ from functools import partial
 from ..chapters import Editions, EditionEntry, ChapterAtom
 from ...basewriter import TrackList, Track
 from ..attachments import Attachments, AttachedFile
+import traceback
+import xml.dom.minidom
+
 
 class TagItemModel(QItemModel):
     def dropItems(self, items, action, row, column, parent):
@@ -35,7 +38,6 @@ class TagItemModel(QItemModel):
 
             if self.getNode(old_parent) is self.getNode(parent) and old_row < row:
                 j += 1
-
 
             return False
 
@@ -66,14 +68,17 @@ class TagItemModel(QItemModel):
     def supportedDropActions(self):
         return Qt.MoveAction
 
+
 class TagsNode(Node):
     def _wrapChildren(self, children):
         return TagsChildren.fromValues(children, self)
+
 
 class TagsChildren(ChildNodes):
     @staticmethod
     def _wrap(value):
         return TagNode(value)
+
 
 class TagNode(Node):
     def _wrapChildren(self, children):
@@ -81,6 +86,7 @@ class TagNode(Node):
 
     def _iterChildren(self):
         return self.value.simpletags
+
 
 class TagChildren(ChildNodes):
     @staticmethod
@@ -92,7 +98,7 @@ class TagChildren(ChildNodes):
 
     def _insert(self, index, value):
         self.parent.value.simpletags.insert(index, value)
-    
+
     def _extend(self, values):
         self.parent.value.simpletags.extend(values)
 
@@ -102,12 +108,14 @@ class TagChildren(ChildNodes):
     def _setitem(self, index, value):
         self.parent.value.simpletags[index] = value
 
+
 class SimpleTagNode(Node):
     def _wrapChildren(self, children):
         return SimpleTagChildren.fromValues(children, self)
 
     def _iterChildren(self):
         return self.value.subtags
+
 
 class SimpleTagChildren(ChildNodes):
     @staticmethod
@@ -119,7 +127,7 @@ class SimpleTagChildren(ChildNodes):
 
     def _insert(self, index, value):
         self.parent.value.subtags.insert(index, value)
-    
+
     def _extend(self, values):
         self.parent.value.subtags.extend(values)
 
@@ -128,6 +136,7 @@ class SimpleTagChildren(ChildNodes):
 
     def _setitem(self, index, value):
         self.parent.value.subtags[index] = value
+
 
 class TagItemCol(object):
     def __init__(self, editions, tracks, attachments,
@@ -185,6 +194,8 @@ class TagItemCol(object):
                 self.targetattachments.append(obj.UID)
                 self.targetattachments.sort()
 
+        return True
+
     def display(self, index, obj):
         if isinstance(obj, Editions):
             return "Chapter Editions"
@@ -218,35 +229,37 @@ class TagItemCol(object):
 
         return Qt.ItemIsEnabled
 
+
 class OutputFileNode(Node):
     def _iterChildren(self):
         return (self.value.tracks, self.value.chapters, self.value.attachments)
 
+
 TYPES = [
-        ("COLLECTION", 70),
-        ("EDITION", 60),
-        ("ISSUE", 60),
-        ("VOLUME", 60),
-        ("OPUS", 60),
-        ("SEASON", 60),
-        ("SEQUEL", 60),
-        ("VOLUME", 60),
-        ("ALBUM", 50),
-        ("OPERA", 50),
-        ("CONCERT", 50),
-        ("MOVIE", 50),
-        ("EPISODE", 50),
-        ("PART", 40),
-        ("SESSION", 40),
-        ("TRACK", 30),
-        ("SONG", 30),
-        ("CHAPTER", 30),
-        ("SUBTRACK", 20),
-        ("PART", 20),
-        ("MOVEMENT", 20),
-        ("SCENE", 20),
-        ("SHOT", 10)
-    ]
+    ("COLLECTION", 70),
+    ("EDITION", 60),
+    ("ISSUE", 60),
+    ("VOLUME", 60),
+    ("OPUS", 60),
+    ("SEASON", 60),
+    ("SEQUEL", 60),
+    ("VOLUME", 60),
+    ("ALBUM", 50),
+    ("OPERA", 50),
+    ("CONCERT", 50),
+    ("MOVIE", 50),
+    ("EPISODE", 50),
+    ("PART", 40),
+    ("SESSION", 40),
+    ("TRACK", 30),
+    ("SONG", 30),
+    ("CHAPTER", 30),
+    ("SUBTRACK", 20),
+    ("PART", 20),
+    ("MOVEMENT", 20),
+    ("SCENE", 20),
+    ("SHOT", 10)
+]
 
 NESTING_NAMES = ["ORIGINAL", "SAMPLE", "COUNTRY"]
 ORGANIZATION = ["TOTAL_PARTS", "PART_NUMBER", "PART_OFFSET"]
@@ -254,154 +267,155 @@ TITLES = ["TITLE", "SUBTITLE"]
 NESTED_INFO = ["URL", "SORT_WITH", "INSTRUMENTS", "EMAIL",
                "ADDRESS", "FAX", "PHONE"]
 ENTITIES = [
-        "DIRECTOR", "ASSISTANT_DIRECTOR",
-        "DIRECTOR_OF_PHOTOGRAPHY", "SOUND_ENGINEER",
-        "ART_DIRECTOR", "PRODUCTION_DESIGNER", "CHOREGRAPHER",
-        "COSTUME_DESIGNER", "ACTOR", "CHARACTER", "WRITTEN_BY",
-        "SCREENPLAY_BY", "EDITED_BY", "PRODUCER", "COPRODUCER",
-        "EXECUTIVE_PRODUCER", "DISTRIBUTED_BY", "MASTERED_BY",
-        "ARTIST", "LEAD_PERFORMER", "ACCOMPANIEMENT",
-        "COMPOSER", "ARRANGER", "LYRICS", "LYRICIST",
-        "CONDUCTOR",
-        "ENCODED_BY", "MIXED_BY", "REMIXED_BY",
-        "PRODUCTION_STUDIO", "THANKS_TO", "PUBLISHER", "LABEL"
-    ]
+    "DIRECTOR", "ASSISTANT_DIRECTOR",
+    "DIRECTOR_OF_PHOTOGRAPHY", "SOUND_ENGINEER",
+    "ART_DIRECTOR", "PRODUCTION_DESIGNER", "CHOREGRAPHER",
+    "COSTUME_DESIGNER", "ACTOR", "CHARACTER", "WRITTEN_BY",
+    "SCREENPLAY_BY", "EDITED_BY", "PRODUCER", "COPRODUCER",
+    "EXECUTIVE_PRODUCER", "DISTRIBUTED_BY", "MASTERED_BY",
+    "ARTIST", "LEAD_PERFORMER", "ACCOMPANIEMENT",
+    "COMPOSER", "ARRANGER", "LYRICS", "LYRICIST",
+    "CONDUCTOR",
+    "ENCODED_BY", "MIXED_BY", "REMIXED_BY",
+    "PRODUCTION_STUDIO", "THANKS_TO", "PUBLISHER", "LABEL"
+]
 
 SEARCH_CLASS = [
-        "GENRE",
-        "MOOD",
-        "ORIGINAL_MEDIA_TYPE",
-        "CONTENT_TYPE",
-        "SUBJECT",
-        "DESCRIPTION",
-        "KEYWORDS",
-        "SUMMARY",
-        "SYNOPSIS",
-        "INITIAL_KEY",
-        "PERIOD",
-        "LAW_RATING",
-    ]
+    "GENRE",
+    "MOOD",
+    "ORIGINAL_MEDIA_TYPE",
+    "CONTENT_TYPE",
+    "SUBJECT",
+    "DESCRIPTION",
+    "KEYWORDS",
+    "SUMMARY",
+    "SYNOPSIS",
+    "INITIAL_KEY",
+    "PERIOD",
+    "LAW_RATING",
+]
 
 TEMPORAL = [
-        "DATE_RELEASED",
-        "DATE_RECORDED",
-        "DATE_ENCODED",
-        "DATE_TAGGED",
-        "DATE_DIGITIZED",
-        "DATE_WRITTEN",
-        "DATE_PURCHASED",
-    ]
+    "DATE_RELEASED",
+    "DATE_RECORDED",
+    "DATE_ENCODED",
+    "DATE_TAGGED",
+    "DATE_DIGITIZED",
+    "DATE_WRITTEN",
+    "DATE_PURCHASED",
+]
 
 SPATIAL = [
-        "RECORDING_LOCATION",
-        "COMPOSITION_LOCATION",
-        "COMPOSER_NATIONALITY",
-    ]
+    "RECORDING_LOCATION",
+    "COMPOSITION_LOCATION",
+    "COMPOSER_NATIONALITY",
+]
 
 PERSONAL = [
-        "COMMENT",
-        "PLAY_COUNTER",
-        "RATING",
-    ]
+    "COMMENT",
+    "PLAY_COUNTER",
+    "RATING",
+]
 
 TECHNICAL = [
-        "ENCODER",
-        "ENCODER_SETTINGS",
-        "BPS",
-        "FPS",
-        "BPM",
-        "MEASURE",
-        "TUNING",
-        "REPLAYGAIN_GAIN",
-        "REPLAYGAIN_PEAK",
-    ]
+    "ENCODER",
+    "ENCODER_SETTINGS",
+    "BPS",
+    "FPS",
+    "BPM",
+    "MEASURE",
+    "TUNING",
+    "REPLAYGAIN_GAIN",
+    "REPLAYGAIN_PEAK",
+]
 
 IDENTIFIERS = [
-        "ISRC",
-        "MCDI",
-        "ISBN",
-        "BARCODE",
-        "CATALOG_NUMBER",
-        "LABEL_CODE",
-        "LCCN",
-        "IMDB",
-        "TMDB",
-        "TVDB",
-    ]
+    "ISRC",
+    "MCDI",
+    "ISBN",
+    "BARCODE",
+    "CATALOG_NUMBER",
+    "LABEL_CODE",
+    "LCCN",
+    "IMDB",
+    "TMDB",
+    "TVDB",
+]
 
 COMMERCIAL = [
-        "PURCHASE_ITEM",
-        "PURCHASE_INFO",
-        "PURCHASE_OWNER",
-        "PURCHASE_PRICE",
-        "PURCHASE_CURRENCY",
-    ]
+    "PURCHASE_ITEM",
+    "PURCHASE_INFO",
+    "PURCHASE_OWNER",
+    "PURCHASE_PRICE",
+    "PURCHASE_CURRENCY",
+]
 
 LEGAL = [
-        "COPYRIGHT",
-        "PRODUCTION_COPYRIGHT",
-        "LICENSE",
-        "TERMS_OF_USE",
-    ]
+    "COPYRIGHT",
+    "PRODUCTION_COPYRIGHT",
+    "LICENSE",
+    "TERMS_OF_USE",
+]
 
 SECTIONS = [
-        ("Titles", TITLES),
-        ("Temporal", TEMPORAL),
-        ("Organization", ORGANIZATION),
-        ("Entities", ENTITIES),
-        ("Nesting", NESTING_NAMES),
-        ("Search/Classification", SEARCH_CLASS),
-        ("Spatial", SPATIAL),
-        ("Personal", PERSONAL),
-        ("Technical", TECHNICAL),
-        ("Identifiers", IDENTIFIERS),
-        ("Commercial", COMMERCIAL),
-        ("Legal", LEGAL)
-        ]
+    ("Titles", TITLES),
+    ("Temporal", TEMPORAL),
+    ("Organization", ORGANIZATION),
+    ("Entities", ENTITIES),
+    ("Nesting", NESTING_NAMES),
+    ("Search/Classification", SEARCH_CLASS),
+    ("Spatial", SPATIAL),
+    ("Personal", PERSONAL),
+    ("Technical", TECHNICAL),
+    ("Identifiers", IDENTIFIERS),
+    ("Commercial", COMMERCIAL),
+    ("Legal", LEGAL)
+]
 
 BINARY = {"ICRA", "REPLAYGAIN_GAIN", "REPLAYGAIN_PEAK",
           "MCDI"}
 
 AUTOSELECT = {
-        ("COLLECTION", 70): {"TITLE", "TOTAL_PARTS"},
-        ("EDITION", 60): {"TITLE"},
-        #("ISSUE", 60),
-        #("VOLUME", 60),
-        #("OPUS", 60),
-        ("SEASON", 60): {"TOTAL_PARTS", "PART_NUMBER", "DATE_RELEASED"},
-        #("SEQUEL", 60),
-        #("VOLUME", 60),
-        #("ALBUM", 50),
-        #("OPERA", 50),
-        #("CONCERT", 50),
-        ("MOVIE", 50): {
-            "TITLE", "DIRECTOR", "ASSISTANT_DIRECTOR",
-            "DIRECTOR_OF_PHOTOGRAPHY", "SOUND_ENGINEER",
-            "ART_DIRECTOR", "PRODUCTION_DESIGNER", "CHOREGRAPHER",
-            "COSTUME_DESIGNER", "ACTOR", "CHARACTER", "WRITTEN_BY",
-            "SCREENPLAY_BY", "EDITED_BY", "PRODUCER", "COPRODUCER",
-            "EXECUTIVE_PRODUCER", "DISTRIBUTED_BY", "PRODUCTION_STUDIO",
-            "DATE_RELEASED"
-            },
-        ("EPISODE", 50): {
-            "TITLE", "PART_NUMBER", "DIRECTOR", "ACTOR",
-            "WRITTEN_BY", "PRODUCER", "COPRODUCER"
-            "EXECUTIVE_PRODUCER", "SCREENPLAY_BY", "DATE_RELEASED"},
-        #("PART", 40),
-        #("SESSION", 40),
-        #("TRACK", 30),
-        #("SONG", 30),
-        #("CHAPTER", 30),
-        #("SUBTRACK", 20),
-        #("PART", 20),
-        #("MOVEMENT", 20),
-        #("SCENE", 20),
-        #("SHOT", 10)
-    }
+    ("COLLECTION", 70): {"TITLE", "TOTAL_PARTS"},
+    ("EDITION", 60): {"TITLE"},
+    #("ISSUE", 60),
+    #("VOLUME", 60),
+    #("OPUS", 60),
+    ("SEASON", 60): {"TOTAL_PARTS", "PART_NUMBER", "DATE_RELEASED"},
+    #("SEQUEL", 60),
+    #("VOLUME", 60),
+    #("ALBUM", 50),
+    #("OPERA", 50),
+    #("CONCERT", 50),
+    ("MOVIE", 50): {
+        "TITLE", "DIRECTOR", "ASSISTANT_DIRECTOR",
+        "DIRECTOR_OF_PHOTOGRAPHY", "SOUND_ENGINEER",
+        "ART_DIRECTOR", "PRODUCTION_DESIGNER", "CHOREGRAPHER",
+        "COSTUME_DESIGNER", "ACTOR", "CHARACTER", "WRITTEN_BY",
+        "SCREENPLAY_BY", "EDITED_BY", "PRODUCER", "COPRODUCER",
+        "EXECUTIVE_PRODUCER", "DISTRIBUTED_BY", "PRODUCTION_STUDIO",
+        "DATE_RELEASED"
+    },
+    ("EPISODE", 50): {
+        "TITLE", "PART_NUMBER", "DIRECTOR", "ACTOR",
+        "WRITTEN_BY", "PRODUCER", "COPRODUCER"
+        "EXECUTIVE_PRODUCER", "SCREENPLAY_BY", "DATE_RELEASED"},
+    #("PART", 40),
+    #("SESSION", 40),
+    #("TRACK", 30),
+    #("SONG", 30),
+    #("CHAPTER", 30),
+    #("SUBTRACK", 20),
+    #("PART", 20),
+    #("MOVEMENT", 20),
+    #("SCENE", 20),
+    #("SHOT", 10)
+}
 
 SUBTAGS = {
     "ACTOR": ["CHARACTER"]
-    }
+}
+
 
 class NewSimpleTags(QWidget):
     contentsModified = pyqtSignal()
@@ -441,7 +455,8 @@ class NewSimpleTags(QWidget):
                 spinBox.setPrefix("×")
                 spinBox.setEnabled(False)
 
-                checkBox.stateChanged.connect(partial(self.checkChanged, spinBox))
+                checkBox.stateChanged.connect(
+                    partial(self.checkChanged, spinBox))
 
                 hlayout.addWidget(checkBox)
                 hlayout.addStretch()
@@ -459,6 +474,7 @@ class NewSimpleTags(QWidget):
     def __iter__(self):
         return iter(self._tags)
 
+
 class NewTagDlg(QDialog):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -469,7 +485,8 @@ class NewTagDlg(QDialog):
         self.typeComboBox = QComboBox(self)
 
         for (t, tValue) in TYPES:
-            self.typeComboBox.addItem(f"{titlecase(t)} ({tValue})", [t, tValue])
+            self.typeComboBox.addItem(
+                f"{titlecase(t)} ({tValue})", [t, tValue])
 
         sublayout = QHBoxLayout()
         sublayout.addWidget(self.typeLabel)
@@ -516,6 +533,7 @@ class NewTagDlg(QDialog):
     def selectedTags(self):
         return [(tag, count) for (tag, checkstate, count) in self.newTags.tags() if checkstate]
 
+
 class BaseColumn(object):
     checkstate = None
     fontmain = None
@@ -561,14 +579,12 @@ class BaseColumn(object):
             insertAbove = QAction("&Insert Tag Before...", table,
                                   triggered=partial(self.newTag, table=table, row_id=index.row(), model=index.model()))
 
-
             newSimpleTag = QAction("&New SimpleTag", table,
-                                    triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model()))
+                                   triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model()))
 
             menu.addAction(newAtBottom)
             menu.addAction(insertAbove)
             menu.addAction(newSimpleTag)
-
 
         if isinstance(obj, SimpleTag):
             if isinstance(obj.parent, Tag):
@@ -578,16 +594,16 @@ class BaseColumn(object):
                 row_id = obj.parent.subtags.index(obj)
 
             insertSimpleTag = QAction("&Insert SimpleTag Before", table,
-                        triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model(), row_id=row_id))
+                                      triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model(), row_id=row_id))
 
             insertAfterTag = QAction(f"&Insert '{titlecase(obj.name.replace('_', ' '))}' After", table,
-                        triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model(), row_id=row_id+1, tagname=obj.name))
+                                     triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model(), row_id=row_id+1, tagname=obj.name))
 
             appendSimpleTag = QAction("&Add SimpleTag at end", table,
-                        triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model()))
+                                      triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model()))
 
             insertChildSimpleTag = QAction("&Add child SimpleTag", table,
-                        triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model()))
+                                           triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model()))
 
             menu.addAction(insertSimpleTag)
             menu.addAction(insertAfterTag)
@@ -597,13 +613,29 @@ class BaseColumn(object):
 
             for childtag in SUBTAGS.get(obj.name, set()):
                 addChildSimpleTag = QAction(f"&Add child '{titlecase(childtag.replace('_', ' '))}' SimpleTag", table,
-                        triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model(), tagname=childtag))
+                                            triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model(), tagname=childtag))
                 menu.addAction(addChildSimpleTag)
 
+        importTags = QAction("&Import tags...", table,
+                             triggered=table.importTags)
 
+        exportTags = QAction("&Export selected tags...", table,
+                             triggered=table.exportTags)
+
+        menu.addSeparator()
+
+        menu.addAction(importTags)
+        menu.addAction(exportTags)
+
+        for index in table.selectedIndexes():
+            if not isinstance(index.data(Qt.UserRole), Tag):
+                exportTags.setDisabled(True)
+                break
+
+        menu.addSeparator()
 
         delete = QAction("&Delete Selected...", table,
-                                triggered=table.askDeleteSelected)
+                         triggered=table.askDeleteSelected)
         menu.addAction(delete)
 
         if len(table.selectedIndexes()):
@@ -669,6 +701,7 @@ class BaseColumn(object):
 
         return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
 
+
 class TagNameDelegate(QItemDelegate):
     def createEditor(self, parent, option, index):
         obj = index.data(Qt.UserRole)
@@ -688,7 +721,8 @@ class TagNameDelegate(QItemDelegate):
             widget = QComboBox(parent)
 
             for (type, typeValue) in TYPES:
-                widget.addItem(f"{titlecase(type)} ({typeValue})", [type, typeValue])
+                widget.addItem(f"{titlecase(type)} ({typeValue})", [
+                               type, typeValue])
 
         return widget
 
@@ -717,7 +751,9 @@ class TagNameDelegate(QItemDelegate):
             model.setData(index, editor.currentData(), Qt.EditRole)
 
         elif isinstance(obj, SimpleTag):
-            model.setData(index, editor.currentText().upper().replace(" ", "_"))
+            model.setData(
+                index, editor.currentText().upper().replace(" ", "_"))
+
 
 class NameCol(BaseColumn):
     width = 256
@@ -732,11 +768,13 @@ class NameCol(BaseColumn):
             return obj.name
 
     def seteditdata(self, index, obj, data):
-        if isinstance(obj, Tag):
+        if isinstance(obj, Tag) and (obj.type, obj.typeValue) != data:
             (obj.type, obj.typeValue) = data
+            return True
 
-        elif isinstance(obj, SimpleTag):
+        elif isinstance(obj, SimpleTag) and obj.name != data:
             obj.name = data
+            return True
 
     def display(self, index, obj):
         if isinstance(obj, Tag):
@@ -748,10 +786,12 @@ class NameCol(BaseColumn):
     def itemDelegate(self, parent):
         return TagNameDelegate(parent)
 
+
 class TagLanguageDelegate(LanguageDelegate):
     def createEditor(self, parent, option, index):
         if isinstance(index.data(Qt.UserRole), SimpleTag):
             return super().createEditor(parent, option, index)
+
 
 class LangCol(BaseColumn):
     width = 120
@@ -764,8 +804,9 @@ class LangCol(BaseColumn):
         return ""
 
     def seteditdata(self, index, obj, value):
-        if isinstance(obj, SimpleTag):
+        if isinstance(obj, SimpleTag) and obj.language != value:
             obj.language = value
+            return True
 
     def display(self, index, obj):
         if isinstance(obj, SimpleTag):
@@ -782,6 +823,7 @@ class LangCol(BaseColumn):
 
     def itemDelegate(self, parent):
         return LanguageDelegate(parent)
+
 
 class ValueCol(BaseColumn):
     headerdisplay = "Value"
@@ -804,11 +846,13 @@ class ValueCol(BaseColumn):
             return None
 
         elif isinstance(obj, SimpleTag):
-            if isinstance(value, str):
+            if isinstance(value, str) and obj.string != value:
                 obj.string = value
+                return True
 
-            elif isinstance(value, bytes):
-                obj.data -= value
+            elif isinstance(value, bytes) and obj.binary != value:
+                obj.binary = value
+                return True
 
     def display(self, index, obj):
         return self.editdata(index, obj) or ""
@@ -818,6 +862,7 @@ class ValueCol(BaseColumn):
             return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
 
         return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+
 
 class QTagTree(QTreeView):
     def __init__(self, *args, **kwargs):
@@ -851,10 +896,10 @@ class QTagTree(QTreeView):
 
         if self.tags is not None:
             cols = [
-                    NameCol(tags, tracks, editions, attachments),
-                    LangCol(tags, tracks, editions, attachments),
-                    ValueCol(tags, tracks, editions, attachments),
-                ]
+                NameCol(tags, tracks, editions, attachments),
+                LangCol(tags, tracks, editions, attachments),
+                ValueCol(tags, tracks, editions, attachments),
+            ]
 
             root = TagsNode(tags)
             model = TagItemModel(root, cols)
@@ -878,7 +923,8 @@ class QTagTree(QTreeView):
         col = idx.column()
         model = self.model()
 
-        selected = sorted(idx.row() for idx in self.selectionModel().selectedRows())
+        selected = sorted(idx.row()
+                          for idx in self.selectionModel().selectedRows())
 
         if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
             self.askDeleteSelected()
@@ -886,7 +932,8 @@ class QTagTree(QTreeView):
         super().keyPressEvent(event)
 
     def askDeleteSelected(self):
-        answer = QMessageBox.question(self, "Delete tags", "Do you wish to delete the selected tags? Any child tags will also be lost!", QMessageBox.Yes | QMessageBox.No)
+        answer = QMessageBox.question(
+            self, "Delete tags", "Do you wish to delete the selected tags? Any child tags will also be lost!", QMessageBox.Yes | QMessageBox.No)
 
         if answer == QMessageBox.Yes:
             self.deleteSelected()
@@ -906,6 +953,56 @@ class QTagTree(QTreeView):
 
                 if node.descendants is not None:
                     removed.update(node.descendants)
+
+    def importTags(self):
+        model = self.model()
+        filters = "Matroska Tags (*.xml)"
+        fileName, _ = QFileDialog.getOpenFileName(self, "Import Matroska Tags...",
+                                                  None, filters)
+
+        if fileName:
+            try:
+                f = open(fileName, "r")
+                x = xml.dom.minidom.parse(f)
+                tags = Tags.fromXml(x)
+
+                for tag in tags:
+                    model.insertRow(model.rowCount(), tag)
+
+                f.close()
+
+            except:
+                self.handleException(*sys.exc_info())
+
+    def exportTags(self):
+        model = self.model()
+        sm = self.selectionModel()
+        selected = [index.data(Qt.UserRole) for index in sm.selectedRows()]
+
+        filters = "Matroska Tags (*.xml)"
+        fileName, _ = QFileDialog.getSaveFileName(self, "Export Matroska Tags...",
+                                                  None, filters)
+
+        if fileName:
+            try:
+                x = model.root.value.toXml(selected)
+                f = open(fileName, "w")
+                print(x.toprettyxml(indent="    "), file=f)
+                f.close()
+
+            except:
+                self.handleException(*sys.exc_info())
+
+    def handleException(self, cls, exc, tb):
+        print(traceback.format_exception(cls, exc, tb), file=sys.stderr)
+        excmsg = QMessageBox(self)
+        excmsg.setWindowTitle("Error")
+        excmsg.setText("An exception was encountered\n\n%s" %
+                       "".join(traceback.format_exception(cls, exc, tb)))
+        excmsg.setStandardButtons(QMessageBox.Ok)
+        excmsg.setIcon(QMessageBox.Critical)
+        excmsg.exec_()
+
 
 class QTagsWidget(QWidget):
     contentsModified = pyqtSignal()
@@ -939,4 +1036,3 @@ class QTagsWidget(QWidget):
             self.tagTree.model().rowsInserted.connect(self.contentsModified)
             self.tagTree.model().rowsRemoved.connect(self.contentsModified)
             self.tagTree.model().rowsMoved.connect(self.contentsModified)
-

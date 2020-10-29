@@ -18,14 +18,17 @@ from transcode.containers.basereader import BaseReader
 
 icons = QFileIconProvider()
 
+
 class AvailableEditionsNode(Node):
     def _wrapChildren(self, children):
         return InputFiles.fromValues(children, self)
+
 
 class InputFiles(ChildNodes):
     @staticmethod
     def _wrap(value):
         return InputFileNode(value)
+
 
 class InputFileNode(Node):
     def _iterChildren(self):
@@ -37,10 +40,12 @@ class InputFileNode(Node):
     def _wrapChildren(self, children):
         return AvailableEditionEntries.fromValues(children, self)
 
+
 class AvailableEditionEntries(ChildNodes):
     @staticmethod
     def _wrap(value):
         return AvailableEditionEntryNode(value)
+
 
 class AvailableEditionEntryNode(Node):
     def _iterChildren(self):
@@ -49,10 +54,12 @@ class AvailableEditionEntryNode(Node):
     def _wrapChildren(self, children):
         return AvailableChapterAtoms.fromValues(children, self)
 
+
 class AvailableChapterAtoms(ChildNodes):
     @staticmethod
     def _wrap(value):
         return AvailableChapterNode(value)
+
 
 class AvailableChapterNode(Node):
     def _iterChildren(self):
@@ -61,13 +68,16 @@ class AvailableChapterNode(Node):
     def _wrapChildren(self, children):
         return AvailableChapterDisplays.fromValues(children, self)
 
+
 class AvailableChapterDisplays(ChildNodes):
     @staticmethod
     def _wrap(value):
         return AvailableChapterDisplayNode(value)
 
+
 class AvailableChapterDisplayNode(NoChildren):
     pass
+
 
 class AvailableEditionEntriesBaseColumn(object):
     checkstate = None
@@ -88,6 +98,7 @@ class AvailableEditionEntriesBaseColumn(object):
             return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
         return Qt.ItemIsEnabled
+
 
 class AvailableEditionEntryNameCol(AvailableEditionEntriesBaseColumn):
     headerdisplay = "Edition Entries"
@@ -112,6 +123,7 @@ class AvailableEditionEntryNameCol(AvailableEditionEntriesBaseColumn):
         if isinstance(obj, BaseReader):
             return icons.icon(QFileInfo(obj.inputpathrel))
 
+
 class AvailableUIDCol(AvailableEditionEntriesBaseColumn):
     headerdisplay = "UID"
     width = 192
@@ -135,6 +147,7 @@ class AvailableUIDCol(AvailableEditionEntriesBaseColumn):
 
     tooltip = display
 
+
 class AvailableStartCol(AvailableEditionEntriesBaseColumn):
     headerdisplay = "Start Time"
     width = 192
@@ -151,6 +164,7 @@ class AvailableStartCol(AvailableEditionEntriesBaseColumn):
 
     tooltip = display
 
+
 class AvailableEndCol(AvailableEditionEntriesBaseColumn):
     headerdisplay = "Start Time"
     width = 192
@@ -166,6 +180,7 @@ class AvailableEndCol(AvailableEditionEntriesBaseColumn):
         return ""
 
     tooltip = display
+
 
 class AvailableEditionsTree(QTreeView):
     def __init__(self, *args, **kwargs):
@@ -185,7 +200,7 @@ class AvailableEditionsTree(QTreeView):
                 AvailableUIDCol(input_files),
                 AvailableStartCol(input_files),
                 AvailableEndCol(input_files),
-               ]
+            ]
             model = QItemModel(root, cols)
             self.setModel(model)
 
@@ -204,6 +219,7 @@ class AvailableEditionsTree(QTreeView):
 
         else:
             self.setModel(QItemModel(Node(None), []))
+
 
 class AvailableEditionsSelection(QDialog):
     def __init__(self, *args, **kwargs):
@@ -226,38 +242,45 @@ class AvailableEditionsSelection(QDialog):
         self.cancelBtn.clicked.connect(self.close)
 
     def handleSelectionChanged(self):
-        self.okayBtn.setEnabled(len(self.selectionTree.selectionModel().selectedRows()) > 0)
+        self.okayBtn.setEnabled(
+            len(self.selectionTree.selectionModel().selectedRows()) > 0)
 
     def applyAndClose(self):
         self.selectedEditions = [
             (index.data(Qt.UserRole), index.data(Qt.UserRole))
             for index in self.selectionTree.selectionModel().selectedRows()
-            ]
+        ]
         self.done(1)
         self.close()
 
     def setInputFiles(self, input_files):
         self.selectionTree.setInputFiles(input_files)
-        self.selectionTree.selectionModel().selectionChanged.connect(self.handleSelectionChanged)
+        self.selectionTree.selectionModel().selectionChanged.connect(
+            self.handleSelectionChanged)
         self.okayBtn.setEnabled(len(self.selectionTree.selectedIndexes()) > 0)
+
 
 class EditionsNode(Node):
     def _wrapChildren(self, children):
         return EditionsChildren.fromValues(children, self)
+
 
 class EditionsChildren(ChildNodes):
     @staticmethod
     def _wrap(value):
         return EditionNode(value)
 
+
 class EditionNode(Node):
     def _wrapChildren(self, children):
         return EditionChildren.fromValues(children, self)
+
 
 class EditionChildren(ChildNodes):
     @staticmethod
     def _wrap(value):
         return ChapterNode(value)
+
 
 class ChapterNode(Node):
     def _iterChildren(self):
@@ -265,6 +288,7 @@ class ChapterNode(Node):
 
     def _wrapChildren(self, children):
         return ChapterChildren.fromValues(children, self)
+
 
 class ChapterChildren(ChildNodes):
     @staticmethod
@@ -286,8 +310,10 @@ class ChapterChildren(ChildNodes):
     def _setitem(self, index, value):
         self.parent.value.displays[index] = value
 
+
 class DisplayNode(NoChildren):
     pass
+
 
 class BaseColumn(object):
     checkstate = None
@@ -362,49 +388,49 @@ class BaseColumn(object):
         menu.addAction(insertEdition)
 
         insertEditionAfter = QAction("Insert Edition Entry after", table,
-                                triggered=partial(table.addEdition, row=edrow+1))
+                                     triggered=partial(table.addEdition, row=edrow+1))
         menu.addAction(insertEditionAfter)
 
         addEdition = QAction("Add Edition Entry at end", table,
-                                triggered=table.addEdition)
+                             triggered=table.addEdition)
         menu.addAction(addEdition)
 
         addFromInput = QAction("&Import existing Edition Entries from input...", table,
-                                triggered=table.addFromInput)
+                               triggered=table.addFromInput)
         menu.addAction(addFromInput)
 
         menu.addSeparator()
 
         insertChapter = QAction("Insert Chapter before", table,
-                    triggered=partial(table.addChapter,
-                        row=chrow, parent=edindex))
+                                triggered=partial(table.addChapter,
+                                                  row=chrow, parent=edindex))
         menu.addAction(insertChapter)
 
         insertChapterAfter = QAction("Insert Chapter after", table,
-                    triggered=partial(table.addChapter,
-                        row=chrow+1, parent=edindex))
+                                     triggered=partial(table.addChapter,
+                                                       row=chrow+1, parent=edindex))
         menu.addAction(insertChapterAfter)
 
         addChapter = QAction("Add Chapter at end", table,
-                    triggered=partial(table.addChapter,
-                        row=table.model().rowCount(edindex), parent=edindex))
+                             triggered=partial(table.addChapter,
+                                               row=table.model().rowCount(edindex), parent=edindex))
         menu.addAction(addChapter)
 
         menu.addSeparator()
 
         insertChapterDisplay = QAction("Insert Chapter Display before", table,
-                    triggered=partial(table.addDisplay,
-                        row=disprow, parent=chapindex))
+                                       triggered=partial(table.addDisplay,
+                                                         row=disprow, parent=chapindex))
         menu.addAction(insertChapterDisplay)
 
         insertChapterDisplayAfter = QAction("Insert Chapter Display after", table,
-                    triggered=partial(table.addDisplay,
-                        row=disprow+1, parent=chapindex))
+                                            triggered=partial(table.addDisplay,
+                                                              row=disprow+1, parent=chapindex))
         menu.addAction(insertChapterDisplayAfter)
 
         addChapterDisplay = QAction("Add Chapter Display at end", table,
-                    triggered=partial(table.addDisplay,
-                        row=table.model().rowCount(chapindex), parent=chapindex))
+                                    triggered=partial(table.addDisplay,
+                                                      row=table.model().rowCount(chapindex), parent=chapindex))
         menu.addAction(addChapterDisplay)
 
         if isinstance(obj, EditionEntry):
@@ -421,9 +447,10 @@ class BaseColumn(object):
         menu.addSeparator()
 
         removeSelected = QAction("Remove selected...", table,
-                                triggered=table.askDeleteSelected)
+                                 triggered=table.askDeleteSelected)
 
-        removeSelected.setEnabled(len(table.selectionModel().selectedRows()) > 0)
+        removeSelected.setEnabled(
+            len(table.selectionModel().selectedRows()) > 0)
 
         menu.addAction(removeSelected)
 
@@ -440,6 +467,7 @@ class BaseColumn(object):
             return Qt.ItemIsSelectable | Qt.ItemIsEnabled
 
         return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsEditable | Qt.ItemIsDragEnabled
+
 
 class NameCol(BaseColumn):
     width = 192
@@ -478,6 +506,7 @@ class NameCol(BaseColumn):
         elif isinstance(obj, ChapterDisplay):
             return obj.string
 
+
 class DefaultCol(BaseColumn):
     width = 32
     headerdisplay = "Def"
@@ -511,6 +540,7 @@ class DefaultCol(BaseColumn):
     def display(self, index, obj):
         return ""
 
+
 class EnabledCol(BaseColumn):
     width = 32
     headerdisplay = "En"
@@ -541,6 +571,7 @@ class EnabledCol(BaseColumn):
 
     def display(self, index, obj):
         return ""
+
 
 class OrderedCol(BaseColumn):
     width = 32
@@ -573,6 +604,7 @@ class OrderedCol(BaseColumn):
     def display(self, index, obj):
         return ""
 
+
 class HiddenCol(BaseColumn):
     width = 32
     headerdisplay = "Hid"
@@ -604,6 +636,7 @@ class HiddenCol(BaseColumn):
     def display(self, index, obj):
         return ""
 
+
 class LangCol(BaseColumn):
     width = 96
     headerdisplay = "Languages"
@@ -628,6 +661,7 @@ class LangCol(BaseColumn):
         if isinstance(obj, ChapterDisplay):
             super().seteditdata(index, obj, data.replace(" ", "").split(","))
             return True
+
 
 class CountryCol(BaseColumn):
     width = 96
@@ -654,6 +688,7 @@ class CountryCol(BaseColumn):
             super().seteditdata(index, obj, data.replace(" ", "").split(","))
             return True
 
+
 class StartCol(BaseColumn):
     width = 128
     headerdisplay = "Start Time"
@@ -677,6 +712,7 @@ class StartCol(BaseColumn):
         if isinstance(obj, ChapterDisplay):
             super().seteditdata(index, obj, data.replace(" ", "").split(","))
             return True
+
 
 class EndCol(BaseColumn):
     width = 128
@@ -706,6 +742,7 @@ class EndCol(BaseColumn):
             super().seteditdata(index, obj, data.replace(" ", "").split(","))
             return True
 
+
 class UIDCol(BaseColumn):
     width = 256
     headerdisplay = "UID"
@@ -731,6 +768,7 @@ class UIDCol(BaseColumn):
 
     def itemDelegate(self, parent):
         return UIDDelegate(parent)
+
 
 class QChapterTree(QTreeView):
     def __init__(self, *args, **kwargs):
@@ -770,7 +808,7 @@ class QChapterTree(QTreeView):
                 StartCol(tags, editions),
                 EndCol(tags, editions),
                 UIDCol(tags, editions),
-                ]
+            ]
 
             root = EditionsNode(editions)
             model = QItemModel(root, cols)
@@ -795,7 +833,8 @@ class QChapterTree(QTreeView):
         col = idx.column()
         model = self.model()
 
-        selected = sorted(idx.row() for idx in self.selectionModel().selectedRows())
+        selected = sorted(idx.row()
+                          for idx in self.selectionModel().selectedRows())
 
         if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
             self.askDeleteSelected()
@@ -803,7 +842,8 @@ class QChapterTree(QTreeView):
         super().keyPressEvent(event)
 
     def askDeleteSelected(self):
-        answer = QMessageBox.question(self, "Delete tags", "Do you wish to delete the selected tags? Any child tags will also be lost!", QMessageBox.Yes | QMessageBox.No)
+        answer = QMessageBox.question(
+            self, "Delete tags", "Do you wish to delete the selected tags? Any child tags will also be lost!", QMessageBox.Yes | QMessageBox.No)
 
         if answer == QMessageBox.Yes:
             self.deleteSelected()
@@ -916,10 +956,12 @@ class QChapterTree(QTreeView):
                     while chapterUID in existingChapterUIDs:
                         chapterUID = random.randint(1, 2**128 - 1)
 
-                    startFrame = frameIndexFromPts(chapteratom.chapterTimeStart + 8*10**6, "-")
+                    startFrame = frameIndexFromPts(
+                        chapteratom.chapterTimeStart + 8*10**6, "-")
 
                     if ordered:
-                        endFrame = frameIndexFromPts(chapteratom.chapterTimeEnd, "-")
+                        endFrame = frameIndexFromPts(
+                            chapteratom.chapterTimeEnd, "-")
 
                     else:
                         endFrame = None
@@ -927,13 +969,12 @@ class QChapterTree(QTreeView):
                     displays = []
 
                     for display in chapteratom.chapterDisplays:
-                        print(display.chapString)
                         displays.append(ChapterDisplay(
                             display.chapString,
                             list(display.chapLanguages or []),
                             langIETF=list(display.chapLanguageIETF or []),
                             countries=list(display.chapCountries or []),
-                            ))
+                        ))
 
                     hidden = bool(chapteratom.chapterFlagHidden)
                     enabled = bool(chapteratom.chapterFlagEnabled)
@@ -946,11 +987,13 @@ class QChapterTree(QTreeView):
 
                 default = bool(edition.editionFlagDefault)
                 hidden = bool(edition.editionFlagHidden)
-                newedition = EditionEntry(chapters, editionUID, hidden, default, ordered)
+                newedition = EditionEntry(
+                    chapters, editionUID, hidden, default, ordered)
                 neweditions.append(newedition)
                 existingEditionUIDs.add(editionUID)
 
             model.insertRows(model.rowCount(), neweditions, QModelIndex())
+
 
 class QFrameSelect(QWidget):
     frameSelectionChanged = pyqtSignal(int, QTime)
@@ -1056,7 +1099,8 @@ class QFrameSelect(QWidget):
                     pts = None
 
                 try:
-                    frame = next(self.filters.iterFrames(m, whence="framenumber"))
+                    frame = next(self.filters.iterFrames(
+                        m, whence="framenumber"))
 
                 except StopIteration:
                     frame = None
@@ -1071,7 +1115,8 @@ class QFrameSelect(QWidget):
                     pts = None
 
                 try:
-                    frame = next(self.source.iterFrames(n, whence="framenumber"))
+                    frame = next(self.source.iterFrames(
+                        n, whence="framenumber"))
 
                 except StopIteration:
                     frame = None
@@ -1107,6 +1152,7 @@ class QFrameSelect(QWidget):
 
             self._frameChange(n)
 
+
 class QChaptersWidget(QWidget):
     contentsModified = pyqtSignal()
 
@@ -1124,9 +1170,11 @@ class QChaptersWidget(QWidget):
         layout.addLayout(frameselectlayout)
         self.startFrameSelect = QFrameSelect(self)
         self.startFrameSelect.imageView.setMaximumHeight(360)
-        self.startFrameSelect.frameSelectionChanged.connect(self.handleStartSelectionChange)
+        self.startFrameSelect.frameSelectionChanged.connect(
+            self.handleStartSelectionChange)
         self.endFrameSelect = QFrameSelect(self)
-        self.endFrameSelect.frameSelectionChanged.connect(self.handleEndSelectionChange)
+        self.endFrameSelect.frameSelectionChanged.connect(
+            self.handleEndSelectionChange)
         self.endFrameSelect.setHidden(True)
         self.endFrameSelect.imageView.setMaximumHeight(360)
         frameselectlayout.addWidget(self.startFrameSelect)
@@ -1135,7 +1183,8 @@ class QChaptersWidget(QWidget):
         btnlayout = QHBoxLayout()
         layout.addLayout(btnlayout)
 
-        self.importBtn = QPushButton("&Import existing Edition Entries from input...", self)
+        self.importBtn = QPushButton(
+            "&Import existing Edition Entries from input...", self)
         self.removeBtn = QPushButton("&Remove selected...", self)
         self.importBtn.clicked.connect(self.chapterTree.addFromInput)
         self.removeBtn.clicked.connect(self.chapterTree.askDeleteSelected)
@@ -1164,7 +1213,6 @@ class QChaptersWidget(QWidget):
             selected.endFrame = n
             self.chapterTree.model().emitDataChanged()
 
-
     def handleIndexChange(self, newindex, oldindex):
         selected = newindex.data(Qt.UserRole)
 
@@ -1179,7 +1227,8 @@ class QChaptersWidget(QWidget):
 
             if selected.parent.ordered:
                 self.endFrameSelect.blockSignals(True)
-                self.endFrameSelect.slider.setValue(selected.endFrame or selected.startFrame)
+                self.endFrameSelect.slider.setValue(
+                    selected.endFrame or selected.startFrame)
                 self.endFrameSelect.blockSignals(False)
 
     def setData(self, tags, chapters):
@@ -1216,4 +1265,5 @@ class QChaptersWidget(QWidget):
                 self.endFrameSelect.blockSignals(False)
 
     def handleSelectionChanged(self):
-        self.removeBtn.setEnabled(len(self.chapterTree.selectionModel().selectedRows()) > 0)
+        self.removeBtn.setEnabled(
+            len(self.chapterTree.selectionModel().selectedRows()) > 0)

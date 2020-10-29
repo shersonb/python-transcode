@@ -1,5 +1,4 @@
 from ..util import search, h, WorkaheadIterator
-import av
 import threading
 import time
 import os
@@ -9,13 +8,15 @@ from itertools import zip_longest
 import json
 import numpy
 from collections import OrderedDict, UserList
-import ebml.ndarray
+from ebml.ndarray import EBMLNDArray
 import abc
 from fractions import Fraction as QQ
 from copy import deepcopy
 
-class TrackStats(ebml.ndarray.EBMLNDArray):
+
+class TrackStats(EBMLNDArray):
     ebmlID = b"\x19\x14\xdc\x87"
+
 
 class TrackList(UserList):
     def __init__(self, items=[], container=None):
@@ -57,6 +58,7 @@ class TrackList(UserList):
 
     def __getstate__(self):
         return
+
 
 class Track(abc.ABC):
     """Base class for output tracks."""
@@ -115,8 +117,8 @@ class Track(abc.ABC):
         We want to keep the original reference to self.source.
         """
         memo.update({
-                id(self.source): self.source,
-            })
+            id(self.source): self.source,
+        })
 
         reduced = self.__reduce__()
 
@@ -225,7 +227,8 @@ class Track(abc.ABC):
 
             else:
                 try:
-                    self.sizeStats = numpy.concatenate((self.sizeStats, (self._sizes,)))
+                    self.sizeStats = numpy.concatenate(
+                        (self.sizeStats, (self._sizes,)))
 
                 except:
                     self.sizeStats = numpy.array((self._sizes,))
@@ -236,10 +239,12 @@ class Track(abc.ABC):
 
         finally:
             if sum(self._sizes) > 1024:
-                print(f"Track {self.track_index}: {len(self._sizes):,d} packets, {h(sum(self._sizes))} ({sum(self._sizes):,d} bytes)", file=logfile)
+                print(
+                    f"Track {self.track_index}: {len(self._sizes):,d} packets, {h(sum(self._sizes))} ({sum(self._sizes):,d} bytes)", file=logfile)
 
             else:
-                print(f"Track {self.track_index}: {len(self._sizes):,d} packets, {sum(self._sizes):,d} bytes", file=logfile)
+                print(
+                    f"Track {self.track_index}: {len(self._sizes):,d} packets, {sum(self._sizes):,d} bytes", file=logfile)
 
             packets.close()
 
@@ -248,7 +253,8 @@ class Track(abc.ABC):
             print(f"Track {self.track_index}: Video, {self.width}x{self.height}, {1/self.defaultDuration/self.time_base} fps, {self.format}", file=logfile)
 
         elif self.type == "audio":
-            print(f"Track {self.track_index}: Audio, {self.rate}Hz, {self.layout}, {self.format}", file=logfile)
+            print(
+                f"Track {self.track_index}: Audio, {self.rate}Hz, {self.layout}, {self.format}", file=logfile)
 
         elif self.type == "subtitle":
             print(f"Track {self.track_index}: Subtitles", file=logfile)
@@ -264,7 +270,8 @@ class Track(abc.ABC):
 
         if self.encoder:
             try:
-                packets = self.openencoder(duration=duration, logfile=logfile, **kwargs)
+                packets = self.openencoder(
+                    duration=duration, logfile=logfile, **kwargs)
 
             except:
                 print("FAILED to open encoder.", file=logfile)
@@ -423,14 +430,16 @@ class Track(abc.ABC):
     def _iterFrames(self, duration=None, logfile=None):
         if self.filters:
             if duration is not None:
-                frames = self.filters.iterFrames(end=int(duration/self.filters.time_base), whence="pts")
+                frames = self.filters.iterFrames(
+                    end=int(duration/self.filters.time_base), whence="pts")
 
             else:
                 frames = self.filters.iterFrames()
 
         else:
             if duration is not None:
-                frames = self.source.iterFrames(end=int(duration/self.source.time_base), whence="pts")
+                frames = self.source.iterFrames(
+                    end=int(duration/self.source.time_base), whence="pts")
 
             else:
                 frames = self.source.iterFrames()
@@ -454,7 +463,8 @@ class Track(abc.ABC):
             if self.format:
                 kwargs.update(format=self.format)
 
-        packets = self.encoder.create(frames, logfile=logfile, time_base=self.time_base, **kwargs)
+        packets = self.encoder.create(
+            frames, logfile=logfile, time_base=self.time_base, **kwargs)
         packets.open()
         return packets
 
@@ -484,13 +494,16 @@ class Track(abc.ABC):
     @property
     def pts(self):
         if self.type == "audio":
-            pts = numpy.int0(numpy.arange(self.delay/self.time_base, min(self.duration, self.container.duration)/self.time_base, self.defaultDuration, dtype=numpy.float64))
+            pts = numpy.int0(numpy.arange(self.delay/self.time_base, min(self.duration,
+                                                                         self.container.duration)/self.time_base, self.defaultDuration, dtype=numpy.float64))
 
         elif self.encoder and self.filters:
-            pts = numpy.int0(self.filters.pts*float(self.filters.time_base/self.time_base))
+            pts = numpy.int0(self.filters.pts *
+                             float(self.filters.time_base/self.time_base))
 
         else:
-            pts = numpy.int0(self.source.pts*float(self.source.time_base/self.time_base))
+            pts = numpy.int0(
+                self.source.pts*float(self.source.time_base/self.time_base))
 
         try:
             n = search(pts, self.container.duration/self.time_base, dir="+")
@@ -513,6 +526,7 @@ class Track(abc.ABC):
             dep.update(self.source.dependencies)
 
         return dep
+
 
 class BaseWriter(abc.ABC):
     """
@@ -674,7 +688,8 @@ class BaseWriter(abc.ABC):
 
     def loadOverhead(self):
         try:
-            overheadfile = open(f"{self.config.configstem}-{self.file_index}-overhead.json", "r")
+            overheadfile = open(
+                f"{self.config.configstem}-{self.file_index}-overhead.json", "r")
             self.lastoverhead = json.JSONDecoder().decode(overheadfile.read())
             overheadfile.close()
 
@@ -683,7 +698,8 @@ class BaseWriter(abc.ABC):
 
         for k, track in enumerate(self.tracks):
             try:
-                sizestatsfile = open(f"{self.config.configstem}-{self.file_index}.{k}-sizestats.dat", "rb")
+                sizestatsfile = open(
+                    f"{self.config.configstem}-{self.file_index}.{k}-sizestats.dat", "rb")
                 track.sizeStats = TrackStats.fromFile(sizestatsfile).data
                 sizestatsfile.close()
 
@@ -692,8 +708,10 @@ class BaseWriter(abc.ABC):
 
     def saveOverhead(self):
         try:
-            overheadfile = open(f"{self.config.configstem}-{self.file_index}-overhead.json", "w")
-            print(json.JSONEncoder(indent=4).encode(self.lastoverhead), file=overheadfile)
+            overheadfile = open(
+                f"{self.config.configstem}-{self.file_index}-overhead.json", "w")
+            print(json.JSONEncoder(indent=4).encode(
+                self.lastoverhead), file=overheadfile)
             overheadfile.close()
 
         except:
@@ -702,7 +720,8 @@ class BaseWriter(abc.ABC):
         for k, track in enumerate(self.tracks):
             try:
                 stats = TrackStats(track.sizeStats)
-                sizestatsfile = open(f"{self.config.configstem}-{self.file_index}.{k}-sizestats.dat", "wb")
+                sizestatsfile = open(
+                    f"{self.config.configstem}-{self.file_index}.{k}-sizestats.dat", "wb")
                 stats.toFile(sizestatsfile)
                 sizestatsfile.close()
 
@@ -717,7 +736,11 @@ class BaseWriter(abc.ABC):
                 break
 
             for path in self._files:
-                stat = os.statvfs(path)
+                try:
+                    stat = os.statvfs(path)
+
+                except FileNotFoundError:
+                    continue
 
                 if stat.f_bavail*stat.f_bsize < 64*1024**2:
                     if callable(notifypaused):
@@ -761,7 +784,8 @@ class BaseWriter(abc.ABC):
             if len(ready_to_mux) == 0:
                 break
 
-            packet = min(ready_to_mux, key=lambda packet: packet.pts*packet.time_base)
+            packet = min(
+                ready_to_mux, key=lambda packet: packet.pts*packet.time_base)
             k = packets.index(packet)
             packets[k] = None
             yield packet
@@ -777,15 +801,16 @@ class BaseWriter(abc.ABC):
                 iterator.close()
 
             except:
-                print("!!! EXCEPTION encountered while printing summary !!!", file=logfile)
+                print(
+                    "!!! EXCEPTION encountered while printing summary !!!", file=logfile)
                 cls, exc, tb = sys.exc_info()
                 self._printexeption(exc, tb, logfile)
 
     def createTranscodeThread(self, pass_=0, encoderoverrides=[], logfile=None, notifystats=None,
-                notifymux=None, notifypaused=None, notifyfinish=None, notifycancelled=None,
-                notifyerror=None, notifyvencode=None, autostart=True):
+                              notifymux=None, notifypaused=None, notifyfinish=None, notifycancelled=None,
+                              notifyerror=None, notifyvencode=None, autostart=True):
         return threading.Thread(target=self.transcode, args=(pass_, encoderoverrides, logfile,
-            notifystats, notifymux, notifypaused, notifyfinish, notifycancelled, notifyerror, notifyvencode))
+                                                             notifystats, notifymux, notifypaused, notifyfinish, notifycancelled, notifyerror, notifyvencode))
 
     def transcode(self, pass_=0, encoderoverrides=[], logfile=None, notifystats=None,
                   notifymux=None, notifypaused=None, notifyfinish=None, notifycancelled=None,
@@ -815,7 +840,8 @@ class BaseWriter(abc.ABC):
                         notifystats(self.vtrack.sizeStats)
 
                 self.open(logfile)
-                self._iterators = iterators = self._prepare(pass_, encoderoverrides, logfile, notifyvencode)
+                self._iterators = iterators = self._prepare(
+                    pass_, encoderoverrides, logfile, notifyvencode)
 
             except:
                 print("!!! EXCEPTION encountered during preparation !!!", file=logfile)
@@ -934,7 +960,8 @@ class BaseWriter(abc.ABC):
             self.newoverhead["targetSize"] = self.targetsize
 
             if self.newoverhead.get("bitrateAdj"):
-                print(f"Applying bitrate adjustment: {self.newoverhead['bitrateAdj']:+,d} kbps", file=logfile)
+                print(
+                    f"Applying bitrate adjustment: {self.newoverhead['bitrateAdj']:+,d} kbps", file=logfile)
 
             vencoder_override.update(bitrate=bitrate)
 
@@ -953,10 +980,12 @@ class BaseWriter(abc.ABC):
 
             if track is self.vtrack:
                 encoder_override.update(vencoder_override)
-                iterators.append(track._prepare(duration=self.duration, notifyencode=notifyvencode, logfile=logfile, **encoder_override))
+                iterators.append(track._prepare(
+                    duration=self.duration, notifyencode=notifyvencode, logfile=logfile, **encoder_override))
 
             else:
-                iterators.append(track._prepare(duration=self.duration, logfile=logfile, **encoder_override))
+                iterators.append(track._prepare(
+                    duration=self.duration, logfile=logfile, **encoder_override))
 
         if logfile:
             logfile.flush()
@@ -980,7 +1009,8 @@ class BaseWriter(abc.ABC):
     @staticmethod
     def _printexeption(exc, tb, logfile):
         if logfile not in (sys.stdout, sys.stderr, None):
-            print("".join(traceback.format_exception(type(exc), exc, tb)).rstrip("\n"), file=logfile)
+            print("".join(traceback.format_exception(
+                type(exc), exc, tb)).rstrip("\n"), file=logfile)
 
     def excepthandler(self, exc, tb, logfile=None, notifyerror=None):
         self._transcode_started.clear()
@@ -1002,7 +1032,6 @@ class BaseWriter(abc.ABC):
 
     def _wrapup(self, logfile=None, notifyfinish=None, notifycancelled=None):
         self._transcode_started.clear()
-
 
         strftime = time.strftime("%A, %B %-d, %Y, %-I:%M:%S %P %Z")
 
@@ -1044,7 +1073,6 @@ class BaseWriter(abc.ABC):
             if track is not self.vtrack and track.encoder and track.bitrate is not None:
                 overheadbitrate += track.bitrate
 
-
         targetsize = self.targetsize - overhead
 
         try:
@@ -1055,12 +1083,14 @@ class BaseWriter(abc.ABC):
 
         if "fileSize" in self.lastoverhead and "targetSize" in self.lastoverhead:
             try:
-                diff = self.lastoverhead["targetSize"] - self.lastoverhead["fileSize"]
+                diff = self.lastoverhead["targetSize"] - \
+                    self.lastoverhead["fileSize"]
 
             except:
                 diff = 0
 
-            sizePerKbps = float(self.vtrack.framecount*self.vtrack.defaultDuration*self.vtrack.time_base*125)
+            sizePerKbps = float(
+                self.vtrack.framecount*self.vtrack.defaultDuration*self.vtrack.time_base*125)
 
             bitrateAdj += int(diff//sizePerKbps)
 
@@ -1078,4 +1108,3 @@ class BaseWriter(abc.ABC):
     @property
     def dependencies(self):
         return {track.dependencies for track in self.tracks}
-

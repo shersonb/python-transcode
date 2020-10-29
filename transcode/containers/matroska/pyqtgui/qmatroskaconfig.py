@@ -8,6 +8,7 @@ from ..tags import Tags
 from ..chapters import Editions
 from ..attachments import Attachments
 
+
 class QMatroskaConfig(QTabWidget):
     contentsModified = pyqtSignal()
 
@@ -30,6 +31,7 @@ class QMatroskaConfig(QTabWidget):
         self.tagsTab.setData(tags, tracks, editions, attachments)
         self.attachmentsTab.setData(tags, attachments)
         self.chaptersTab.setData(tags, editions)
+
 
 class QMatroskaConfigDlg(QDialog):
     def __init__(self, *args, **kwargs):
@@ -89,12 +91,14 @@ class QMatroskaConfigDlg(QDialog):
             self.tags = (self.output_file.tags or Tags()).copy()
             self.tags.parent = self.output_file
 
-            self.attachments = (self.output_file.attachments or Attachments()).copy()
+            self.attachments = (
+                self.output_file.attachments or Attachments()).copy()
             self.attachments.parent = self.output_file
 
             self.editions = (self.output_file.chapters or Editions()).copy()
             self.editions.parent = self.output_file
-            self.setWindowTitle(f"Matroska Options — {self.output_file.title} [{self.output_file.outputpathrel}]")
+            self.setWindowTitle(
+                f"Matroska Options — {self.output_file.title} [{self.output_file.outputpathrel}]")
 
         else:
             input_files = tracks = self.tags = self.attachments = self.editions = None
@@ -110,4 +114,3 @@ class QMatroskaConfigDlg(QDialog):
     def setOutputFile(self, output_file):
         self.output_file = output_file
         self.reset()
-

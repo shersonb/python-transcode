@@ -1,3 +1,4 @@
+from .quidspinbox import UIDDelegate
 import sys
 from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractTableModel,
                           QModelIndex, QFileInfo, QVariant, QItemSelectionModel, QItemSelection,
@@ -26,16 +27,17 @@ import random
 
 icons = QFileIconProvider()
 
-from .quidspinbox import UIDDelegate
 
 class AvailableAttachmentsNode(Node):
     def _wrapChildren(self, children):
         return InputFiles.fromValues(children, self)
 
+
 class InputFiles(ChildNodes):
     @staticmethod
     def _wrap(value):
         return InputFileNode(value)
+
 
 class InputFileNode(Node):
     def _iterChildren(self):
@@ -43,6 +45,7 @@ class InputFileNode(Node):
             return self.value.attachments
 
         raise TypeError
+
 
 class AvailableAttachmentsBaseColumn(object):
     checkstate = None
@@ -64,6 +67,7 @@ class AvailableAttachmentsBaseColumn(object):
 
         return Qt.ItemIsEnabled
 
+
 class AvailableAttachmentNameCol(AvailableAttachmentsBaseColumn):
     headerdisplay = "Attachment"
     width = 192
@@ -83,6 +87,7 @@ class AvailableAttachmentNameCol(AvailableAttachmentsBaseColumn):
 
         elif isinstance(obj, InputAttachedFile):
             return icons.icon(QFileInfo(obj.fileName))
+
 
 class AvailableAttachmentSizeCol(AvailableAttachmentsBaseColumn):
     headerdisplay = "File Size"
@@ -108,6 +113,7 @@ class AvailableAttachmentSizeCol(AvailableAttachmentsBaseColumn):
 
         return ""
 
+
 class AvailableAttachmentMimeTypeCol(AvailableAttachmentsBaseColumn):
     headerdisplay = "Mime Type"
     width = 96
@@ -119,6 +125,7 @@ class AvailableAttachmentMimeTypeCol(AvailableAttachmentsBaseColumn):
         return ""
 
     tooltip = display
+
 
 class AvailableAttachmentUIDCol(AvailableAttachmentsBaseColumn):
     headerdisplay = "UID"
@@ -134,6 +141,7 @@ class AvailableAttachmentUIDCol(AvailableAttachmentsBaseColumn):
 
         return ""
 
+
 class AvailableAttachmentDescriptionCol(AvailableAttachmentsBaseColumn):
     headerdisplay = "Description"
     width = 128
@@ -143,6 +151,7 @@ class AvailableAttachmentDescriptionCol(AvailableAttachmentsBaseColumn):
             return obj.description or ""
 
         return ""
+
 
 class AvailableAttachmentsTree(QTreeView):
     def __init__(self, *args, **kwargs):
@@ -163,7 +172,7 @@ class AvailableAttachmentsTree(QTreeView):
                 AvailableAttachmentMimeTypeCol(input_files),
                 AvailableAttachmentUIDCol(input_files),
                 AvailableAttachmentDescriptionCol(input_files),
-               ]
+            ]
             model = QItemModel(root, cols)
             self.setModel(model)
 
@@ -178,6 +187,7 @@ class AvailableAttachmentsTree(QTreeView):
 
         else:
             self.setModel(QItemModel(Node(None), []))
+
 
 class AvailableAttachmentsSelection(QDialog):
     def __init__(self, *args, **kwargs):
@@ -201,20 +211,23 @@ class AvailableAttachmentsSelection(QDialog):
         self.selectedAttachments = None
 
     def handleSelectionChanged(self):
-        self.okayBtn.setEnabled(len(self.selectionTree.selectionModel().selectedRows()) > 0)
+        self.okayBtn.setEnabled(
+            len(self.selectionTree.selectionModel().selectedRows()) > 0)
 
     def applyAndClose(self):
         self.selectedAttachments = [
             (index.parent().data(Qt.UserRole), index.data(Qt.UserRole))
             for index in self.selectionTree.selectionModel().selectedRows()
-            ]
+        ]
         self.done(1)
         self.close()
 
     def setInputFiles(self, input_files):
         self.selectionTree.setInputFiles(input_files)
-        self.selectionTree.selectionModel().selectionChanged.connect(self.handleSelectionChanged)
+        self.selectionTree.selectionModel().selectionChanged.connect(
+            self.handleSelectionChanged)
         self.okayBtn.setEnabled(len(self.selectionTree.selectedIndexes()) > 0)
+
 
 class AttachmentModel(QItemModel):
     def dropItems(self, items, action, row, column, parent):
@@ -232,7 +245,6 @@ class AttachmentModel(QItemModel):
 
             if self.getNode(old_parent) is self.getNode(parent) and old_row < row:
                 j += 1
-
 
             return False
 
@@ -281,7 +293,8 @@ class AttachmentModel(QItemModel):
                 fileName = relPath
 
             _, fileStem = os.path.split(fileName)
-            newfiles.append(AttachedFile(UID, source=fileName, fileName=fileStem))
+            newfiles.append(AttachedFile(
+                UID, source=fileName, fileName=fileStem))
             existingUIDs.add(UID)
 
         self.insertRows(row, newfiles, parent)
@@ -307,17 +320,21 @@ class AttachmentModel(QItemModel):
     def supportedDropActions(self):
         return Qt.MoveAction | Qt.CopyAction
 
+
 class AttachmentsNode(Node):
     def _wrapChildren(self, children):
         return AttachmentsChildren.fromValues(children, self)
+
 
 class AttachmentsChildren(ChildNodes):
     @staticmethod
     def _wrap(value):
         return AttachmentNode(value)
 
+
 class AttachmentNode(NoChildren):
     pass
+
 
 class BaseColumn(object):
     checkstate = None
@@ -367,15 +384,15 @@ class BaseColumn(object):
         menu = QMenu(table)
 
         addFromFile = QAction("&Add attachment(s) from file(s)...", table,
-                                triggered=table.addFromFile)
+                              triggered=table.addFromFile)
         menu.addAction(addFromFile)
 
         addFromInput = QAction("&Import existing attachment(s) from input...", table,
-                                triggered=table.addFromInput)
+                               triggered=table.addFromInput)
         menu.addAction(addFromInput)
 
         removeSelected = QAction("&Remove selected attachment(s)...", table,
-                                triggered=table.askDeleteSelected)
+                                 triggered=table.askDeleteSelected)
         menu.addAction(removeSelected)
 
         return menu
@@ -385,6 +402,7 @@ class BaseColumn(object):
             return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
 
         return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+
 
 class NameCol(BaseColumn):
     width = 128
@@ -399,6 +417,7 @@ class NameCol(BaseColumn):
 
     def icon(self, index, obj):
         return icons.icon(QFileInfo(obj.fileName))
+
 
 class SizeCol(BaseColumn):
     width = 128
@@ -431,6 +450,7 @@ class SizeCol(BaseColumn):
 
         return f"{size:,} B"
 
+
 class SourceCol(BaseColumn):
     width = 128
     headerdisplay = "Source"
@@ -452,6 +472,7 @@ class SourceCol(BaseColumn):
     def tooltip(self, index, obj):
         return str(self.editdata(index, obj))
 
+
 class MimeTypeCol(BaseColumn):
     width = 128
     headerdisplay = "Mime Type"
@@ -460,8 +481,9 @@ class MimeTypeCol(BaseColumn):
     def __init__(self, tags, attachments):
         super().__init__(tags, attachments, "mimeType")
 
-    #def display(self, index, obj):
-        #return f"{obj.parent.attachments.index(obj)}: {obj.fileName}"
+    # def display(self, index, obj):
+        # return f"{obj.parent.attachments.index(obj)}: {obj.fileName}"
+
 
 class UIDCol(BaseColumn):
     width = 256
@@ -471,8 +493,8 @@ class UIDCol(BaseColumn):
     def __init__(self, tags, attachments):
         super().__init__(tags, attachments, "UID")
 
-    #def display(self, index, obj):
-        #return f"0x{int(self.editdata(index, obj)):032x}"
+    # def display(self, index, obj):
+        # return f"0x{int(self.editdata(index, obj)):032x}"
 
     def display(self, index, obj):
         c, d = divmod(self.editdata(index, obj), 16**8)
@@ -483,6 +505,7 @@ class UIDCol(BaseColumn):
 
     def itemDelegate(self, parent):
         return UIDDelegate(parent)
+
 
 class DescriptionCol(BaseColumn):
     width = 256
@@ -498,6 +521,7 @@ class DescriptionCol(BaseColumn):
 
     def seteditdata(self, index, obj, value):
         super().seteditdata(index, obj, value or None)
+
 
 class QAttachmentTree(QTreeView):
     def __init__(self, *args, **kwargs):
@@ -529,13 +553,13 @@ class QAttachmentTree(QTreeView):
 
         if self.attachments is not None:
             cols = [
-                    NameCol(tags, attachments),
-                    SourceCol(tags, attachments),
-                    SizeCol(tags, attachments),
-                    MimeTypeCol(tags, attachments),
-                    UIDCol(tags, attachments),
-                    DescriptionCol(tags, attachments),
-                ]
+                NameCol(tags, attachments),
+                SourceCol(tags, attachments),
+                SizeCol(tags, attachments),
+                MimeTypeCol(tags, attachments),
+                UIDCol(tags, attachments),
+                DescriptionCol(tags, attachments),
+            ]
 
             root = AttachmentsNode(attachments)
             model = AttachmentModel(root, cols)
@@ -559,7 +583,8 @@ class QAttachmentTree(QTreeView):
         col = idx.column()
         model = self.model()
 
-        selected = sorted(idx.row() for idx in self.selectionModel().selectedRows())
+        selected = sorted(idx.row()
+                          for idx in self.selectionModel().selectedRows())
 
         if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
             self.askDeleteSelected()
@@ -567,7 +592,8 @@ class QAttachmentTree(QTreeView):
         super().keyPressEvent(event)
 
     def askDeleteSelected(self):
-        answer = QMessageBox.question(self, "Delete attachment(s)", "Do you wish to delete the selected attachment(s)?", QMessageBox.Yes | QMessageBox.No)
+        answer = QMessageBox.question(
+            self, "Delete attachment(s)", "Do you wish to delete the selected attachment(s)?", QMessageBox.Yes | QMessageBox.No)
 
         if answer == QMessageBox.Yes:
             self.deleteSelected()
@@ -592,7 +618,7 @@ class QAttachmentTree(QTreeView):
         existingUIDs = {attachment.UID for attachment in self.attachments}
         filters = "All image files (*.jpg *.png *.);;All files (*)"
         fileNames, _ = QFileDialog.getOpenFileNames(self, "Add attachments...",
-                QDir.currentPath(), filters)
+                                                    QDir.currentPath(), filters)
         newfiles = []
 
         for fileName in fileNames:
@@ -607,7 +633,8 @@ class QAttachmentTree(QTreeView):
                 fileName = relPath
 
             _, fileStem = os.path.split(fileName)
-            newfiles.append(AttachedFile(UID, source=fileName, fileName=fileStem))
+            newfiles.append(AttachedFile(
+                UID, source=fileName, fileName=fileStem))
             existingUIDs.add(UID)
 
         self.model().insertRows(self.model().rowCount(), newfiles)
@@ -628,13 +655,13 @@ class QAttachmentTree(QTreeView):
                 while UID in existingUIDs:
                     UID = random.randint(1, 2**128 - 1)
 
-
                 newfiles.append(AttachedFile(UID, source=source,
-                        fileName=attachment.fileName, mimeType=attachment.mimeType,
-                        description=attachment.description))
+                                             fileName=attachment.fileName, mimeType=attachment.mimeType,
+                                             description=attachment.description))
                 existingUIDs.add(UID)
 
             model.insertRows(model.rowCount(), newfiles, QModelIndex())
+
 
 class QAttachmentsWidget(QWidget):
     contentsModified = pyqtSignal()
@@ -651,7 +678,8 @@ class QAttachmentsWidget(QWidget):
         layout.addLayout(btnlayout)
 
         self.add1Btn = QPushButton("&Add attachment(s) from file(s)...", self)
-        self.add2Btn = QPushButton("&Import existing attachment(s) from input...", self)
+        self.add2Btn = QPushButton(
+            "&Import existing attachment(s) from input...", self)
         self.removeBtn = QPushButton("&Remove selected attachment(s)", self)
         self.add1Btn.clicked.connect(self.attachTree.addFromFile)
         self.add2Btn.clicked.connect(self.attachTree.addFromInput)
@@ -675,4 +703,5 @@ class QAttachmentsWidget(QWidget):
             self.handleSelectionChanged()
 
     def handleSelectionChanged(self):
-        self.removeBtn.setEnabled(len(self.attachTree.selectionModel().selectedRows()) > 0)
+        self.removeBtn.setEnabled(
+            len(self.attachTree.selectionModel().selectedRows()) > 0)

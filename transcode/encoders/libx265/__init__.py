@@ -10,51 +10,52 @@ import time
 import lzma
 
 x265strparams = {"stats", "tune", "qpfile", "zones", "scaling-list",
-                "lambda-file", "deblock", "preset", "level-idc", "input-csp", "fps", "sar",
-                "deblock", "display-window", "overscan", "videoformat", "range",
-                "colorprim", "transfer", "colormatrix", "master-display", "max-cll",
-                "nalu-file", "dolby-vision-profile", "log-level", "asm", "pools", "numa_pools",
-                "interlace", "analysis-save", "analysis-load", "analysis-reuse-file",
-                "refine-mv-type", "me", "merange", "hme-search", "hme-range"
-                }
+                 "lambda-file", "deblock", "preset", "level-idc", "input-csp", "fps", "sar",
+                 "deblock", "display-window", "overscan", "videoformat", "range",
+                 "colorprim", "transfer", "colormatrix", "master-display", "max-cll",
+                 "nalu-file", "dolby-vision-profile", "log-level", "asm", "pools", "numa_pools",
+                 "interlace", "analysis-save", "analysis-load", "analysis-reuse-file",
+                 "refine-mv-type", "me", "merange", "hme-search", "hme-range"
+                 }
 x265intparams = {"qp", "bitrate", "pass", "slices", "qpmin", "qpmax", "qpstep", "max-qp-delta",
-                "cbqpoffs", "crqpoffs", "scenecut-window", "vbv-bufsize", "vbv-maxrate",
-                "aq-mode", "qg-size", "min-keyint", "keyint", "scenecut", "selective-sao",
-                "preset", "level-idc", "input-csp", "fps", "sar", "videoformat", "colorprim",
-                "transfer", "colormatrix", "chromaloc", "min-luma", "max-luma", "atc-sei",
-                "pic-struct", "hash", "log2-max-poc-lsb", "log-level", "frame-threads",
-                "interlace", "dup-threshold", "chunk-start", "chunk-end", "ref", "rd", "ctu",
-                "min-cu-size", "limit-refs", "rskip", "rskip-edge-threshold", "scale-factor",
-                "analysis-save-reuse-level", "analysis-load-reuse-level", "refine-intra",
-                "refine-ctu-distortion", "refine-inter", "refine-mv", "rdoq-level", "limit-tu"
-                "tu-intra-depth", "tu-inter-depth", "nr-intra", "nr-inter", "rdpenalty", "me",
-                "max-tu-size", "dynamic-rd", "max-merge", "subme", "merange",
-                "hme-search", "radl", "ctu-info", "rc-lookahead", "gop-lookahead",
-                "lookahead-slices", "lookahead-threads", "b-adapt", "bframes",
-                "bframe-bias", "force-flush"
-                }
+                 "cbqpoffs", "crqpoffs", "scenecut-window", "vbv-bufsize", "vbv-maxrate",
+                 "aq-mode", "qg-size", "min-keyint", "keyint", "scenecut", "selective-sao",
+                 "preset", "level-idc", "input-csp", "fps", "sar", "videoformat", "colorprim",
+                 "transfer", "colormatrix", "chromaloc", "min-luma", "max-luma", "atc-sei",
+                 "pic-struct", "hash", "log2-max-poc-lsb", "log-level", "frame-threads",
+                 "interlace", "dup-threshold", "chunk-start", "chunk-end", "ref", "rd", "ctu",
+                 "min-cu-size", "limit-refs", "rskip", "rskip-edge-threshold", "scale-factor",
+                 "analysis-save-reuse-level", "analysis-load-reuse-level", "refine-intra",
+                 "refine-ctu-distortion", "refine-inter", "refine-mv", "rdoq-level", "limit-tu"
+                 "tu-intra-depth", "tu-inter-depth", "nr-intra", "nr-inter", "rdpenalty", "me",
+                 "max-tu-size", "dynamic-rd", "max-merge", "subme", "merange",
+                 "hme-search", "radl", "ctu-info", "rc-lookahead", "gop-lookahead",
+                 "lookahead-slices", "lookahead-threads", "b-adapt", "bframes",
+                 "bframe-bias", "force-flush"
+                 }
 x265floatparams = {"crf-min", "crf-max", "qblur", "cplxblur", "vbv-init", "vbv-end",
-                "vbv-end-fr-adj", "aq-strength", "qp-adaptation-range", "crf-max", "qcomp",
-                "ipratio", "pbratio", "scenecut-bias", "hist-threshold", "max_ausize_factor",
-                "level-idc", "fps", "psy-rd", "psy-rdoq", "bitrate"}
+                   "vbv-end-fr-adj", "aq-strength", "qp-adaptation-range", "crf-max", "qcomp",
+                   "ipratio", "pbratio", "scenecut-bias", "hist-threshold", "max_ausize_factor",
+                   "level-idc", "fps", "psy-rd", "psy-rdoq", "bitrate"}
 x265boolparams = {"lossless", "scenecut-aware-qp", "strict-cbr", "const-vbv", "cutree",
-                "aq-motion", "open-gop", "scenecut", "hist-scenecut", "rc-grain", "high-tier",
-                "signhide", "deblock", "sao", "sao-non-deblock", "limit-sao", "hevc-aq",
-                "deblock", "cll", "hdr10", "hdr10-opt", "dhdr10-info", "dhdr10-opt", "annexb",
-                "repeat-headers", "aud", "hrd", "hrd-concat", "info", "temporal-layers",
-                "vui-hrd-info", "opt-qp-pps", "opt-ref-list-length-pps", "idr-recovery-sei",
-                "multi-pass-opt-rps", "opt-cu-delta-qp", "single-sei", "lowpass-dct", "ssim",
-                "psnr", "asm", "wpp", "pmode", "pme", "copy-pic", "frame-dup", "field",
-                "allow-non-conformance", "uhd_bd", "limit-modes", "rect", "amp", "tskip",
-                "early-skip", "splitrd-skip", "fast-intra", "b-intra", "cu-lossless", "tskip-fast",
-                "rd-refine", "dynamic-refine", "rdoq-level", "ssim-rd", "temporal-mvp",
-                "weightp", "weightb", "analyze-src-pics", "hme", "strong-intra-smoothing",
-                "constrained-intra", "intra-refresh", "b-pyramid", "fades", "slow-firstpass"
-                }
+                  "aq-motion", "open-gop", "scenecut", "hist-scenecut", "rc-grain", "high-tier",
+                  "signhide", "deblock", "sao", "sao-non-deblock", "limit-sao", "hevc-aq",
+                  "deblock", "cll", "hdr10", "hdr10-opt", "dhdr10-info", "dhdr10-opt", "annexb",
+                  "repeat-headers", "aud", "hrd", "hrd-concat", "info", "temporal-layers",
+                  "vui-hrd-info", "opt-qp-pps", "opt-ref-list-length-pps", "idr-recovery-sei",
+                  "multi-pass-opt-rps", "opt-cu-delta-qp", "single-sei", "lowpass-dct", "ssim",
+                  "psnr", "asm", "wpp", "pmode", "pme", "copy-pic", "frame-dup", "field",
+                  "allow-non-conformance", "uhd_bd", "limit-modes", "rect", "amp", "tskip",
+                  "early-skip", "splitrd-skip", "fast-intra", "b-intra", "cu-lossless", "tskip-fast",
+                  "rd-refine", "dynamic-refine", "rdoq-level", "ssim-rd", "temporal-mvp",
+                  "weightp", "weightb", "analyze-src-pics", "hme", "strong-intra-smoothing",
+                  "constrained-intra", "intra-refresh", "b-pyramid", "fades", "slow-firstpass"
+                  }
 
-x265colonrationalparams = {"sar",}
-x265slashrationalparams = {"fps",}
-x265rationalparams = set.union(x265colonrationalparams, x265slashrationalparams)
+x265colonrationalparams = {"sar", }
+x265slashrationalparams = {"fps", }
+x265rationalparams = set.union(
+    x265colonrationalparams, x265slashrationalparams)
 x265params = set.union(x265strparams, x265intparams, x265floatparams,
                        x265boolparams, x265rationalparams)
 
@@ -96,8 +97,10 @@ def _convert_dict(d, stripnones=True):
         elif newkey in x265strparams:
             d[newkey] = str(value)
 
+
 def quote(s):
     return f"{s}".replace("\\", "\\\\").replace(":", "\\:")
+
 
 class libx265EncoderContext(EncoderContext):
     _stats_backup_amtime = None
@@ -109,8 +112,8 @@ class libx265EncoderContext(EncoderContext):
         if self._pass in (1, 3):
             self._readstats()
 
-        #if self._pass == 1:
-            #self._readcutree()
+        # if self._pass == 1:
+            # self._readcutree()
 
         self._encoder.open()
         self._isopen = True
@@ -143,7 +146,8 @@ class libx265EncoderContext(EncoderContext):
         lengthSizeMinusOne = 0b11
 
         data = configurationVersion.to_bytes(1, "big")
-        data += (general_profile_space << 6 | general_tier_flag << 5 | general_profile_idc).to_bytes(1, "big")
+        data += (general_profile_space << 6 | general_tier_flag <<
+                 5 | general_profile_idc).to_bytes(1, "big")
         data += general_profile_compatibility_flags.to_bytes(4, "big")
         data += general_constraint_indicator_flags.to_bytes(6, "big")
         data += general_level_idc.to_bytes(1, "big")
@@ -153,12 +157,14 @@ class libx265EncoderContext(EncoderContext):
         data += (0b11111 << 3 | bitDepthLumaMinus8).to_bytes(1, "big")
         data += (0b11111 << 3 | bitDepthChromaMinus8).to_bytes(1, "big")
         data += avgFrameRate.to_bytes(2, "big")
-        data += (constantFrameRate << 6 | numTemporalLayers << 3 | temporalIdNested << 2 | lengthSizeMinusOne).to_bytes(1, "big")
+        data += (constantFrameRate << 6 | numTemporalLayers << 3 |
+                 temporalIdNested << 2 | lengthSizeMinusOne).to_bytes(1, "big")
 
         data += int.to_bytes(4, 1, "big")
 
         pattern = b"(?:\\x00{2,3}\\x01)([\\x00-\\xff]+?)"
-        nal1, nal2, nal3, nal4, pktdata = regex.findall(b"^" + 5*pattern + b"$", packet.to_bytes())[0]
+        nal1, nal2, nal3, nal4, pktdata = regex.findall(
+            b"^" + 5*pattern + b"$", packet.to_bytes())[0]
 
         NALtypes = [0b100000, 0b100001, 0b100010, 0b100111]
         for naltype, p in zip(NALtypes, (nal1, nal2, nal3, nal4)):
@@ -199,7 +205,8 @@ class libx265EncoderContext(EncoderContext):
             return
 
         try:
-            g = lzma.LZMAFile(backupstats, "wb", preset=9|lzma.PRESET_EXTREME)
+            g = lzma.LZMAFile(backupstats, "wb", preset=9 |
+                              lzma.PRESET_EXTREME)
 
         except:
             f.close()
@@ -226,11 +233,11 @@ class libx265EncoderContext(EncoderContext):
         stats = f"{stats}.cutree"
         backupstats = f"{stats}-backup-{t.tm_year:4d}.{t.tm_mon:02d}.{t.tm_mday:02d}-{t.tm_hour:02d}.{t.tm_min:02d}.{t.tm_sec:02d}"
 
-        #try:
-            #shutil.copyfile(stats, backupstats)
+        # try:
+        #shutil.copyfile(stats, backupstats)
 
-        #except:
-            #return
+        # except:
+        # return
 
         f = open(stats, "rb")
         g = open(backupstats, "wb")
@@ -269,7 +276,6 @@ class libx265EncoderContext(EncoderContext):
 
         os.close(self._rfd)
 
-
         N = sum(self._pktCount.values())
 
         if N > 0:
@@ -282,15 +288,18 @@ class libx265EncoderContext(EncoderContext):
                 size = self._pktSizeSums[s]
 
                 if n > 0:
-                    print(f"    Frame {s}:{n: 8,d}, Avg QP:{qpsum/n: 5,.2f}  kb/s: {float(self._rate)*size/n/125:,.2f}", file=self._logfile)
+                    print(
+                        f"    Frame {s}:{n: 8,d}, Avg QP:{qpsum/n: 5,.2f}  kb/s: {float(self._rate)*size/n/125:,.2f}", file=self._logfile)
 
                 else:
-                    print(f"    Frame {s}:{n: 8,d}, Avg QP:  ---  kb/s: ---", file=self._logfile)
+                    print(
+                        f"    Frame {s}:{n: 8,d}, Avg QP:  ---  kb/s: ---", file=self._logfile)
 
             print(f"    Encoded {N: 8,d} frames in {self._t1 - self._t0:,.2f}s ({N/(self._t1 - self._t0):,.2f} fps), Avg QP:{avgqp: 5,.2f}  kb/s: {float(self._rate)*Size/N/125:,.2f}", file=self._logfile)
 
         else:
-            print(f"    Encoded {N: 8,d} frames in {self._t1 - self._t0:,.2f}s ({N/(self._t1 - self._t0):,.2f} fps), Avg QP: ---  kb/s: ---", file=self._logfile)
+            print(
+                f"    Encoded {N: 8,d} frames in {self._t1 - self._t0:,.2f}s ({N/(self._t1 - self._t0):,.2f} fps), Avg QP: ---  kb/s: ---", file=self._logfile)
 
         if self._success:
             t = time.localtime()
@@ -305,9 +314,8 @@ class libx265EncoderContext(EncoderContext):
             if self._pass in (1, 3):
                 self._restorestats()
 
-            #if self._pass == 1:
-                #self._restorecutree()
-
+            # if self._pass == 1:
+                # self._restorecutree()
 
     def procStats(self):
         n = 0
@@ -329,7 +337,8 @@ class libx265EncoderContext(EncoderContext):
             if match:
                 md = match.groupdict()
                 self._pktQPSums[md["pict_type"].upper()] += float(md["qp"])
-                self._pktSizeSums[md["pict_type"].upper()] += int(md["bits"])//8
+                self._pktSizeSums[md["pict_type"].upper()
+                                  ] += int(md["bits"])//8
                 self._pktCount[md["pict_type"].upper()] += 1
 
         return n
@@ -354,7 +363,8 @@ class libx265EncoderContext(EncoderContext):
 
         if packet.is_keyframe:
             pattern = b"(?:\\x00{2,3}\\x01)([\\x00-\\xff]+?)"
-            nal1, nal2, nal3, nal4, data = regex.findall(b"^" + 5*pattern + b"$", packet.to_bytes())[0]
+            nal1, nal2, nal3, nal4, data = regex.findall(
+                b"^" + 5*pattern + b"$", packet.to_bytes())[0]
 
         else:
             data = packet.to_bytes()[4:]
@@ -370,21 +380,22 @@ class libx265EncoderContext(EncoderContext):
         return self
 
     def __init__(self, framesource,
-            # Pyav encoder context options
-            width, height, sample_aspect_ratio=1, rate=QQ(24000, 1001), pix_fmt="yuv420p", time_base=None,
-            preset=None, tune=None, forced_idr=None,
+                 # Pyav encoder context options
+                 width, height, sample_aspect_ratio=1, rate=QQ(24000, 1001), pix_fmt="yuv420p", time_base=None,
+                 preset=None, tune=None, forced_idr=None,
 
-            # Quality, rate control and rate distortion options
-            bitrate=None, qp=None, crf=None, lossless=None,
+                 # Quality, rate control and rate distortion options
+                 bitrate=None, qp=None, crf=None, lossless=None,
 
 
-            # python-transcode 
-            notifyencode=None, logfile=None, **x265params):
+                 # python-transcode
+                 notifyencode=None, logfile=None, **x265params):
 
         self._rate = rate
         _convert_dict(x265params)
 
-        kwargs = dict(width=width, height=height, sample_aspect_ratio=sample_aspect_ratio, rate=rate, pix_fmt=pix_fmt, time_base=time_base)
+        kwargs = dict(width=width, height=height, sample_aspect_ratio=sample_aspect_ratio,
+                      rate=rate, pix_fmt=pix_fmt, time_base=time_base)
         options = {}
 
         if crf:
@@ -421,7 +432,8 @@ class libx265EncoderContext(EncoderContext):
         if rate:
             x265params["fps"] = rate
 
-        x265params = OrderedDict([("preset", None), ("tune", None), ("pass", None), ("stats", None)], **x265params)
+        x265params = OrderedDict(
+            [("preset", None), ("tune", None), ("pass", None), ("stats", None)], **x265params)
 
         x265params["csv"] = f"/dev/fd/{self._wfd}"
         x265params["csv-log-level"] = 1
@@ -450,7 +462,8 @@ class libx265EncoderContext(EncoderContext):
                 if key in x265slashrationalparams:
                     L.append(f"{key}={value.numerator}/{value.denominator}")
 
-                print(f"        {key}={value.numerator}/{value.denominator}", file=logfile)
+                print(
+                    f"        {key}={value.numerator}/{value.denominator}", file=logfile)
 
             elif value is not None:
                 L.append(f"{key}={value}")
@@ -471,18 +484,18 @@ class libx265EncoderContext(EncoderContext):
             r"\s*(?P<bits>\d+),"\
             r"\s*(?P<scenecut>[01]),"\
 
-        #if bitrate is None and qp is None and lossless is None:
-            #self._statspattern += r"\s*(?P<ratefactor>\d+(?:\.\d+)?),"\
-                #r"\s*(?P<bufferfill>\d+(?:\.\d+)?),"\
-                #r"\s*(?P<bufferfillfinal>\d+(?:\.\d+)?),"
+        # if bitrate is None and qp is None and lossless is None:
+        #self._statspattern += r"\s*(?P<ratefactor>\d+(?:\.\d+)?),"\
+        # r"\s*(?P<bufferfill>\d+(?:\.\d+)?),"\
+        # r"\s*(?P<bufferfillfinal>\d+(?:\.\d+)?),"
 
-        #if x265params.get("ssim"):
-            #self._statspattern += r"\s*(?P<ssim>\d+(?:\.\d+)?),"\
-                #r"\s*(?P<ssimdb>\d+(?:\.\d+)?),"\
+        # if x265params.get("ssim"):
+        #self._statspattern += r"\s*(?P<ssim>\d+(?:\.\d+)?),"\
+        # r"\s*(?P<ssimdb>\d+(?:\.\d+)?),"\
 
         #self._statspattern += r"(?P<latency>\d+),"\
-            #r"\s*(?P<refs1>(?:-|[\s\d]+?))\s*,"\
-            #r"\s*(?P<refs2>(?:-|[\s\d]+?))\s*,"
+        # r"\s*(?P<refs1>(?:-|[\s\d]+?))\s*,"\
+        # r"\s*(?P<refs2>(?:-|[\s\d]+?))\s*,"
 
         self._statsbuffer = ""
         self._pktCount = {s: 0 for s in "IBP"}
@@ -492,19 +505,23 @@ class libx265EncoderContext(EncoderContext):
         self._pass = x265params.get("pass")
         self._stats = x265params.get("stats")
 
-        super().__init__("libx265", framesource, notifyencode=notifyencode, logfile=logfile, **kwargs)
+        super().__init__("libx265", framesource,
+                         notifyencode=notifyencode, logfile=logfile, **kwargs)
+
 
 class libx265Config(EncoderConfig):
     format = None
     codec = "libx265"
 
     def __init__(self, bitrate=None, qp=None, crf=None, lossless=None,
-            preset="medium", tune=None, forced_idr=None, **kwargs):
+                 preset="medium", tune=None, forced_idr=None, **kwargs):
 
         if sum([bitrate is not None, qp is not None, crf is not None, bool(lossless)]) > 1:
-            raise ValueError("Must specify no more than one of the following: bitrate, qp, crf, or lossless=True.")
+            raise ValueError(
+                "Must specify no more than one of the following: bitrate, qp, crf, or lossless=True.")
 
-        kwargs.update(bitrate=bitrate, qp=qp, lossless=lossless, preset=preset, tune=tune)
+        kwargs.update(bitrate=bitrate, qp=qp, lossless=lossless,
+                      preset=preset, tune=tune)
         _convert_dict(kwargs)
         self.x265params = kwargs
         self.forced_idr = forced_idr
@@ -536,7 +553,8 @@ class libx265Config(EncoderConfig):
     def __setstate__(self, state):
         self.forced_idr = state.get("forced_idr")
         self.crf = state.get("crf")
-        self.x265params = {key: value for (key, value) in state.items() if key in x265params and value is not None}
+        self.x265params = {key: value for (key, value) in state.items(
+        ) if key in x265params and value is not None}
 
     def __dir__(self):
         dir = super().__dir__()
@@ -598,13 +616,13 @@ class libx265Config(EncoderConfig):
             self.x265params[x265paramname] = str(value)
 
         return object.__setattr__(self, attr, value)
-        #return super().__setattr__(attr, value)
+        # return super().__setattr__(attr, value)
 
     def create(self, framesource, width, height, sample_aspect_ratio=1,
-                rate=None, pix_fmt="yuv420p", time_base=None,
-                bitrate=None, qp=None, crf=None, lossless=None,
-                pass_=0, slow_firstpass=False, stats=None,
-                notifyencode=None, logfile=None, **override):
+               rate=None, pix_fmt="yuv420p", time_base=None,
+               bitrate=None, qp=None, crf=None, lossless=None,
+               pass_=0, slow_firstpass=False, stats=None,
+               notifyencode=None, logfile=None, **override):
 
         if pass_:
             override["pass"] = pass_
@@ -624,8 +642,8 @@ class libx265Config(EncoderConfig):
         _convert_dict(override, stripnones=False)
         x265params = self.x265params.copy()
         x265params.update(override)
-        #print("$", dict(framesource=framesource, width=width, height=height, rate=rate, pix_fmt=pix_fmt, time_base=time_base,
-                                     #crf=crf, notifyencode=notifyencode, logfile=logfile, **x265params))
+        # print("$", dict(framesource=framesource, width=width, height=height, rate=rate, pix_fmt=pix_fmt, time_base=time_base,
+        # crf=crf, notifyencode=notifyencode, logfile=logfile, **x265params))
         return libx265EncoderContext(framesource, width, height, sample_aspect_ratio, rate,
                                      pix_fmt, time_base, crf=crf, notifyencode=notifyencode, logfile=logfile,
                                      **x265params)

@@ -1,6 +1,7 @@
 from ..base import EncoderContext
 from ..base import EncoderConfig
 
+
 class ac3Config(EncoderConfig):
     format = "fltp"
     codec = "ac3"
@@ -10,7 +11,7 @@ class ac3Config(EncoderConfig):
         super().__init__("ac3", bitrate, **options)
 
     def create(self, framesource, rate=None, time_base=None,
-                notifyencode=None, logfile=None, **override):
+               notifyencode=None, logfile=None, **override):
         if "format" in override:
             del override["format"]
 

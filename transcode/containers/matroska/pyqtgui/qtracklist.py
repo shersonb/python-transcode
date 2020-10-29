@@ -1,3 +1,4 @@
+from .quidspinbox import UIDDelegate
 from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractTableModel, QModelIndex,
                           QVariant, QItemSelectionModel, QItemSelection, pyqtSignal, pyqtSlot, QMimeData,
                           QByteArray, QDataStream, QIODevice, QRegExp)
@@ -20,40 +21,40 @@ from functools import partial
 import faulthandler
 faulthandler.enable()
 
-from .quidspinbox import UIDDelegate
-#class QHexSpinBox(QDoubleSpinBox):
-    #def __init__(self, *args, **kwargs):
-        #super(QHexSpinBox, self).__init__(*args, **kwargs)
-        #regex = QRegExp("0x[0-9A-Fa-f]{1,16}")
-        #regex.setCaseSensitivity(Qt.CaseInsensitive)
-        #self._validator = QRegExpValidator(regex, self)
-        #self.setPrefix("0x")
-        #self.setMaximum(16**16 - 1)
+# class QHexSpinBox(QDoubleSpinBox):
+# def __init__(self, *args, **kwargs):
+#super(QHexSpinBox, self).__init__(*args, **kwargs)
+#regex = QRegExp("0x[0-9A-Fa-f]{1,16}")
+# regex.setCaseSensitivity(Qt.CaseInsensitive)
+#self._validator = QRegExpValidator(regex, self)
+# self.setPrefix("0x")
+#self.setMaximum(16**16 - 1)
 
-    #def validate(self, text, pos):
-        #return self._validator.validate(text, pos)
+# def validate(self, text, pos):
+# return self._validator.validate(text, pos)
 
-    #def valueFromText(self, text):
-        #return int(text, 16)
+# def valueFromText(self, text):
+# return int(text, 16)
 
-    #def textFromValue(self, value):
-        #value = int(value)
-        #return f"{value:016x}"
+# def textFromValue(self, value):
+#value = int(value)
+# return f"{value:016x}"
 
-#class UIDDelegate(QItemDelegate):
-    #def createEditor(self, parent, option, index):
-        #editor = QHexSpinBox(parent)
-        #editor.setMinimum(1)
-        #return editor
+# class UIDDelegate(QItemDelegate):
+# def createEditor(self, parent, option, index):
+#editor = QHexSpinBox(parent)
+# editor.setMinimum(1)
+# return editor
 
-    #def setEditorData(self, editor, index):
-        #editor.setValue(index.data(Qt.EditRole))
+# def setEditorData(self, editor, index):
+# editor.setValue(index.data(Qt.EditRole))
 
-    #def setModelData(self, editor, model, index):
-        #model.setData(index, editor.value(), Qt.EditRole)
+# def setModelData(self, editor, model, index):
+#model.setData(index, editor.value(), Qt.EditRole)
 
-    #def updateEditorGeometry(self, editor, option, index):
-        #editor.setGeometry(option.rect)
+# def updateEditorGeometry(self, editor, option, index):
+# editor.setGeometry(option.rect)
+
 
 class LacingDelegate(QItemDelegate):
     def createEditor(self, parent, option, index):
@@ -73,6 +74,7 @@ class LacingDelegate(QItemDelegate):
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
 
+
 class CompressionDelegate(QItemDelegate):
     def createEditor(self, parent, option, index):
         editor = QComboBox(parent)
@@ -89,6 +91,7 @@ class CompressionDelegate(QItemDelegate):
 
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
+
 
 class TrackUIDCol(BaseOutputTrackCol):
     width = 256
@@ -112,8 +115,8 @@ class TrackUIDCol(BaseOutputTrackCol):
 
         return data
 
-    #def display(self, index, track):
-        #return f"0x{self.editdata(index, track):032x}"
+    # def display(self, index, track):
+        # return f"0x{self.editdata(index, track):032x}"
 
     def display(self, index, obj):
         c, d = divmod(self.editdata(index, obj), 16**8)
@@ -129,6 +132,7 @@ class TrackUIDCol(BaseOutputTrackCol):
 
     def itemDelegate(self, parent):
         return UIDDelegate(parent)
+
 
 class DefaultTrackCol(BaseOutputTrackCol):
     display = ""
@@ -150,6 +154,7 @@ class DefaultTrackCol(BaseOutputTrackCol):
 
         elif state == 0:
             setattr(track.container, f"default{track.type}", track)
+
 
 class ForcedTrackCol(BaseOutputTrackCol):
     display = ""
@@ -177,6 +182,7 @@ class ForcedTrackCol(BaseOutputTrackCol):
         if state == 0:
             self.seteditdata(index, track, True)
 
+
 class EnabledTrackCol(BaseOutputTrackCol):
     display = ""
     headerdisplay = "Enabled"
@@ -203,6 +209,7 @@ class EnabledTrackCol(BaseOutputTrackCol):
         if state == 0:
             self.seteditdata(index, track, True)
 
+
 class LacingCol(BaseOutputTrackCol):
     display = ""
     headerdisplay = "Lacing"
@@ -223,6 +230,7 @@ class LacingCol(BaseOutputTrackCol):
     def itemDelegate(self, parent):
         return LacingDelegate(parent)
 
+
 class CompressionCol(BaseOutputTrackCol):
     headerdisplay = "Compression"
     width = 64
@@ -240,4 +248,6 @@ class CompressionCol(BaseOutputTrackCol):
     def itemDelegate(self, parent):
         return CompressionDelegate(parent)
 
-cols = [TrackUIDCol, DefaultTrackCol, ForcedTrackCol, EnabledTrackCol, LacingCol, CompressionCol]
+
+cols = [TrackUIDCol, DefaultTrackCol, ForcedTrackCol,
+        EnabledTrackCol, LacingCol, CompressionCol]
