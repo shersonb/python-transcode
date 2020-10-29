@@ -1,27 +1,20 @@
-from ebml.base import EBMLInteger, EBMLString, EBMLData, EBMLMasterElement, EBMLProperty, EBMLFloat, EBMLList, EBMLElement, Void
-from ebml.ndarray import EBMLNDArray
-from ebml.util import toVint, fromVint, parseVints
+from ebml.base import EBMLInteger, EBMLString, EBMLProperty, EBMLList
 import ebml.serialization
-from fractions import Fraction as QQ
-import numpy
-import pathlib
-#import transcode.config.obj
-#import transcode.filters
-from ...filters.filterchain import FilterChain
+from ...filters.base import FilterChain
 from ...filters.concatenate import Concatenate
-import importlib
-import types
-from .base import ArrayValue
+
 
 class SrcStart(EBMLInteger):
     ebmlID = b"\x41\x03"
 
+
 class ZoneElement(ebml.serialization.Object):
     ebmlID = b"\x41\x02"
     __ebmlchildren__ = (
-            EBMLProperty("srcStart", SrcStart),
-            EBMLProperty("options", (ebml.serialization.State, ebml.serialization.StateDict), optional=True),
-        )
+        EBMLProperty("srcStart", SrcStart),
+        EBMLProperty("options", (ebml.serialization.State,
+                                 ebml.serialization.StateDict), optional=True),
+    )
 
     @classmethod
     def _createConstructorElement(cls, constructor, environ, refs):
@@ -39,28 +32,38 @@ class ZoneElement(ebml.serialization.Object):
 
     def _saveState(self, state, environ, refs):
         if isinstance(state, dict):
-            self.options = ebml.serialization.StateDict.fromObj(state, environ, refs)
+            self.options = ebml.serialization.StateDict.fromObj(
+                state, environ, refs)
 
         else:
-            self.options = ebml.serialization.State.fromObj(state, environ, refs)
+            self.options = ebml.serialization.State.fromObj(
+                state, environ, refs)
 
     def _restoreState(self, obj, environ, refs):
         if self.options:
             obj.__setstate__(self.options.toObj(environ, refs))
 
+
 class Zones(ebml.serialization.List):
     ebmlID = b"\x41\x04"
     _typesByID = {ZoneElement.ebmlID: ZoneElement}
 
+
+class FilterName(EBMLString):
+    ebmlID = b"\x41\x05"
+
+
 class FilterElement(ebml.serialization.Object):
     ebmlID = b"\x31\xbc\xac"
     __ebmlchildren__ = (
-            EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
-            EBMLProperty("prev", ebml.serialization.Ref, optional=True),
-            EBMLProperty("constructor", ebml.serialization.Constructor),
-            EBMLProperty("options", (ebml.serialization.State, ebml.serialization.StateDict), optional=True),
-            EBMLProperty("zones", Zones, optional=True)
-        )
+        EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
+        EBMLProperty("source", ebml.serialization.Ref, optional=True),
+        EBMLProperty("constructor", ebml.serialization.Constructor),
+        EBMLProperty("options", (ebml.serialization.State,
+                                 ebml.serialization.StateDict), optional=True),
+        EBMLProperty("name", FilterName, optional=True),
+        EBMLProperty("zones", Zones, optional=True)
+    )
 
     @classmethod
     def _createArgsElement(cls, args, environ, refs):
@@ -72,13 +75,22 @@ class FilterElement(ebml.serialization.Object):
     def _saveState(self, state, environ, refs):
         if "prev" in state:
             prev = state.pop("prev")
-            self.prev = ebml.serialization.Ref(refs[id(prev)])
+            self.source = ebml.serialization.Ref(refs[id(prev)])
+
+        if "source" in state:
+            source = state.pop("source")
+            self.source = ebml.serialization.Ref(refs[id(source)])
+
+        if "name" in state:
+            self.name = state.pop("source")
 
         if isinstance(state, dict):
-            self.options = ebml.serialization.StateDict.fromObj(state, environ, refs)
+            self.options = ebml.serialization.StateDict.fromObj(
+                state, environ, refs)
 
         else:
-            self.options = ebml.serialization.State.fromObj(state, environ, refs)
+            self.options = ebml.serialization.State.fromObj(
+                state, environ, refs)
 
     def _restoreState(self, obj, environ, refs):
         if self.options:
@@ -87,8 +99,11 @@ class FilterElement(ebml.serialization.Object):
         else:
             state = {}
 
-        if self.prev is not None:
-            state.update(prev=refs[self.prev])
+        if self.source is not None:
+            state.update(source=refs[self.source])
+
+        if self.name is not None:
+            state.update(name=self.name)
 
         obj.__setstate__(state)
 
@@ -111,70 +126,22 @@ class FilterElement(ebml.serialization.Object):
             zone = ZoneElement.fromObj(zone, environ, refs)
             self.zones.append(zone)
 
-class SubFilter(ebml.serialization.Object):
-    ebmlID = b"\x31\xbc\xac"
-    __ebmlchildren__ = (
-            EBMLProperty("constructor", ebml.serialization.Constructor),
-            EBMLProperty("options", (ebml.serialization.State, ebml.serialization.StateDict), optional=True),
-            EBMLProperty("zones", Zones, optional=True)
-        )
-
-    @classmethod
-    def _createArgsElement(cls, args, environ, refs):
-        return ()
-
-    def _constructArgs(self, environ, refs):
-        return ()
-
-    def _saveState(self, state, environ, refs):
-        if "prev" in state:
-            del state["prev"]
-
-        if isinstance(state, dict):
-            self.options = ebml.serialization.StateDict.fromObj(state, environ, refs)
-
-        else:
-            self.options = ebml.serialization.State.fromObj(state, environ, refs)
-
-    def _restoreState(self, obj, environ, refs):
-        if self.options:
-            state = self.options.toObj(environ, refs)
-            obj.__setstate__(state)
-
-    def _restoreItems(self, obj, environ, refs):
-        if hasattr(obj, "zoneclass"):
-            environ["zoneclass"] = obj.zoneclass
-
-        elif "zoneclass" in environ:
-            del environ["zoneclass"]
-
-        if self.zones:
-            zones = self.zones.toObj(environ, refs)
-            obj.clear()
-            if len(obj):
-                raise ValueError(repr(obj))
-            obj.extend(zones)
-
-    def _saveItems(self, items, environ, refs):
-        self.zones = Zones(items=[], parent=self)
-
-        for zone in items:
-            zone = ZoneElement.fromObj(zone, environ, refs)
-            self.zones.append(zone)
 
 class Filters(EBMLList):
-    itemclass = (FilterElement, SubFilter)
+    itemclass = FilterElement
+
 
 class FilterChainElement(ebml.serialization.Object):
     ebmlID = b"\x22\xad\xc9"
     constructor = FilterChain
-    _typeMap = {object: SubFilter}
-    _typesByID = {SubFilter.ebmlID: FilterElement}
+    _typeMap = {object: FilterElement}
+    _typesByID = {FilterElement.ebmlID: FilterElement}
     __ebmlchildren__ = (
-            EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
-            EBMLProperty("prev", ebml.serialization.Ref, optional=True),
-            EBMLProperty("filters", Filters, optional=True),
-        )
+        EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
+        EBMLProperty("source", ebml.serialization.Ref, optional=True),
+        EBMLProperty("filters", Filters, optional=True),
+        EBMLProperty("name", FilterName, optional=True),
+    )
 
     @classmethod
     def _createElement(cls, constructor, args, environ, refs):
@@ -184,8 +151,8 @@ class FilterChainElement(ebml.serialization.Object):
         return ()
 
     def _restoreState(self, obj, environ, refs):
-        prev = refs.get(self.prev)
-        obj.__setstate__({"prev": prev})
+        source = refs.get(self.source)
+        obj.__setstate__({"source": source, "name": self.name})
 
     def _restoreItems(self, obj, environ, refs):
         if self.filters:
@@ -194,18 +161,20 @@ class FilterChainElement(ebml.serialization.Object):
             obj.extend(filters)
 
     def _saveState(self, state, environ, refs):
-        if isinstance(state, dict) and id(state.get("prev")) in refs:
-            self.prev = ebml.serialization.Ref(refs[id(state.get("prev"))])
+        if isinstance(state, dict) and id(state.get("source")) in refs:
+            self.source = ebml.serialization.Ref(refs[id(state.get("source"))])
 
     def _saveItems(self, items, environ, refs):
         self.filters = Filters(items=[])
 
         for filter in items:
-            filter = SubFilter.fromObj(filter, environ, refs)
+            filter = FilterElement.fromObj(filter, environ, refs)
             self.filters.append(filter)
+
 
 class Refs(EBMLList):
     itemclass = ebml.serialization.Ref
+
 
 class ConcatenateElement(ebml.serialization.Object):
     ebmlID = b"\x2a\xcf\xc0"
@@ -213,10 +182,12 @@ class ConcatenateElement(ebml.serialization.Object):
     _typeMap = {object: FilterElement}
     _typesByID = {FilterElement.ebmlID: FilterElement}
     __ebmlchildren__ = (
-            EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
-            EBMLProperty("options", (ebml.serialization.State, ebml.serialization.StateDict), optional=True),
-            EBMLProperty("segments", Refs, optional=True),
-        )
+        EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
+        EBMLProperty("options", (ebml.serialization.State,
+                                 ebml.serialization.StateDict), optional=True),
+        EBMLProperty("name", FilterName, optional=True),
+        EBMLProperty("segments", Refs, optional=True),
+    )
 
     @classmethod
     def _createElement(cls, constructor, args, environ, refs):
@@ -227,8 +198,15 @@ class ConcatenateElement(ebml.serialization.Object):
 
     def _restoreState(self, obj, environ, refs):
         if self.options:
-            obj.__setstate__(self.options.toObj(environ, refs))
+            state = self.options.toObj(environ, refs)
 
+        else:
+            state = {}
+
+        if self.name:
+            state.update(name=self.name)
+
+        obj.__setstate__(state)
 
     def _restoreItems(self, obj, environ, refs):
         if self.segments:
@@ -238,10 +216,15 @@ class ConcatenateElement(ebml.serialization.Object):
 
     def _saveState(self, state, environ, refs):
         if isinstance(state, dict):
-            self.options = ebml.serialization.StateDict.fromObj(state, environ, refs)
+            if "name" in state:
+                self.name = state.pop("name")
+
+            self.options = ebml.serialization.StateDict.fromObj(
+                state, environ, refs)
 
         else:
-            self.options = ebml.serialization.State.fromObj(state, environ, refs)
+            self.options = ebml.serialization.State.fromObj(
+                state, environ, refs)
 
     def _saveItems(self, items, environ, refs):
         self.segments = Refs(items=[])
@@ -250,8 +233,81 @@ class ConcatenateElement(ebml.serialization.Object):
             segment = ebml.serialization.Ref(refs[id(segment)])
             self.segments.append(segment)
 
+
 class FilterChains(ebml.serialization.List):
     ebmlID = b"\x25\x7b\xcc"
-    _typeMap = {FilterChain: FilterChainElement, Concatenate: ConcatenateElement, object: FilterElement}
-    _typesByID = {FilterChainElement.ebmlID: FilterChainElement, FilterElement.ebmlID: FilterElement, ConcatenateElement.ebmlID: ConcatenateElement}
+    _typeMap = {FilterChain: FilterChainElement,
+                Concatenate: ConcatenateElement, object: FilterElement}
+    _typesByID = {FilterChainElement.ebmlID: FilterChainElement,
+                  FilterElement.ebmlID: FilterElement, ConcatenateElement.ebmlID: ConcatenateElement}
 
+    @classmethod
+    def _fromObj(cls, obj, environ, refs):
+        items = list(obj)
+        reductions = [item.__reduce__() for item in items]
+        childElements = []
+
+        for child, (constructor, args, *more) in zip(items, reductions):
+            objcls = cls._typeMap.get(object)
+            ebmlcls = cls._typeMap.get(type(child), objcls)
+            ref = ebmlcls._createRef(refs)
+            childElement = ebmlcls._createElement(
+                constructor, args, environ, refs)
+            childElement.objID = refs[id(child)] = ref
+            childElements.append(childElement)
+
+        for childElement, (constructor, args, *more) in zip(childElements, reductions):
+            if len(more) == 1:
+                state, = more
+                subitems = dictitems = None
+
+            elif len(more) == 2:
+                state, subitems = more
+                dictitems = None
+
+            elif len(more) == 3:
+                state, subitems, dictitems = more
+
+            if state:
+                childElement._saveState(state, environ, refs)
+
+            if subitems:
+                childElement._saveItems(subitems, environ, refs)
+
+            if dictitems:
+                childElement._saveDict(dictitems, environ, refs)
+
+        return cls(items=childElements)
+
+    def _restoreItems(self, obj, environ, refs):
+        if self.items:
+            for item in self.items:
+                if hasattr(item, "toObj"):
+                    child = item._createObj(environ, refs)
+
+                    if item.objID:
+                        refs[item.objID] = child
+
+                    obj.append(child)
+
+                else:
+                    obj.append(item.data)
+
+            for child, item in zip(obj, self.items):
+                try:
+                    item._restoreState(child, environ, refs)
+
+                except NotImplementedError:
+                    pass
+
+                try:
+                    item._restoreItems(child, environ, refs)
+
+                except NotImplementedError:
+                    pass
+
+                try:
+                    item._restoreDict(child, environ, refs)
+
+                except NotImplementedError:
+                    pass

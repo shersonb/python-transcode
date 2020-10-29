@@ -1,7 +1,6 @@
-from ebml.base import EBMLInteger, EBMLString, EBMLData, EBMLMasterElement, EBMLProperty, EBMLFloat, EBMLList, EBMLElement, Void
+from ebml.base import EBMLProperty
 import ebml.serialization
 import pathlib
-import os
 
 try:
     import lzma
@@ -26,15 +25,16 @@ from .inputfiles import InputFiles
 from .filterchains import FilterChains
 from .outputfiles import OutputFiles
 
+
 class ConfigElement(ebml.serialization.Object):
     constructor = Config
     ebmlID = b'\x13\xce\x86\xc9'
     __ebmlchildren__ = (
-            EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
-            EBMLProperty("inputFiles", InputFiles),
-            EBMLProperty("filterChains", FilterChains, optional=True),
-            EBMLProperty("outputFiles", OutputFiles),
-        )
+        EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
+        EBMLProperty("inputFiles", InputFiles),
+        EBMLProperty("filterChains", FilterChains, optional=True),
+        EBMLProperty("outputFiles", OutputFiles),
+    )
 
     @classmethod
     def _createElement(cls, constructor, args, environ, refs):
@@ -45,14 +45,17 @@ class ConfigElement(ebml.serialization.Object):
 
     def _saveState(self, state, environ, refs):
         environ["module"] = "transcode.containers"
-        self.inputFiles = InputFiles.fromObj(state.get("input_files"), environ, refs)
+        self.inputFiles = InputFiles.fromObj(
+            state.get("input_files"), environ, refs)
 
         if state.get("filter_chains"):
             environ["module"] = "transcode.filters"
-            self.filterChains = FilterChains.fromObj(state.get("filter_chains"), environ, refs)
+            self.filterChains = FilterChains.fromObj(
+                state.get("filter_chains"), environ, refs)
 
         environ["module"] = "transcode.containers"
-        self.outputFiles = OutputFiles.fromObj(state.pop("output_files"), environ, refs)
+        self.outputFiles = OutputFiles.fromObj(
+            state.pop("output_files"), environ, refs)
 
     def _constructArgs(self, environ, refs):
         configname = pathlib.Path(environ.get("configname", "untitled.ptc"))
@@ -76,7 +79,6 @@ class ConfigElement(ebml.serialization.Object):
     @classmethod
     def load(cls, configname, file=None):
         configname = pathlib.Path(configname)
-        #workingdir = configname.parent
 
         if file is None:
             if lzma and configname.suffix.upper() == ".XZ":
@@ -103,7 +105,8 @@ class ConfigElement(ebml.serialization.Object):
 
         if file is None:
             if lzma and config.configname.suffix.upper() == ".XZ":
-                file = lzma.LZMAFile(config.configname, "w", preset=9|lzma.PRESET_EXTREME)
+                file = lzma.LZMAFile(config.configname, "w",
+                                     preset=9 | lzma.PRESET_EXTREME)
 
             elif bz2 and config.configname.suffix.upper() == ".BZ2":
                 file = bz2.BZ2File(config.configname, "w", compresslevel=9)

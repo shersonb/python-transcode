@@ -1,22 +1,18 @@
-from ebml.base import EBMLInteger, EBMLString, EBMLData, EBMLMasterElement, EBMLProperty, EBMLFloat, EBMLList, EBMLElement, Void
-from ebml.ndarray import EBMLNDArray
-from ebml.util import toVint, fromVint, parseVints
+from ebml.base import EBMLProperty
 import ebml.serialization
-from fractions import Fraction as QQ
 import numpy
-import pathlib
-import importlib
-import types
 from .base import ArrayValue, PathElement
-from ... import containers
+from transcode import containers
+
 
 class InputTrack(ebml.serialization.Object):
     ebmlID = b"\x5b\xda"
     module = containers
     __ebmlchildren__ = (
-            EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
-            EBMLProperty("state", (ebml.serialization.State, ebml.serialization.StateDict), optional=True),
-        )
+        EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
+        EBMLProperty("state", (ebml.serialization.State,
+                               ebml.serialization.StateDict), optional=True),
+    )
 
     @classmethod
     def _createConstructorElement(cls, constructor, environ, refs):
@@ -31,26 +27,30 @@ class InputTrack(ebml.serialization.Object):
     def _constructArgs(self, environ, refs):
         return ()
 
+
 InputTrack.registerType(numpy.ndarray, ArrayValue)
+
 
 class InputTracks(ebml.serialization.List):
     ebmlID = b"\x47\xfd"
     _typeMap = {object: InputTrack}
     _typesByID = {InputTrack.ebmlID: InputTrack}
 
+
 class InputPath(PathElement):
     ebmlID = b"\x48\x4f"
+
 
 class InputFile(ebml.serialization.Object):
     ebmlID = b"\x31\xbc\xac"
     module = containers
     __ebmlchildren__ = (
-            EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
-            EBMLProperty("constructor", ebml.serialization.Constructor),
-            EBMLProperty("inputPath", InputPath),
-            EBMLProperty("tracks", InputTracks, optional=True),
-            EBMLProperty("state", ebml.serialization.StateDict, optional=True),
-        )
+        EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
+        EBMLProperty("constructor", ebml.serialization.Constructor),
+        EBMLProperty("inputPath", InputPath),
+        EBMLProperty("tracks", InputTracks, optional=True),
+        EBMLProperty("state", ebml.serialization.StateDict, optional=True),
+    )
 
     @classmethod
     def _createArgsElement(cls, args, environ, refs):
@@ -71,8 +71,8 @@ class InputFile(ebml.serialization.Object):
             obj.tracks.clear()
             obj.extend(self.tracks.toObj(environ, refs))
 
+
 class InputFiles(ebml.serialization.List):
     ebmlID = b"\x22\xad\xc9"
     _typeMap = {object: InputFile}
     _typesByID = {InputFile.ebmlID: InputFile}
-

@@ -1,27 +1,23 @@
-from ebml.base import EBMLInteger, EBMLString, EBMLData, EBMLMasterElement, EBMLProperty, EBMLFloat, EBMLList, EBMLElement, Void
-from ebml.ndarray import EBMLNDArray
-from ebml.util import toVint, fromVint, parseVints
+from ebml.base import EBMLString, EBMLProperty
 import ebml.serialization
-from fractions import Fraction as QQ
-import numpy
-import pathlib
-import importlib
-import types
-from .base import ArrayValue, PathElement
+from .base import PathElement
 from .filterchains import FilterChainElement
-from ... import encoders, containers
+from transcode import encoders, containers
+
 
 class EncoderName(EBMLString):
     ebmlID = b"\x7f\xa7"
+
 
 class Encoder(ebml.serialization.Object):
     ebmlID = b"\x42\x85"
     module = encoders
     __ebmlchildren__ = (
-            EBMLProperty("constructor", ebml.serialization.Constructor),
-            EBMLProperty("name", EncoderName, optional=True),
-            EBMLProperty("options", (ebml.serialization.State, ebml.serialization.StateDict), optional=True),
-        )
+        EBMLProperty("constructor", ebml.serialization.Constructor),
+        EBMLProperty("name", EncoderName, optional=True),
+        EBMLProperty("options", (ebml.serialization.State,
+                                 ebml.serialization.StateDict), optional=True),
+    )
 
     def _constructArgs(self, environ, refs):
         if self.name:
@@ -39,33 +35,38 @@ class Encoder(ebml.serialization.Object):
 
     def _saveState(self, state, environ, refs):
         if isinstance(state, dict):
-            self.options = ebml.serialization.StateDict.fromObj(state, environ, refs)
+            self.options = ebml.serialization.StateDict.fromObj(
+                state, environ, refs)
 
         else:
-            self.options = ebml.serialization.State.fromObj(state, environ, refs)
+            self.options = ebml.serialization.State.fromObj(
+                state, environ, refs)
 
     def _restoreState(self, obj, environ, refs):
         if self.options:
             obj.__setstate__(self.options.toObj(environ, refs))
 
+
 class TrackName(EBMLString):
     ebmlID = b"\x64\xcd"
 
+
 class Language(EBMLString):
     ebmlID = b"\x42\x78"
+
 
 class OutputTrack(ebml.serialization.Object):
     ebmlID = b"\x55\xc4"
     module = containers
     __ebmlchildren__ = (
-            EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
-            EBMLProperty("source", ebml.serialization.Ref, optional=True),
-            EBMLProperty("encoder", Encoder, optional=True),
-            EBMLProperty("filters", FilterChainElement, optional=True),
-            EBMLProperty("name", TrackName, optional=True),
-            EBMLProperty("language", Language, optional=True),
-            EBMLProperty("options", ebml.serialization.StateDict, optional=True),
-        )
+        EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
+        EBMLProperty("source", ebml.serialization.Ref, optional=True),
+        EBMLProperty("encoder", Encoder, optional=True),
+        EBMLProperty("filters", FilterChainElement, optional=True),
+        EBMLProperty("name", TrackName, optional=True),
+        EBMLProperty("language", Language, optional=True),
+        EBMLProperty("options", ebml.serialization.StateDict, optional=True),
+    )
 
     @classmethod
     def _createConstructorElement(cls, constructor, environ, refs):
@@ -73,7 +74,6 @@ class OutputTrack(ebml.serialization.Object):
 
     @classmethod
     def _createArgsElement(cls, args, environ, refs):
-        #source, encoder, filters = args
         (source,) = args
         d = dict()
 
@@ -99,7 +99,8 @@ class OutputTrack(ebml.serialization.Object):
 
         if "filters" in state:
             environ["module"] = "transcode.filters"
-            self.filters = FilterChainElement.fromObj(state.pop("filters"), environ, refs)
+            self.filters = FilterChainElement.fromObj(
+                state.pop("filters"), environ, refs)
 
         if mod:
             environ["module"] = mod
@@ -107,7 +108,8 @@ class OutputTrack(ebml.serialization.Object):
         elif "module" in environ:
             del environ["module"]
 
-        self.options = ebml.serialization.StateDict.fromObj(state, environ, refs)
+        self.options = ebml.serialization.StateDict.fromObj(
+            state, environ, refs)
 
     def _restoreState(self, obj, environ, refs):
         if self.options:
@@ -120,11 +122,11 @@ class OutputTrack(ebml.serialization.Object):
 
         if self.encoder:
             environ["module"] = "transcode.encoders"
-            state["encoder"]= self.encoder.toObj(environ, refs)
+            state["encoder"] = self.encoder.toObj(environ, refs)
 
         if self.filters:
             environ["module"] = "transcode.filters"
-            state["filters"]= self.filters.toObj(environ, refs)
+            state["filters"] = self.filters.toObj(environ, refs)
 
         if mod:
             environ["module"] = mod
@@ -134,25 +136,29 @@ class OutputTrack(ebml.serialization.Object):
 
         obj.__setstate__(state)
 
+
 class OutputTracks(ebml.serialization.List):
     ebmlID = b"\x50\x7c"
     _typeMap = {object: OutputTrack}
     _typesByID = {OutputTrack.ebmlID: OutputTrack}
 
+
 class OutputPath(PathElement):
     ebmlID = b"\x4c\x3f"
+
 
 class OutputFile(ebml.serialization.Object):
     ebmlID = b"\x33\xe6\xfe"
     module = containers
 
     __ebmlchildren__ = (
-            EBMLProperty("constructor", ebml.serialization.Constructor),
-            EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
-            EBMLProperty("outputPath", OutputPath),
-            EBMLProperty("tracks", OutputTracks, optional=True),
-            EBMLProperty("options", (ebml.serialization.State, ebml.serialization.StateDict), optional=True),
-        )
+        EBMLProperty("constructor", ebml.serialization.Constructor),
+        EBMLProperty("objID", ebml.serialization.ObjID, optional=True),
+        EBMLProperty("outputPath", OutputPath),
+        EBMLProperty("tracks", OutputTracks, optional=True),
+        EBMLProperty("options", (ebml.serialization.State,
+                                 ebml.serialization.StateDict), optional=True),
+    )
 
     @classmethod
     def _createArgsElement(cls, args, environ, refs):
@@ -160,8 +166,10 @@ class OutputFile(ebml.serialization.Object):
         return dict(outputPath=cls.outputPath.cls.fromObj(path, environ, refs))
 
     def _saveState(self, state, environ, refs):
-        self.tracks = self.__class__.tracks.cls.fromObj(state.pop("tracks"), environ, refs)
-        self.options = ebml.serialization.StateDict.fromObj(state, environ, refs)
+        self.tracks = self.__class__.tracks.cls.fromObj(
+            state.pop("tracks"), environ, refs)
+        self.options = ebml.serialization.StateDict.fromObj(
+            state, environ, refs)
 
     def _constructArgs(self, environ, refs):
         return (self._outputPath.toObj(environ, refs),)
@@ -174,13 +182,10 @@ class OutputFile(ebml.serialization.Object):
         if self.options:
             state.update(self.options.toObj(environ, refs))
 
-        #if self.parent is not None and hasattr(self.parent.parent, "objID"):
-            #state["config"] = refs.get(self.parent.parent.objID)
-
         obj.__setstate__(state)
+
 
 class OutputFiles(ebml.serialization.List):
     ebmlID = b"\x20\xc4\xd5"
     _typeMap = {object: OutputFile}
     _typesByID = {OutputFile.ebmlID: OutputFile}
-
