@@ -6,10 +6,13 @@ from collections import OrderedDict
 from itertools import count
 from ..util import cached
 from ..avarrays import toNDArray, toAFrame, aconvert
-from fractions import Fraction as QQ
 from av import VideoFrame
+from copy import deepcopy
+
 
 class CrossFade(BaseVideoFilter, BaseAudioFilter):
+    allowedtypes = ("audio", "video")
+
     def __init__(self, source1=None, source2=None, flags=0, **kwargs):
         self.source1 = source1
         self.source2 = source2
@@ -30,16 +33,36 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
         super().__init__(**kwargs)
 
     def __getstate__(self):
+        if self.name:
+            state["name"] = self.name
+
         state = OrderedDict()
         state["source1"] = self.source1
         state["source2"] = self.source2
         state["flags"] = self.flags
+
         return state
 
     def __setstate__(self, state):
         self.source1 = state.get("source1")
         self.source2 = state.get("source2")
         self.flags = state.get("flags")
+        self.name = state.get("name")
+
+    def __deepcopy__(self, memo):
+        cls, args, state = self.__reduce__()
+        new = cls(*deepcopy(args, memo))
+
+        source1 = state.pop("source1", None)
+        source2 = state.pop("source2", None)
+
+        newstate = deepcopy(state, memo)
+
+        newstate["source1"] = source1
+        newstate["source2"] = source2
+
+        new.__setstate__(newstate)
+        return new
 
     @property
     def format(self):
@@ -63,11 +86,19 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
 
     @property
     def pts_time(self):
-        return self.source1.pts_time
+        if self.source1 is not None:
+            return self.source1.pts_time
+
+        if self.source2 is not None:
+            return self.source2.pts_time
 
     @property
     def pts(self):
-        return self.source1.pts
+        if self.source1 is not None:
+            return self.source1.pts
+
+        if self.source2 is not None:
+            return self.source2.pts
 
     @pts_time.deleter
     def pts_time(self):
@@ -75,35 +106,67 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
 
     @cached
     def duration(self):
-        return self.source1.duration
+        if self.source1 is not None:
+            return self.source1.duration
+
+        if self.source2 is not None:
+            return self.source2.duration
 
     @property
     def type(self):
-        return self.source1.type
+        if self.source1 is not None:
+            return self.source1.type
+
+        if self.source2 is not None:
+            return self.source2.type
 
     @property
     def rate(self):
-        return self.source1.rate
+        if self.source1 is not None:
+            return self.source1.rate
+
+        if self.source2 is not None:
+            return self.source2.rate
 
     @property
     def channels(self):
-        return self.source1.channels
+        if self.source1 is not None:
+            return self.source1.channels
+
+        if self.source2 is not None:
+            return self.source2.channels
 
     @property
     def layout(self):
-        return self.source1.layout
+        if self.source1 is not None:
+            return self.source1.layout
+
+        if self.source2 is not None:
+            return self.source2.layout
 
     @property
     def sar(self):
-        return self.source1.sar
+        if self.source1 is not None:
+            return self.source1.sar
+
+        if self.source2 is not None:
+            return self.source2.sar
 
     @property
     def height(self):
-        return self.source1.height
+        if self.source1 is not None:
+            return self.source1.height
+
+        if self.source2 is not None:
+            return self.source2.height
 
     @property
     def width(self):
-        return self.source1.width
+        if self.source1 is not None:
+            return self.source1.width
+
+        if self.source2 is not None:
+            return self.source2.width
 
     @cached
     def prev_start(self):
@@ -138,39 +201,35 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
 
     @property
     def framecount(self):
-        return self.source1.framecount
+        if self.source1 is not None:
+            return self.source1.framecount
+
+        if self.source2 is not None:
+            return self.source2.framecount
 
     @framecount.deleter
     def framecount(self):
         return
 
     @property
-    def pts_time(self):
-        return self.source1.pts_time
-
-    @property
-    def duration(self):
-        return self.source1.duration
-
-    @duration.deleter
-    def duration(self):
-        return
-
-    @property
     def durations(self):
-        return self.source1.durations
+        if self.source1 is not None:
+            return self.source1.durations
+
+        if self.source2 is not None:
+            return self.source2.durations
 
     @durations.deleter
     def durations(self):
         return
 
     @property
-    def type(self):
-        return self.source1.type
-
-    @property
     def time_base(self):
-        return self.source1.time_base
+        if self.source1 is not None:
+            return self.source1.time_base
+
+        if self.source2 is not None:
+            return self.source2.time_base
 
     def iterFrames(self, start=0, end=None, whence="pts"):
         frames1 = self.source1.iterFrames(start, end, whence)
@@ -183,10 +242,10 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
                 A = frame1.to_rgb().to_ndarray()
                 B = frame2.to_rgb().to_ndarray()
 
-                if not 1&self.flags:
+                if not 1 & self.flags:
                     A = (1 - (k + 1)/(self.framecount + 2))*A
 
-                if not 2&self.flags:
+                if not 2 & self.flags:
                     B = ((k + 1)/(self.framecount + 2))*B
 
                 C = numpy.uint8((A + B).clip(max=255) + 0.5).copy(order="C")
@@ -203,7 +262,6 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
             AA = numpy.zeros((0, self.source1.channels), dtype=numpy.float32)
             BB = numpy.zeros((0, self.source2.channels), dtype=numpy.float32)
             T = None
-
 
             while True:
                 while len(AA) < 1536:
@@ -238,13 +296,13 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
 
                 TT = numpy.arange(T, T + N/self.rate, 1/self.rate)
 
-                if not 1&self.flags:
+                if not 1 & self.flags:
                     A = AA[:N]*numpy.cos(T*numpy.pi/2/self.duration)**2
 
                 else:
                     A = AA[:N]
 
-                if not 2&self.flags:
+                if not 2 & self.flags:
                     B = BB[:N]*numpy.sin(T*numpy.pi/2/self.duration)**2
 
                 else:
@@ -260,3 +318,8 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
                 T += N/self.rate
                 AA = AA[N:]
                 BB = BB[N:]
+
+    @staticmethod
+    def QtDlgClass():
+        from transcode.pyqtgui.qcrossfade import QCrossFade
+        return QCrossFade

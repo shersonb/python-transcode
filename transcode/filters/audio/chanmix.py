@@ -3,6 +3,7 @@ from .base import BaseAudioFilter
 from ...avarrays import toNDArray, toAFrame, aconvert
 import numpy
 
+
 class ChannelMix(BaseAudioFilter):
     __name__ = "Channel Mixer"
 
@@ -25,10 +26,12 @@ class ChannelMix(BaseAudioFilter):
                 A = toNDArray(frame)
 
                 if self._layout is None and len(frame.layout.channels) == self.channels:
-                    newframe = toAFrame((M*A.transpose()).transpose(), layout=frame.layout.name)
+                    newframe = toAFrame(
+                        (M*A.transpose()).transpose(), layout=frame.layout.name)
 
                 else:
-                    newframe = toAFrame((M*A.transpose()).transpose(), layout=self.layout)
+                    newframe = toAFrame(
+                        (M*A.transpose()).transpose(), layout=self.layout)
 
                 newframe.rate = frame.rate
                 newframe.pts = frame.pts

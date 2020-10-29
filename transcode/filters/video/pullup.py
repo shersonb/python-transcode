@@ -8,8 +8,10 @@ from av.video import VideoFrame
 import sys
 from collections import OrderedDict
 
+
 class Zone(zoned.Zone):
-    getinitkwargs = ["src_start", "src_fps", "pulldown", "pulldownoffset", "yblend", "uvblend"]
+    getinitkwargs = ["src_start", "src_fps", "pulldown",
+                     "pulldownoffset", "yblend", "uvblend"]
 
     def __init__(self, src_start, src_fps=QQ(24000, 1001), pulldown=None, pulldownoffset=0, yblend=False, uvblend=False, prev=None, next=None, framecount=None, parent=None):
         super().__init__(src_start=src_start, prev=prev, next=next, parent=parent)
@@ -75,7 +77,8 @@ class Zone(zoned.Zone):
         if prev_framecount is None:
             return None
         if self.pulldown is not None:
-            q, r = divmod(self.pulldownoffset + prev_framecount - 1, self.old_blksize)
+            q, r = divmod(self.pulldownoffset +
+                          prev_framecount - 1, self.old_blksize)
             return int(q*self.new_blksize + self._pattern_int[r].min() + 1 - self.new_offset)
         else:
             return int(prev_framecount)
@@ -83,14 +86,15 @@ class Zone(zoned.Zone):
     def _translate_fields(self, N):
         if self.pulldown is not None:
             q, r = divmod(self.pulldownoffset + N, self.old_blksize)
-            M = numpy.moveaxis(q*self.new_blksize + numpy.moveaxis(self._pattern_int[r], N.ndim, 0) - self.new_offset, 0, N.ndim)
+            M = numpy.moveaxis(q*self.new_blksize + numpy.moveaxis(
+                self._pattern_int[r], N.ndim, 0) - self.new_offset, 0, N.ndim)
 
             if isinstance(N, numpy.ndarray):
-                NN = self._backtranslate_fields(M[:,0])
-                M[N != NN[:,0], 0] = -1
+                NN = self._backtranslate_fields(M[:, 0])
+                M[N != NN[:, 0], 0] = -1
 
-                NN = self._backtranslate_fields(M[:,1])
-                M[N != NN[:,1], 1] = -1
+                NN = self._backtranslate_fields(M[:, 1])
+                M[N != NN[:, 1], 1] = -1
             else:
                 NN = self._backtranslate_fields(M[0])
                 if N != NN[0]:
@@ -114,20 +118,24 @@ class Zone(zoned.Zone):
         if self.pulldown is not None:
             q, s = divmod(M + self.new_offset, self.new_blksize)
 
-            rlookup = (q*self.old_blksize + self._pattern_int_rlookup[:, :, s] - self.pulldownoffset).clip(min=0, max=self.prev_framecount)
-            same_frame_possible = (rlookup[0,1] >= rlookup[1,0])*(rlookup[1,1] >= rlookup[0,0])
+            rlookup = (q*self.old_blksize + self._pattern_int_rlookup[:, :, s] - self.pulldownoffset).clip(
+                min=0, max=self.prev_framecount)
+            same_frame_possible = (
+                rlookup[0, 1] >= rlookup[1, 0])*(rlookup[1, 1] >= rlookup[0, 0])
             if isinstance(M, numpy.ndarray):
                 N = numpy.zeros(M.shape+(2,), dtype=numpy.int0)
-                N[~same_frame_possible, 0] = rlookup[0,0][~same_frame_possible]
+                N[~same_frame_possible, 0] = rlookup[0, 0][~same_frame_possible]
                 N[~same_frame_possible, 1] = rlookup[1, 0][~same_frame_possible]
-                N[same_frame_possible, 0] = numpy.maximum(rlookup[0,0][same_frame_possible], rlookup[1, 0][same_frame_possible])
-                N[same_frame_possible, 1] = numpy.maximum(rlookup[0,0][same_frame_possible], rlookup[1, 0][same_frame_possible])
+                N[same_frame_possible, 0] = numpy.maximum(
+                    rlookup[0, 0][same_frame_possible], rlookup[1, 0][same_frame_possible])
+                N[same_frame_possible, 1] = numpy.maximum(
+                    rlookup[0, 0][same_frame_possible], rlookup[1, 0][same_frame_possible])
                 return N
             else:
                 if same_frame_possible:
-                    return numpy.array((numpy.maximum(rlookup[0,0], rlookup[1, 0]),)*2)
+                    return numpy.array((numpy.maximum(rlookup[0, 0], rlookup[1, 0]),)*2)
                 else:
-                    return rlookup[:,0]
+                    return rlookup[:, 0]
         else:
             return numpy.moveaxis(numpy.array((M, M)), 0, M.ndim)
 
@@ -151,7 +159,8 @@ class Zone(zoned.Zone):
         if self.pulldown is not None:
             N = numpy.arange(0, self.prev_framecount)
             q, r = divmod(self.pulldownoffset + N, self.old_blksize)
-            indexMapLocal = q*self.new_blksize + self._pattern_int[r, 0] - self.new_offset
+            indexMapLocal = q*self.new_blksize + \
+                self._pattern_int[r, 0] - self.new_offset
             NN = -numpy.ones(indexMapLocal.shape, dtype=numpy.int0)
             filt = (indexMapLocal >= 0)*(indexMapLocal < self.framecount)
             NN[filt] = self.reverseIndexMapLocal[indexMapLocal[filt]]
@@ -168,33 +177,38 @@ class Zone(zoned.Zone):
         if self.pulldown is not None:
             q, s = divmod(M + self.new_offset, self.new_blksize)
 
-            rlookup = (q*self.old_blksize + self._pattern_int_rlookup[:, :, s] - self.pulldownoffset).clip(min=0, max=self.prev_framecount)
-            same_frame_possible = (rlookup[0,1] >= rlookup[1,0])*(rlookup[1,1] >= rlookup[0,0])
+            rlookup = (q*self.old_blksize + self._pattern_int_rlookup[:, :, s] - self.pulldownoffset).clip(
+                min=0, max=self.prev_framecount)
+            same_frame_possible = (
+                rlookup[0, 1] >= rlookup[1, 0])*(rlookup[1, 1] >= rlookup[0, 0])
 
             if isinstance(M, numpy.ndarray):
                 N = numpy.zeros(M.shape, dtype=numpy.int0)
-                N[~same_frame_possible] = rlookup[0,0][~same_frame_possible]
-                N[same_frame_possible] = numpy.maximum(rlookup[0,0][same_frame_possible], rlookup[1, 0][same_frame_possible])
+                N[~same_frame_possible] = rlookup[0, 0][~same_frame_possible]
+                N[same_frame_possible] = numpy.maximum(
+                    rlookup[0, 0][same_frame_possible], rlookup[1, 0][same_frame_possible])
 
             else:
                 if same_frame_possible:
-                    N = numpy.maximum(rlookup[0,0], rlookup[1, 0])
+                    N = numpy.maximum(rlookup[0, 0], rlookup[1, 0])
 
                 else:
-                    N = rlookup[0,0]
+                    N = rlookup[0, 0]
 
         else:
             N = M
 
-        return N # + self.prev_start
+        return N  # + self.prev_start
 
     def getIterStart(self, start):
         if self.pulldown is not None:
             if start < self.dest_start + self.new_blksize_head:
                 return self.prev_start
 
-            q, s = divmod(start - (self.dest_start + self.new_blksize_head), self.new_blksize)
-            A = self.backtranslate_fields(self.dest_start + self.new_blksize_head + q*self.new_blksize)
+            q, s = divmod(start - (self.dest_start +
+                                   self.new_blksize_head), self.new_blksize)
+            A = self.backtranslate_fields(
+                self.dest_start + self.new_blksize_head + q*self.new_blksize)
             return A[A >= 0].min()
 
         else:
@@ -205,7 +219,8 @@ class Zone(zoned.Zone):
             if end > self.dest_end - self.new_blksize_tail:
                 return self.prev_end
 
-            q, s = divmod(end + self.new_blksize - 1 - (self.dest_start + self.new_blksize_head), self.new_blksize)
+            q, s = divmod(end + self.new_blksize - 1 -
+                          (self.dest_start + self.new_blksize_head), self.new_blksize)
             return self.prev_start + self.old_blksize_head + q*self.old_blksize + 1
 
         else:
@@ -270,10 +285,12 @@ class Zone(zoned.Zone):
                 raise ValueError("Telecine pattern must be even-length.")
 
             if "A" not in value[:2]:
-                raise ValueError("Telecine pattern contain 'A' in position 0 or position 1.")
+                raise ValueError(
+                    "Telecine pattern contain 'A' in position 0 or position 1.")
 
             if (self.yblend or self.uvblend) and not value.startswith("AA"):
-                raise ValueError("Telecine pattern must begin with AA if either yblend or uvblend is set.")
+                raise ValueError(
+                    "Telecine pattern must begin with AA if either yblend or uvblend is set.")
 
             if hasattr(self, "_pattern") and value != self._pattern:
                 self.reset_cache_full()
@@ -287,32 +304,37 @@ class Zone(zoned.Zone):
             odds_end = max(self.odds.replace("*", ""))
 
             self._old_blksize = len(value)//2
-            self._new_blksize = min(ord(evens_end) - ord(evens_start) + 1, ord(odds_end) - ord(odds_start) + 1)
+            self._new_blksize = min(
+                ord(evens_end) - ord(evens_start) + 1, ord(odds_end) - ord(odds_start) + 1)
 
             for char in range(ord(evens_start), ord(evens_start) + self.new_blksize):
                 if chr(char) not in self.evens:
-                    raise ValueError("Invalid telecine pattern. Hint: Missing '%s' from evens." % chr(char))
+                    raise ValueError(
+                        "Invalid telecine pattern. Hint: Missing '%s' from evens." % chr(char))
 
             for char in range(ord(odds_start), ord(odds_start) + self.new_blksize):
                 if chr(char) not in self.odds:
-                    raise ValueError("Invalid telecine pattern. Hint: Missing '%s' from odds." % chr(char))
+                    raise ValueError(
+                        "Invalid telecine pattern. Hint: Missing '%s' from odds." % chr(char))
 
             self._pattern = value
-            self._pattern_int = numpy.array(list(map(ord, value))).reshape(len(value)//2, 2) - ord("A")
-            alphabet = list(map(chr, range(ord(min(value)), ord(max(value))+1)))
+            self._pattern_int = numpy.array(
+                list(map(ord, value))).reshape(len(value)//2, 2) - ord("A")
+            alphabet = list(
+                map(chr, range(ord(min(value)), ord(max(value))+1)))
 
             self._pattern_int_rlookup = numpy.array(
                 [
                     (
-                        [self._evens.find(chr((ord(alpha) - ord(self._evens[0])) % self.new_blksize + ord(self._evens[0]))) + \
+                        [self._evens.find(chr((ord(alpha) - ord(self._evens[0])) % self.new_blksize + ord(self._evens[0]))) +
                             (ord(alpha) - ord(self._evens[0]))//self.new_blksize*self.old_blksize for alpha in alphabet],
-                        [self._evens.rfind(chr((ord(alpha) - ord(self._evens[0])) % self.new_blksize + ord(self._evens[0]))) + \
+                        [self._evens.rfind(chr((ord(alpha) - ord(self._evens[0])) % self.new_blksize + ord(self._evens[0]))) +
                             (ord(alpha) - ord(self._evens[0]))//self.new_blksize*self.old_blksize for alpha in alphabet],
                     ),
                     (
-                        [self._odds.find(chr((ord(alpha) - ord(self._odds[0])) % self.new_blksize + ord(self._odds[0]))) + \
+                        [self._odds.find(chr((ord(alpha) - ord(self._odds[0])) % self.new_blksize + ord(self._odds[0]))) +
                             (ord(alpha) - ord(self._odds[0]))//self.new_blksize*self.old_blksize for alpha in alphabet],
-                        [self._odds.rfind(chr((ord(alpha) - ord(self._odds[0])) % self.new_blksize + ord(self._odds[0]))) + \
+                        [self._odds.rfind(chr((ord(alpha) - ord(self._odds[0])) % self.new_blksize + ord(self._odds[0]))) +
                             (ord(alpha) - ord(self._odds[0]))//self.new_blksize*self.old_blksize for alpha in alphabet],
                     )
                 ])
@@ -336,7 +358,7 @@ class Zone(zoned.Zone):
             self.reset_cache_full()
 
         self._pulldownoffset = value
- 
+
     @property
     def src_fps(self):
         return self._src_fps
@@ -432,7 +454,7 @@ class Zone(zoned.Zone):
                     found[re, 0] = True
 
                 elif k - qe*self.old_blksize >= offset:
-                    if find[re, 0] == 1+ k - qe*self.old_blksize:
+                    if find[re, 0] == 1 + k - qe*self.old_blksize:
                         find[re, 0] = k - qe*self.old_blksize
 
                     if rfind[re, 0] == k - qe*self.old_blksize - 1:
@@ -440,13 +462,13 @@ class Zone(zoned.Zone):
 
                 qo, ro = divmod(o - fcf, self.new_blksize)
 
-                if not found[ro, 1] and  k - qo*self.old_blksize >= offset:
+                if not found[ro, 1] and k - qo*self.old_blksize >= offset:
                     find[ro, 1] = k - qo*self.old_blksize
                     rfind[ro, 1] = k - qo*self.old_blksize
                     found[ro, 1] = True
 
-                elif  k - qo*self.old_blksize >= offset:
-                    if find[ro, 1] == 1+ k - qo*self.old_blksize:
+                elif k - qo*self.old_blksize >= offset:
+                    if find[ro, 1] == 1 + k - qo*self.old_blksize:
                         find[ro, 1] = k - qo*self.old_blksize
 
                     if rfind[ro, 1] == k - qo*self.old_blksize - 1:
@@ -466,10 +488,10 @@ class Zone(zoned.Zone):
             else:
                 K = len(bothfound)
 
-            common = (rfind[:,0] >= find[:,1])*(rfind[:,1] >= find[:,0])
+            common = (rfind[:, 0] >= find[:, 1])*(rfind[:, 1] >= find[:, 0])
             results = numpy.zeros(find.shape, dtype=numpy.int0)
-            results[common,0] = find[common].max(axis=1)
-            results[common,1] = find[common].max(axis=1)
+            results[common, 0] = find[common].max(axis=1)
+            results[common, 1] = find[common].max(axis=1)
             results[~common] = find[~common]
             return results[k:K] - offset
 
@@ -480,8 +502,8 @@ class Zone(zoned.Zone):
     def forward_matrix_blended(self):
         if self.pulldown:
             M = numpy.zeros((self.old_blksize + 1, self.new_blksize + 1))
-            M[numpy.arange(self.old_blksize), self._pattern_int[:,0]] += 0.5
-            M[numpy.arange(self.old_blksize), self._pattern_int[:,1]] += 0.5
+            M[numpy.arange(self.old_blksize), self._pattern_int[:, 0]] += 0.5
+            M[numpy.arange(self.old_blksize), self._pattern_int[:, 1]] += 0.5
             M[-1, -1] = 1
             return numpy.matrix(M)
 
@@ -494,7 +516,8 @@ class Zone(zoned.Zone):
             return
 
         M = self.forward_matrix_blended
-        A = numpy.array(((M.transpose()*M)**-1*M.transpose())[:self.new_blksize])
+        A = numpy.array(((M.transpose()*M)**-1*M.transpose())
+                        [:self.new_blksize])
         return A[:self.new_blksize]
 
     @cached
@@ -508,10 +531,11 @@ class Zone(zoned.Zone):
             cutoff_rows = self.pulldownoffset
             cutoff_columns = self._pattern_int[cutoff_rows].min()
             partials = self._pattern_int[cutoff_rows].max() - cutoff_columns
-            M = M[cutoff_rows:cutoff_rows + self.prev_framecount, cutoff_columns:]
+            M = M[cutoff_rows:cutoff_rows +
+                  self.prev_framecount, cutoff_columns:]
 
-            while (M[:,-1] == 0).all():
-                M = M[:,:-1]
+            while (M[:, -1] == 0).all():
+                M = M[:, :-1]
 
             inv = ((M.transpose()*M)**-1*M.transpose())[partials:]
             return numpy.array(inv)[:self.framecount]
@@ -533,7 +557,8 @@ class Zone(zoned.Zone):
         return numpy.array(((M.transpose()*M)**-1*M.transpose())[:self.new_blksize_tail])
 
     def _copyFrames(self, iterable, prev_start):
-        dest_index = itertools.count(prev_start + self.dest_start - self.prev_start)
+        dest_index = itertools.count(
+            prev_start + self.dest_start - self.prev_start)
 
         for k, frame in zip(dest_index, iterable):
             frame.time_base = self.parent.time_base
@@ -591,7 +616,8 @@ class Zone(zoned.Zone):
                 oframe = frames_yuv[o]
 
                 if self.yblend:
-                    Y = numpy.sum([w*frame[:H] for (w, frame) in zip(row, frames_yuv) if w != 0], axis=0)
+                    Y = numpy.sum([w*frame[:H] for (w, frame)
+                                   in zip(row, frames_yuv) if w != 0], axis=0)
                     Y = numpy.uint8(Y.clip(min=0, max=255) + 0.5)
 
                 else:
@@ -600,15 +626,16 @@ class Zone(zoned.Zone):
                     Y = numpy.moveaxis([Ye, Yo], 0, 1).reshape(H, W)
 
                 if self.uvblend:
-                    UV = numpy.sum([w*frame[H:] for (w, frame) in zip(row, frames_yuv) if w != 0], axis=0)
+                    UV = numpy.sum([w*frame[H:] for (w, frame)
+                                    in zip(row, frames_yuv) if w != 0], axis=0)
                     UV = numpy.uint8(UV.clip(min=0, max=255) + 0.5)
 
                 else:
-                    Ue = eframe[H:5*H//4,:W//2]
-                    Uo = oframe[H:5*H//4,W//2:]
+                    Ue = eframe[H:5*H//4, :W//2]
+                    Uo = oframe[H:5*H//4, W//2:]
                     U = numpy.concatenate([Ue, Uo], axis=1)
-                    Ve = eframe[5*H//4:,:W//2]
-                    Vo = oframe[5*H//4:,W//2:]
+                    Ve = eframe[5*H//4:, :W//2]
+                    Vo = oframe[5*H//4:, W//2:]
                     V = numpy.concatenate([Ve, Vo], axis=1)
                     UV = numpy.concatenate([U, V], axis=0)
 
@@ -627,7 +654,8 @@ class Zone(zoned.Zone):
             next_start = self.prev_start + self.old_blksize_head
 
         else:
-            q, r = divmod(prev_start - (self.prev_start + self.old_blksize_head), self.old_blksize)
+            q, r = divmod(prev_start - (self.prev_start +
+                                        self.old_blksize_head), self.old_blksize)
             blk_start = self.prev_start + self.old_blksize_head + q*self.old_blksize
             next_start = min(self.prev_end, blk_start + self.old_blksize)
 
@@ -649,11 +677,12 @@ class Zone(zoned.Zone):
 
         while blk_start < self.prev_end:
             fl = next_start - blk_start + overlap
-            new_frames = [frame for p_i, frame in itertools.islice(Iterator, max(0, fl - len(frames)))]
+            new_frames = [frame for p_i, frame in itertools.islice(
+                Iterator, max(0, fl - len(frames)))]
             frames.extend(new_frames)
             frames_yuv.extend([frame.reformat(format="yuv420p").to_ndarray()
-                            if frame.format.name != "yuv420p" else frame.to_ndarray()
-                            for frame in new_frames])
+                               if frame.format.name != "yuv420p" else frame.to_ndarray()
+                               for frame in new_frames])
 
             if blk_start == self.prev_start:
                 fields = self.reverse_mapping_head
@@ -694,11 +723,13 @@ class Zone(zoned.Zone):
             for frame in self._pullupFrames(iterable, prev_start):
                 yield frame
 
+
 class ZonedPullup(zoned.ZonedFilter):
     zoneclass = Zone
 
     def __init__(self, zones=[], time_base=QQ(1, 1000), start_pts_time=0, prev=None, next=None, notify_input=None, notify_output=None):
-        super().__init__(zones=zones, prev=prev, next=next, notify_input=notify_input, notify_output=notify_output)
+        super().__init__(zones=zones, prev=prev, next=next,
+                         notify_input=notify_input, notify_output=notify_output)
         self.time_base = time_base
         self._start_pts_time = start_pts_time
         self._columns = None
@@ -806,8 +837,8 @@ class ZonedPullup(zoned.ZonedFilter):
 
         while n < len(dt) - 1:
             if abs(dt[n:n+2] - numpy.array([50, 33])).max() <= 1:
-                if fr != QQ(24000,1001):
-                    fr = QQ(24000,1001)
+                if fr != QQ(24000, 1001):
+                    fr = QQ(24000, 1001)
                     if n == 0:
                         self.start.src_fps = fr
                         self.start.pulldown = None
@@ -821,8 +852,8 @@ class ZonedPullup(zoned.ZonedFilter):
                     n += 2
 
             elif abs(dt[n] - 33) <= 1:
-                if fr != QQ(30000,1001):
-                    fr = QQ(30000,1001)
+                if fr != QQ(30000, 1001):
+                    fr = QQ(30000, 1001)
 
                     if n == 0:
                         self.start.src_fps = fr
@@ -872,21 +903,19 @@ class ZonedPullup(zoned.ZonedFilter):
 
     def QtTableColumns(self):
         from transcode.pyqtgui.qpullup import (FrameRateCheckCol, FrameRateCol, TCPatternCol, TCPatternOffsetCol,
-                                      YBlendCheckCol, UVBlendCheckCol, FrameRateECol, FrameRateOCol)
+                                               YBlendCheckCol, UVBlendCheckCol, FrameRateECol, FrameRateOCol)
         return [
-                FrameRateCheckCol(self),
-                FrameRateCol(self),
-                TCPatternCol(self),
-                TCPatternOffsetCol(self),
-                YBlendCheckCol(self),
-                UVBlendCheckCol(self),
-                FrameRateECol(self),
-                FrameRateOCol(self)
-            ]
+            FrameRateCheckCol(self),
+            FrameRateCol(self),
+            TCPatternCol(self),
+            TCPatternOffsetCol(self),
+            YBlendCheckCol(self),
+            UVBlendCheckCol(self),
+            FrameRateECol(self),
+            FrameRateOCol(self)
+        ]
 
-
-    @property
-    def QtDlgClass(self):
+    @staticmethod
+    def QtDlgClass():
         from transcode.pyqtgui.qpullup import QPullup
         return QPullup
-

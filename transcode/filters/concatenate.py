@@ -2,14 +2,14 @@ from .video.base import BaseVideoFilter
 from .audio.base import BaseAudioFilter
 from .base import BaseFilter
 import numpy
-from collections import OrderedDict
 from itertools import count
 from ..util import cached
-from ..avarrays import toNDArray, toAFrame
 from fractions import Fraction as QQ
+
 
 class Concatenate(BaseVideoFilter, BaseAudioFilter):
     __name__ = "Concatenate"
+    allowedtypes = ("audio", "video")
     sourceCount = "+"
 
     def __init__(self, segments=[], time_base=QQ(1, 10**9), **kwargs):
@@ -128,14 +128,6 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
     def cumulativeIndexMap(self):
         return numpy.arange(self.framecount)
 
-    #def QTableColumns(self):
-        #cols = []
-        #for filt in self:
-            #if hasattr(filt, "QTableColumns") and callable(filt.QTableColumns):
-                #cols.extend(filt.QTableColumns())
-        #return cols
-
-
     def iterFrames(self, start=0, end=None, whence=None):
         if self.type == "video" and whence is None:
             whence = "framenumber"
@@ -178,16 +170,19 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
                 elif T <= start*segment.time_base:
                     if end is not None and end*segment.time_base < T + segment.duration:
-                        frames = segment.iterFrames(start - int(T/segment.time_base + 0.5), end - int(T/segment.time_base + 0.5), whence)
+                        frames = segment.iterFrames(
+                            start - int(T/segment.time_base + 0.5), end - int(T/segment.time_base + 0.5), whence)
 
                     else:
-                        frames = segment.iterFrames(start - int(T/segment.time_base + 0.5), None, whence)
+                        frames = segment.iterFrames(
+                            start - int(T/segment.time_base + 0.5), None, whence)
 
                 elif end is None or end*segment.time_base >= T + segment.duration:
                     frames = segment.iterFrames()
 
                 elif end*segment.time_base > T:
-                    frames = segment.iterFrames(0, end - int(T/segment.time_base + 0.5), whence)
+                    frames = segment.iterFrames(
+                        0, end - int(T/segment.time_base + 0.5), whence)
 
                 else:
                     break
@@ -215,7 +210,8 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                     break
 
             for frame in frames:
-                frame.pts = int((T + frame.pts*frame.time_base)/self.time_base + 0.5)
+                frame.pts = int(
+                    (T + frame.pts*frame.time_base)/self.time_base + 0.5)
                 frame.time_base = self.time_base
                 yield frame
 
@@ -242,7 +238,8 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
                 elif N <= start:
                     if end is not None and end < N + segment.framecount:
-                        packets = segment.iterPackets(start - N, end - N, whence)
+                        packets = segment.iterPackets(
+                            start - N, end - N, whence)
 
                     else:
                         packets = segment.iterPackets(start - N, None, whence)
@@ -264,16 +261,19 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
                 elif T <= start*segment.time_base:
                     if end is not None and end*segment.time_base < T + segment.duration:
-                        packets = segment.iterPackets(start - int(T/segment.time_base + 0.5), end - int(T/segment.time_base + 0.5), whence)
+                        packets = segment.iterPackets(
+                            start - int(T/segment.time_base + 0.5), end - int(T/segment.time_base + 0.5), whence)
 
                     else:
-                        packets = segment.iterPackets(start - int(T/segment.time_base + 0.5), None, whence)
+                        packets = segment.iterPackets(
+                            start - int(T/segment.time_base + 0.5), None, whence)
 
                 elif end is None or end*segment.time_base >= T + segment.duration:
                     packets = segment.iterPackets()
 
                 elif end*segment.time_base > T:
-                    packets = segment.iterPackets(None, end - int(T/segment.time_base + 0.5), whence)
+                    packets = segment.iterPackets(
+                        None, end - int(T/segment.time_base + 0.5), whence)
 
                 else:
                     break
@@ -286,7 +286,8 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
                 elif T <= start:
                     if end is not None and end < T + segment.duration:
-                        packets = segment.iterPackets(start - T, end - T, whence)
+                        packets = segment.iterPackets(
+                            start - T, end - T, whence)
 
                     else:
                         packets = segment.iterPackets(start - T, None, whence)
@@ -301,17 +302,18 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                     break
 
             for packet in packets:
-                packet.pts = int((T + packet.pts*packet.time_base)/self.time_base + 0.5)
+                packet.pts = int(
+                    (T + packet.pts*packet.time_base)/self.time_base + 0.5)
 
                 if packet.duration:
-                    packet.duration = int(packet.duration*packet.time_base/self.time_base + 0.5)
+                    packet.duration = int(
+                        packet.duration*packet.time_base/self.time_base + 0.5)
 
                 packet.time_base = self.time_base
                 yield packet
 
             N += segment.framecount
             T += segment.duration
-
 
     def append(self, segment):
         self.segments.append(segment)
@@ -326,7 +328,7 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
         return type(self), (), self.__getstate__(), iter(self.segments)
 
     def __getstate__(self):
-        state = OrderedDict()
+        state = super().__getstate__()
 
         if self.time_base:
             state["time_base"] = self.time_base
@@ -335,3 +337,13 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
     def __setstate__(self, state):
         self.time_base = state.get("time_base", QQ(1, 10**9))
+        super().__setstate__(state)
+
+    @property
+    def source(self):
+        raise AttributeError
+
+    @property
+    def QtDlgClass(self):
+        from transcode.pyqtgui.qconcatenate import QConcatenate
+        return QConcatenate

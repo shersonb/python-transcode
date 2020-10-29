@@ -11,11 +11,13 @@ from itertools import islice
 import parallel
 import threading
 
+
 def histogram(A):
     N = numpy.zeros(1024, dtype=numpy.int0)
     values, frequencies = numpy.unique(A, return_counts=True)
     N[values] = frequencies
     return N
+
 
 def clip(hist, tol=0.00005):
     s = hist.sum()
@@ -33,17 +35,21 @@ def clip(hist, tol=0.00005):
 
     return (nmin, nmax)
 
+
 X = Y = numpy.linspace(-3, 3, 7)
 X, Y = numpy.meshgrid(X, Y)
-K = numpy.exp(-(X**2 + Y**2)/2) 
+K = numpy.exp(-(X**2 + Y**2)/2)
 K /= K.sum()
+
 
 def analyzeFrame(frame, convkernel=K):
     A = frame.to_rgb().to_ndarray()
     KA = fftconvolve(K.reshape(K.shape + (1,)), A, mode="valid")
-    R, G, B = numpy.moveaxis(numpy.int0(4*KA.clip(min=0, max=255) + 0.5), -1, 0)
+    R, G, B = numpy.moveaxis(numpy.int0(
+        4*KA.clip(min=0, max=255) + 0.5), -1, 0)
     Rhist, Ghist, Bhist = map(histogram, (R, G, B))
     return numpy.array((Rhist, Ghist, Bhist))
+
 
 class Zone(zoned.Zone):
     #getinitkwargs = ["src_start", "rmin", "rmax", "gmin", "gmax", "bmin", "bmax", "gamma", "transition", "histogram"]
@@ -236,7 +242,6 @@ class Zone(zoned.Zone):
         if self.next is not None and self.next.transition:
             del self.next._R, self.next._G, self.next._B
 
-
     @property
     def rgamma(self):
         if self.transition:
@@ -253,7 +258,6 @@ class Zone(zoned.Zone):
         if self.next is not None and self.next.transition:
             del self.next._R, self.next._G, self.next._B
 
-
     @property
     def ggamma(self):
         if self.transition:
@@ -269,7 +273,6 @@ class Zone(zoned.Zone):
 
         if self.next is not None and self.next.transition:
             del self.next._R, self.next._G, self.next._B
-
 
     @property
     def bgamma(self):
@@ -305,7 +308,6 @@ class Zone(zoned.Zone):
 
         if self.next is not None and self.next.transition:
             del self.next._R, self.next._G, self.next._B
-
 
     @property
     def _R(self):
@@ -399,19 +401,20 @@ class Zone(zoned.Zone):
                 B = self._B[B]
 
         A = numpy.zeros(R.shape+(3,), dtype=numpy.uint8)
-        A[:,:,0] = R
-        A[:,:,1] = G
-        A[:,:,2] = B
+        A[:, :, 0] = R
+        A[:, :, 1] = G
+        A[:, :, 2] = B
 
         return (A, fmt, pict_type, pts, time_base)
 
     def processFrames(self, frames, prev_start):
-        torgb = lambda frame: frame.to_rgb() if frame.format.name != "rgb24" else frame
-        totuple = lambda frame: (frame.to_ndarray(), frame.format.name, frame.pict_type.name, frame.pts, frame.time_base)
+        def torgb(frame): return frame.to_rgb(
+        ) if frame.format.name != "rgb24" else frame
+        def totuple(frame): return (frame.to_ndarray(), frame.format.name,
+                                    frame.pict_type.name, frame.pts, frame.time_base)
         I = map(torgb, frames)
         I = map(totuple, I)
 
-        #for (A, fmt, pict_type, pts, time_base) in parallel.map(self._processOneFrame, I):
         for (A, fmt, pict_type, pts, time_base) in map(self._processOneFrame, I):
             frame = VideoFrame.from_ndarray(A, fmt)
             frame.pict_type = pict_type
@@ -424,7 +427,8 @@ class Zone(zoned.Zone):
 
     def analyzeFrames(self, iterable=None, notifyprogress=None, notifyfinish=None, notifycancelled=None, cancelled=None):
         if iterable is None:
-            iterable = self.parent.prev.iterFrames(self.prev_start, self.prev_end)
+            iterable = self.parent.prev.iterFrames(
+                self.prev_start, self.prev_end, whence="framenumber")
 
         A = numpy.zeros((3, 1024), dtype=numpy.int0)
         I = parallel.map(analyzeFrame, iterable)
@@ -452,6 +456,7 @@ class Zone(zoned.Zone):
 
         return numpy.array(list(map(clip, A)))*0.25
 
+
 class Levels(zoned.ZonedFilter):
     zoneclass = Zone
 
@@ -474,12 +479,13 @@ class Levels(zoned.ZonedFilter):
                 zone_frames = frames
 
             A = zone.analyzeFrames(zone_frames)
-            print("% 6d-% 6d: %s" % (zone.src_start, zone.src_end, list(map(tuple, A))))
+            print("% 6d-% 6d: %s" %
+                  (zone.src_start, zone.src_end, list(map(tuple, A))))
 
             zone = zone.next
 
-    @property
-    def QtDlgClass(self):
+    @staticmethod
+    def QtDlgClass():
         from transcode.pyqtgui.qlevels import QLevels
         return QLevels
 

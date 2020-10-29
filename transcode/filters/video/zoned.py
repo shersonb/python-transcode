@@ -1,9 +1,11 @@
 from .base import BaseVideoFilter
-from ...util import cached, llist
+from ...util import cached, llist, applyState
 import numpy
 from itertools import chain, islice, count
 import time
 from copy import deepcopy
+from more_itertools import peekable
+
 
 class Zone(object):
     from copy import deepcopy as copy
@@ -37,6 +39,18 @@ class Zone(object):
 
     def __setstate__(self, state):
         return
+
+    def __deepcopy__(self, memo):
+        cls, args, *state = self.__reduce__()
+        args, *state = deepcopy((args, *state), memo)
+        new = cls(*args)
+        applyState(new, *state)
+
+        new.parent = self.parent
+        new.prev = self.prev
+        new._next = self._next
+
+        return new
 
     @cached
     def pts_time_local(self):
@@ -87,7 +101,8 @@ class Zone(object):
     @src_start.setter
     def src_start(self, value):
         if self.parent.start == self and value != 0:
-            raise AttributeError("Refusing to set start offset for first zone.")
+            raise AttributeError(
+                "Refusing to set start offset for first zone.")
 
         if self.parent is not None:
             self.parent.zone_indices.remove(self._src_start)
@@ -118,11 +133,8 @@ class Zone(object):
         if self.next is not None:
             return self.next.src_start
 
-        elif self.parent is None:
-            return
-
-        elif self.parent.end == self and self.parent.src is not None:
-            return self.parent.src.framecount
+        elif self.parent is not None and self.parent.source is not None:
+            return self.parent.source.framecount
 
     @property
     def src_framecount(self):
@@ -154,10 +166,7 @@ class Zone(object):
         if self.next is not None:
             return self.next.prev_start
 
-        elif self.parent is None:
-            return
-
-        elif self.parent.end is self and self.parent.prev:
+        elif self.parent is not None and self.parent.prev is not None:
             return self.parent.prev.framecount
 
     @property
@@ -202,8 +211,8 @@ class Zone(object):
     @cached
     def indexMap(self):
         A = self.indexMapLocal.copy()
-        A[A>=0] += self.dest_start
-        return  A
+        A[A >= 0] += self.dest_start
+        return A
 
     @cached
     def reverseIndexMapLocal(self):
@@ -212,7 +221,7 @@ class Zone(object):
     @cached
     def reverseIndexMap(self):
         A = self.reverseIndexMapLocal.copy()
-        return  A + self.prev_start
+        return A + self.prev_start
 
     @reverseIndexMapLocal.deleter
     def reverseIndexMapLocal(self):
@@ -253,6 +262,25 @@ class Zone(object):
     def getIterStart(self, start):
         return self.reverseIndexMap[start - self.dest_start]
 
+    def iterFrames(self, start=0, end=None):
+        start = max(start, self.dest_start)
+        end = min(end or self.dest_end, self.dest_end)
+
+        if self.parent is not None and self.parent.prev is not None:
+            frames = peekable(self.parent.prev.iterFrames(
+                start, end, whence="framenumber"))
+            prev_start = self.parent.prev.frameIndexFromPts(frames.peek().pts)
+            framecount = self.prev_end - prev_start
+
+            for frame in self.processFrames(islice(frames, int(framecount)), prev_start):
+                if frame.pts < self.pts[start - self.dest_start]:
+                    continue
+
+                if end < self.dest_end and frame.pts < self.pts[end - self.dest_start]:
+                    break
+
+                yield frame
+
     def reset_cache(self):
         del self.prev_start
         del self.pts_time
@@ -268,7 +296,9 @@ class Zone(object):
         del self.reverseIndexMapLocal
 
         if notify_parent and self.parent is not None:
-            self.parent.reset_cache(self.src_start, self.src_end, reset_children=False)
+            self.parent.reset_cache(
+                self.src_start, self.src_end, reset_children=False)
+
 
 class ZonedFilter(llist, BaseVideoFilter):
     zoneclass = None
@@ -276,10 +306,14 @@ class ZonedFilter(llist, BaseVideoFilter):
     def __init__(self, zones=[], prev=None, next=None, notify_input=None, notify_output=None):
         self.zone_indices = set()
         llist.__init__(self, zones)
-        BaseVideoFilter.__init__(self, prev=prev, next=next, notify_input=notify_input, notify_output=notify_output)
+        BaseVideoFilter.__init__(
+            self, prev=prev, next=next, notify_input=notify_input, notify_output=notify_output)
 
         if not zones:
             self.insertZoneAt(0)
+
+    def __hash__(self):
+        return BaseVideoFilter.__hash__(self)
 
     def __reduce__(self):
         return type(self), (), self.__getstate__(), llist.__iter__(self)
@@ -363,7 +397,7 @@ class ZonedFilter(llist, BaseVideoFilter):
 
     def _processFrames(self, iterable):
         firstframe = next(iterable)
-        firstpts = firstframe.pts # *firstframe.time_base + 0.0005
+        firstpts = firstframe.pts  # *firstframe.time_base + 0.0005
         prev_start = self.prev.frameIndexFromPts(firstpts)
         J, start = self.zoneAtPrev(prev_start)
 
@@ -375,9 +409,9 @@ class ZonedFilter(llist, BaseVideoFilter):
             framecount = start.prev_end - prev_start - 1
 
             start_iterable = chain(
-                    [firstframe],
-                    islice(iterable, int(framecount))
-                    )
+                [firstframe],
+                islice(iterable, int(framecount))
+            )
 
         else:
             start_iterable = chain([firstframe], iterable)
@@ -568,10 +602,10 @@ class ZonedFilter(llist, BaseVideoFilter):
     def pts_time(self):
         return numpy.concatenate([zone.pts_time for zone in self])
 
-    #@pts_time.setter
-    #def pts_time(self, value):
-        #if self.next is not None:
-            #self.next.reset_cache()
+    # @pts_time.setter
+    # def pts_time(self, value):
+        # if self.next is not None:
+        # self.next.reset_cache()
 
     @BaseVideoFilter.indexMap.getter
     def indexMap(self):
@@ -581,54 +615,54 @@ class ZonedFilter(llist, BaseVideoFilter):
     def reverseIndexMap(self):
         return numpy.concatenate([zone.reverseIndexMap for zone in self])
 
-    #def _translate_index(self, n):
-        #if isinstance(n, numpy.ndarray):
-            #n_min = n.min()
-            #results = numpy.zeros(n.shape, dtype=numpy.int0)
-            #matched = numpy.zeros(n.shape, dtype=bool)
+    # def _translate_index(self, n):
+        # if isinstance(n, numpy.ndarray):
+        #n_min = n.min()
+        #results = numpy.zeros(n.shape, dtype=numpy.int0)
+        #matched = numpy.zeros(n.shape, dtype=bool)
 
-            #while not matched.all():
-                #n_min = n[~matched].min()
-                #k, zone = self.zoneAtPrev(n_min)
-                #filter = (n >= zone.prev_start)*(n < zone.prev_end)
+        # while not matched.all():
+        #n_min = n[~matched].min()
+        #k, zone = self.zoneAtPrev(n_min)
+        #filter = (n >= zone.prev_start)*(n < zone.prev_end)
 
-                #if not filter.any():
-                    #continue
+        # if not filter.any():
+        # continue
 
-                #results[filter] = zone._translate_index(n[filter])
-                #matched[filter] = True
+        #results[filter] = zone._translate_index(n[filter])
+        #matched[filter] = True
 
-            #return results
-        #elif n < 0:
-            #return -1
-        #elif n == self.prev.framecount:
-            #return self.framecount
-        #else:
-            #k, zone = self.zoneAtPrev(n)
-            #m = zone._translate_index(n)
-            #return m
+        # return results
+        # elif n < 0:
+        # return -1
+        # elif n == self.prev.framecount:
+        # return self.framecount
+        # else:
+        #k, zone = self.zoneAtPrev(n)
+        #m = zone._translate_index(n)
+        # return m
 
-    #def _backtranslate_index(self, m):
-        #if isinstance(m, numpy.ndarray):
-            #m = numpy.array(m)
-            #m_min = m.min()
-            #m_max = m.max()
-            #results = numpy.zeros(m.shape, dtype=numpy.int0)
-            #matched = numpy.zeros(m.shape, dtype=bool)
+    # def _backtranslate_index(self, m):
+        # if isinstance(m, numpy.ndarray):
+        #m = numpy.array(m)
+        #m_min = m.min()
+        #m_max = m.max()
+        #results = numpy.zeros(m.shape, dtype=numpy.int0)
+        #matched = numpy.zeros(m.shape, dtype=bool)
 
-            #while not matched.all():
-                #m_min = m[~matched].min()
-                #k, zone = self.zoneAtNew(m_min)
-                #filter = (m >= zone.dest_start)*(m < zone.dest_end)
-                #if not filter.any():
-                    #continue
-                #results[filter] = zone._backtranslate_index(m[filter])
-                #matched[filter] = True
+        # while not matched.all():
+        #m_min = m[~matched].min()
+        #k, zone = self.zoneAtNew(m_min)
+        #filter = (m >= zone.dest_start)*(m < zone.dest_end)
+        # if not filter.any():
+        # continue
+        #results[filter] = zone._backtranslate_index(m[filter])
+        #matched[filter] = True
 
-            #return results
-        #else:
-            #k, zone = self.zoneAtNew(m)
-            #return zone._backtranslate_index(m)
+        # return results
+        # else:
+        #k, zone = self.zoneAtNew(m)
+        # return zone._backtranslate_index(m)
 
     def removeZoneAt(self, n):
         k, zone = self.zoneAt(n)
@@ -692,30 +726,30 @@ class ZonedFilter(llist, BaseVideoFilter):
     def duration(self):
         return sum([zone.duration for zone in self])
 
-    @property
-    def QtDlgClass(self):
+    @staticmethod
+    def QtDlgClass():
         from transcode.pyqtgui.qzones import ZoneDlg
         return ZoneDlg
 
-    def QtDlg(self, zone=None, offset=None, mode=None, parent=None):
-        if zone is None:
-            zone = self.start
+    # def QtDlg(self, zone=None, offset=None, mode=None, parent=None):
+        # if zone is None:
+        #zone = self.start
 
-        dlg = self.QtDlgClass(zone, parent=parent)
+        #dlg = self.QtDlgClass(zone, parent=parent)
 
-        if mode is None:
-            mode = dlg.modeBox.currentData()
+        # if mode is None:
+        #mode = dlg.modeBox.currentData()
 
-        if offset is None:
-            if mode == 0:
-                offset = zone.src_start
+        # if offset is None:
+        # if mode == 0:
+        #offset = zone.src_start
 
-            elif mode == 1:
-                offset = zone.prev_start
+        # elif mode == 1:
+        #offset = zone.prev_start
 
-            if mode == 2:
-                offset = zone.dest_start
+        # if mode == 2:
+        #offset = zone.dest_start
 
-        index = dlg.modeBox.findData(mode)
-        dlg.modeBox.setCurrentIndex(index)
-        return dlg.exec_()
+        #index = dlg.modeBox.findData(mode)
+        # dlg.modeBox.setCurrentIndex(index)
+        # return dlg.exec_()

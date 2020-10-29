@@ -2,6 +2,7 @@
 from .base import BaseAudioFilter
 from ...avarrays import toNDArray, toAFrame, aconvert
 
+
 class Gain(BaseAudioFilter):
     __name__ = "Amplify"
 

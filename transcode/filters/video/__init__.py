@@ -5,6 +5,7 @@ _path = os.path.split(__file__)[0]
 
 filters = {}
 
+
 def scan():
     filters.clear()
     from transcode.filters.video.base import BaseVideoFilter
@@ -28,6 +29,7 @@ def scan():
 
             if isinstance(_cls, type) and issubclass(_cls, (BaseVideoFilter, ZonedFilter)) and\
                     _cls not in (BaseVideoFilter, ZonedFilter):
-                        filters[f"{_cls.__module__}.{_cls.__name__}"] = _cls
+                filters[f"{_cls.__module__}.{_cls.__name__}"] = _cls
+
 
 scan()

@@ -7,6 +7,7 @@ import itertools
 from av.video import VideoFrame
 import sys
 
+
 class DropFrames(BaseVideoFilter, set):
     def __init__(self, dropframes=[], prev=None, next=None):
         set.__init__(self, dropframes)
@@ -50,7 +51,8 @@ class DropFrames(BaseVideoFilter, set):
 
     @cached
     def framecount(self):
-        dropcount = len(list(filter(lambda d: d < self.prev.framecount, self.prev_dropframes)))
+        dropcount = len(
+            list(filter(lambda d: d < self.prev.framecount, self.prev_dropframes)))
         return self.prev.framecount - dropcount
 
     @cached
@@ -84,7 +86,7 @@ class DropFrames(BaseVideoFilter, set):
         m = numpy.arange(self.framecount)
         results = -numpy.ones(m.shape, dtype=numpy.int0)
         matched = numpy.zeros(m.shape, dtype=bool)
-        
+
         for k, d in enumerate(sorted(self.prev_dropframes)):
             prefilter = m < d - k
             arrayfilter = (~matched)*(prefilter)
@@ -119,10 +121,10 @@ class DropFrames(BaseVideoFilter, set):
         t0 = self.prev.pts_time[0]
         return numpy.concatenate([[t0], t0 + self.pts_duration.cumsum()[:-1]])
 
-
     @cached
     def pts_duration(self):
-        durations = numpy.diff(numpy.concatenate([self.prev.pts_time, [self.prev.duration]]))
+        durations = numpy.diff(numpy.concatenate(
+            [self.prev.pts_time, [self.prev.duration]]))
         filter = numpy.ones(durations.shape, dtype=bool)
         A = numpy.int0([m for m in self.prev_dropframes if m < len(durations)])
         filter[A] = False

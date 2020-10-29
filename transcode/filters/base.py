@@ -1,16 +1,17 @@
-from ..util import cached, search
+from ..util import cached, search, llist
 from ..containers.basereader import Track
-from fractions import Fraction as QQ
 import threading
 import numpy
 from collections import OrderedDict
 from itertools import count
 from copy import deepcopy
 
+
 def notifyIterate(iterator, func):
     for item in iterator:
         func(item)
         yield item
+
 
 class CacheResettingProperty(object):
     def __init__(self, attrname):
@@ -27,6 +28,7 @@ class CacheResettingProperty(object):
         inst.reset_cache()
         setattr(inst, self._attrname, value)
 
+
 class BaseFilter(object):
     """
     Base class for filter objects.
@@ -37,18 +39,56 @@ class BaseFilter(object):
     next = None
     sourceCount = 1
     prev = CacheResettingProperty("prev")
+    allowedtypes = ("audio", "video")
 
     @property
     def __name__(self):
         return self.__class__.__name__
 
-    def __init__(self, prev=None, next=None, parent=None, notify_input=None, notify_output=None):
+    def __init__(self, source=None, prev=None, next=None, parent=None,
+                 name=None, notify_input=None, notify_output=None):
         self.parent = parent
+
+        try:
+            self.source = source
+
+        except AttributeError:
+            pass
+
         self.next = next
         self.prev = prev
+        self.name = name
         self.notify_input = notify_input
         self.notify_output = notify_output
         self.lock = threading.RLock()
+
+    @property
+    def source(self):
+        if isinstance(self.parent, FilterChain):
+            return self.parent.prev
+
+        return self._source
+
+    @source.setter
+    def source(self, value):
+        if isinstance(self.parent, FilterChain):
+            raise ValueError(
+                f"'source' property is read-only for FilterChain members.")
+
+        self._source = value
+        self.reset_cache()
+
+    def isValidSource(self, source):
+        if source.type not in self.allowedtypes:
+            return False
+
+        if self is source:
+            return False
+
+        if isinstance(source, BaseFilter) and self in source.dependencies:
+            return False
+
+        return True
 
     def __reduce__(self):
         return type(self), (), self.__getstate__()
@@ -56,13 +96,31 @@ class BaseFilter(object):
     def __getstate__(self):
         state = OrderedDict()
 
-        if self.prev is not None:
-            state["prev"] = self.prev
+        if self.name is not None:
+            state["name"] = self.name
+
+        try:
+            if self._source is not None:
+                state["source"] = self._source
+
+        except AttributeError:
+            pass
+
+        # if self.prev is not None:
+            #state["prev"] = self.prev
 
         return state
 
     def __setstate__(self, state):
-        self.prev = state.get("prev")
+        if self.parent is None:
+            try:
+                self.source = state.get("source", state.get("prev"))
+
+            except AttributeError:
+                pass
+
+        #self.prev = state.get("prev")
+        self.name = state.get("name")
 
     def __deepcopy__(self, memo):
         reduced = self.__reduce__()
@@ -85,10 +143,10 @@ class BaseFilter(object):
         new = cls(*args)
 
         if state is not None:
-            if "prev" in state:
-                prev = state.pop("prev")
+            if "source" in state:
+                source = state.pop("source")
                 newstate = deepcopy(state, memo)
-                newstate["prev"] = prev
+                newstate["source"] = source
 
             else:
                 newstate = deepcopy(state, memo)
@@ -99,7 +157,8 @@ class BaseFilter(object):
             new.extend(deepcopy(item, memo) for item in items)
 
         if dictitems is not None:
-            new.update(deepcopy((key, value), memo) for (key, value) in dictitems)
+            new.update(deepcopy((key, value), memo)
+                       for (key, value) in dictitems)
 
         return new
 
@@ -111,7 +170,7 @@ class BaseFilter(object):
         if isinstance(self.prev, Track) and self.prev.container is not None:
             return {self.prev, self.prev.container}
 
-        return {self.prev}
+        return set()
 
     def __lt__(self, other):
         if self in other.dependencies:
@@ -166,26 +225,19 @@ class BaseFilter(object):
         if self.prev:
             return self.prev.defaultDuration
 
-    #@property
-    #def prev(self):
-        #return self._prev
-
-    #@prev.setter
-    #def prev(self, value):
-        #self._prev = value
-        #self.reset_cache()
-
     @property
-    def src(self):
-        if isinstance(self.prev, Track):
-            return self.prev
+    def prev(self):
+        return self._prev or self._source
 
-        elif isinstance(self.prev, BaseFilter):
-            return self.prev.src
+    @prev.setter
+    def prev(self, value):
+        self._prev = value
+        self.reset_cache()
 
     @cached
     def duration(self):
-        return self.prev.duration
+        if self.prev is not None:
+            return self.prev.duration
 
     def reset_cache(self, start=0, end=None):
         try:
@@ -222,8 +274,8 @@ class BaseFilter(object):
 
     @cached
     def cumulativeIndexMap(self):
-        if hasattr(self.prev, "cumulativeIndexMap"):
-            n = self.prev.cumulativeIndexMap
+        if hasattr(self._prev, "cumulativeIndexMap"):
+            n = self._prev.cumulativeIndexMap
 
         else:
             n = numpy.arange(self.prev.framecount)
@@ -237,8 +289,10 @@ class BaseFilter(object):
     @cached
     def cumulativeIndexReverseMap(self):
         n = self.reverseIndexMap
-        if hasattr(self.prev, "cumulativeIndexReverseMap"):
-            n = self.prev.cumulativeIndexReverseMap[n]
+
+        if hasattr(self._prev, "cumulativeIndexReverseMap"):
+            n = self._prev.cumulativeIndexReverseMap[n]
+
         return n
 
     @cached
@@ -324,3 +378,240 @@ class BaseFilter(object):
     def _processFrame(self, frame):
         return frame
 
+    @classmethod
+    def hasQtDlg(cls):
+        from PyQt5.QtWidgets import QWidget
+        return hasattr(cls, "QtDlgClass") and \
+            callable(cls.QtDlgClass) and \
+            isinstance(cls.QtDlgClass(), type) and \
+            issubclass(cls.QtDlgClass(), QWidget)
+
+    @classmethod
+    def QtInitialize(cls, parent=None):
+        self = cls(prev=prev)
+        dlg = self.QtDlg(parent)
+        dlg.setNewConfig(True)
+        return dlg
+
+    def QtDlg(self, parent=None):
+        from PyQt5.QtWidgets import QWidget
+        dlg = self.QtDlgClass()(parent)
+        dlg.setFilter(self)
+        return dlg
+
+
+class FilterChain(llist, BaseFilter):
+    from copy import deepcopy as copy
+
+    def __init__(self, filters=[], **kwargs):
+        self._source = None
+        llist.__init__(self, filters.copy())
+        BaseFilter.__init__(self, **kwargs)
+
+    @property
+    def source(self):
+        if isinstance(self.parent, FilterChain):
+            return self.parent.prev
+
+        return self._source
+
+    @source.setter
+    def source(self, value):
+        if isinstance(self.parent, FilterChain):
+            raise ValueError(
+                f"'source' property is read-only for FilterChain members.")
+
+        self._source = value
+
+        if len(self):
+            self.start.reset_cache()
+
+    def isValidSource(self, other):
+        if not super().isValidSource(other):
+            return False
+
+        for item in self:
+            if not item.isValidSource(other):
+                return False
+
+        return True
+
+    def __hash__(self):
+        return BaseFilter.__hash__(self)
+
+    def __deepcopy__(self, memo):
+        """
+        We want to keep the original reference to self.source.
+        """
+        return self.__class__(deepcopy(list(self), memo), source=self.source)
+
+    @property
+    def format(self):
+        if self.end is not None:
+            return self.end.format
+
+        elif self.prev is not None:
+            return self.prev.format
+
+    @property
+    def sar(self):
+        if self.end is not None:
+            return self.end.sar
+
+        elif self.prev is not None:
+            return self.prev.sar
+
+    @property
+    def defaultDuration(self):
+        if self.end is not None:
+            return self.end.defaultDuration
+
+        elif self.prev is not None:
+            return self.prev.defaultDuration
+
+    @property
+    def width(self):
+        if self.end is not None:
+            return self.end.width
+
+        elif self.prev is not None:
+            return self.prev.width
+
+    @property
+    def height(self):
+        if self.end is not None:
+            return self.end.height
+
+        elif self.prev is not None:
+            return self.prev.height
+
+    @property
+    def pts_time(self):
+        if self.end is not None:
+            return self.end.pts_time
+
+        elif self.prev is not None:
+            return self.prev.pts_time
+
+    @property
+    def pts(self):
+        if self.end is not None:
+            return self.end.pts
+
+        elif self.prev is not None:
+            return self.prev.pts
+
+    @property
+    def duration(self):
+        if self.end is not None:
+            return self.end.duration
+
+        elif self.prev is not None:
+            return self.prev.duration
+
+    @property
+    def durations(self):
+        if self.end is not None:
+            return self.end.durations
+
+        elif self.prev is not None:
+            return self.prev.durations
+
+    @property
+    def layout(self):
+        if self.end is not None:
+            return self.end.layout
+
+        if self.prev is not None:
+            return self.prev.layout
+
+    @property
+    def rate(self):
+        if self.end is not None:
+            return self.end.rate
+
+        if self.prev is not None:
+            return self.prev.rate
+
+    @property
+    def framecount(self):
+        if self.end is not None:
+            return self.end.framecount
+
+        elif self.prev is not None:
+            return self.prev.framecount
+
+    @property
+    def time_base(self):
+        if self.end is not None:
+            return self.end.time_base
+
+        elif self.prev is not None:
+            return self.prev.time_base
+
+    @property
+    def indexMap(self):
+        if self.end is not None:
+            return self.end.cumulativeIndexMap
+
+        elif self.prev is not None:
+            return numpy.arange(0, self.prev.framecount, dtype=numpy.int0)
+
+    @property
+    def reverseIndexMap(self):
+        if self.end is not None:
+            return self.end.reverseIndexMap
+
+        elif self.prev is not None:
+            return numpy.arange(0, self.prev.framecount, dtype=numpy.int0)
+
+        return self.end.reverseIndexMap
+
+    def reset_cache(self, start=0, end=None):
+        del self.cumulativeIndexMap
+        del self.cumulativeIndexReverseMap
+        super().reset_cache(start, end)
+
+    def _processFrames(self, iterable, through=None):
+        if isinstance(through, (int, numpy.int0)):
+            through = self[through]
+
+        for filter in self:
+            iterable = filter.processFrames(iterable)
+
+            if filter is through:
+                break
+
+        return iterable
+
+    def processFrames(self, iterable, through=None):
+        if callable(self.notify_input):
+            iterable = notifyIterate(iterable, self.notify_input)
+
+        iterable = self._processFrames(iterable, through)
+
+        if callable(self.notify_output):
+            iterable = notifyIterate(iterable, self.notify_output)
+
+        return iterable
+
+    def iterFrames(self, start=0, end=None, whence="framenumber"):
+        if self.end is not None:
+            return self.end.iterFrames(start, end, whence)
+
+        elif self.prev is not None:
+            return self.prev.iterFrames(start, end, whence)
+
+    @staticmethod
+    def QtDlgClass():
+        from transcode.pyqtgui.qfilterchain import QFilterChain
+        return QFilterChain
+
+    def __getstate__(self):
+        return BaseFilter.__getstate__(self)
+
+    def __setstate__(self, state):
+        BaseFilter.__setstate__(self, state)
+
+    def __reduce__(self):
+        return type(self), (), self.__getstate__(), iter(self)

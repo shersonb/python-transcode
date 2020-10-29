@@ -2,12 +2,13 @@ from .video.base import BaseVideoFilter
 from .audio.base import BaseAudioFilter
 from .base import CacheResettingProperty
 import numpy
-from collections import OrderedDict
 from itertools import count
 from ..util import cached
 from ..avarrays import toNDArray, toAFrame
 
+
 class Slice(BaseVideoFilter, BaseAudioFilter):
+    allowedtypes = ("video", "subtitle", "audio")
     startpts = CacheResettingProperty("startpts")
     endpts = CacheResettingProperty("endpts")
 
@@ -78,43 +79,42 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
 
     @cached
     def indexMap(self):
-        return 
+        return
 
     @cached
     def reverseIndexMap(self):
         return numpy.arange(self.prev_start, self.prev_end, dtype=numpy.int0)
 
-    @property
-    def prev(self):
-        return self._prev
+    # @property
+    # def prev(self):
+        # return self._prev
 
-    @prev.setter
-    def prev(self, value):
-        self._prev = value
+    # @prev.setter
+    # def prev(self, value):
+        #self._prev = value
 
-        if len(self) and self.start is not None:
-            self.start.prev = value
+        # if len(self) and self.start is not None:
+        #self.start.prev = value
 
-    @property
-    def prev(self):
-        return self._prev
+    # @property
+    # def prev(self):
+        # return self._prev
 
-    @prev.setter
-    def prev(self, value):
-        self._prev = value
-        self.reset_cache()
+    # @prev.setter
+    # def prev(self, value):
+        #self._prev = value
+        # self.reset_cache()
 
     @property
     def rate(self):
         return self.prev.rate
 
-    #def QTableColumns(self):
+    # def QTableColumns(self):
         #cols = []
-        #for filt in self:
-            #if hasattr(filt, "QTableColumns") and callable(filt.QTableColumns):
-                #cols.extend(filt.QTableColumns())
-        #return cols
-
+        # for filt in self:
+        # if hasattr(filt, "QTableColumns") and callable(filt.QTableColumns):
+        # cols.extend(filt.QTableColumns())
+        # return cols
 
     def iterFrames(self, start=0, end=None, whence=None):
         if self.type == "video":
@@ -131,13 +131,14 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                 else:
                     end = self.prev_end
 
-
             elif whence == "pts":
                 N = count(self.frameIndexFromPts(start))
-                start = (self.startpts - 0.0005)/self.prev.time_base + max(start, 0)
+                start = (self.startpts - 0.0005) / \
+                    self.prev.time_base + max(start, 0)
 
                 if end is not None and self.endpts is not None:
-                    end = min((self.startpts - 0.0005)/self.prev.time_base + end, (self.endpts - 0.0005)/self.prev.time_base)
+                    end = min((self.startpts - 0.0005)/self.prev.time_base +
+                              end, (self.endpts - 0.0005)/self.prev.time_base)
 
                 elif end is not None:
                     end = (self.startpts - 0.0005)/self.prev.time_base + end
@@ -148,13 +149,13 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                 else:
                     end = None
 
-
             elif whence == "seconds":
                 N = count(self.frameIndexFromPts(start/self.prev.time_base))
                 start = self.startpts - 0.0005 + max(start, 0)
 
                 if end is not None and self.endpts is not None:
-                    end = min(self.startpts - 0.0005 + end, self.endpts - 0.0005)
+                    end = min(self.startpts - 0.0005 +
+                              end, self.endpts - 0.0005)
 
                 elif end is not None:
                     end = self.startpts - 0.0005 + end
@@ -164,7 +165,6 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
 
                 else:
                     end = None
-
 
             I = self.prev.iterFrames(start, end, whence)
             pts = self.pts
@@ -185,7 +185,8 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                 start = self.startpts/self.prev.time_base + max(start, 0)
 
                 if end is not None and self.endpts is not None:
-                    end = min(self.startpts/self.prev.time_base + end, self.endpts/self.prev.time_base)
+                    end = min(self.startpts/self.prev.time_base +
+                              end, self.endpts/self.prev.time_base)
 
                 elif end is not None:
                     end = self.startpts/self.prev.time_base + end
@@ -196,7 +197,8 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                 else:
                     end = self.prev.duration/self.prev.time_base
 
-                I = self.prev.iterFrames(start - 0.001/self.prev.time_base, end, whence)
+                I = self.prev.iterFrames(
+                    start - 0.001/self.prev.time_base, end, whence)
 
             elif whence == "seconds":
                 start = self.startpts + max(start, 0)
@@ -217,12 +219,16 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
 
             for frame in I:
                 if whence == "seconds":
-                    n1 = int(max(numpy.floor((start - frame.pts*frame.time_base)*frame.rate + 0.0001), 0))
-                    n2 = int(max(numpy.floor((frame.pts*frame.time_base + frame.samples/frame.rate - end)*frame.rate + 0.0001), 0))
+                    n1 = int(
+                        max(numpy.floor((start - frame.pts*frame.time_base)*frame.rate + 0.0001), 0))
+                    n2 = int(max(numpy.floor((frame.pts*frame.time_base +
+                                              frame.samples/frame.rate - end)*frame.rate + 0.0001), 0))
 
                 elif whence == "pts":
-                    n1 = int(max(numpy.floor((start*frame.time_base - frame.pts*frame.time_base)*frame.rate + 0.0001), 0))
-                    n2 = int(max(numpy.floor((frame.pts*frame.time_base + frame.samples/frame.rate - end*frame.time_base)*frame.rate + 0.0001), 0))
+                    n1 = int(max(numpy.floor(
+                        (start*frame.time_base - frame.pts*frame.time_base)*frame.rate + 0.0001), 0))
+                    n2 = int(max(numpy.floor((frame.pts*frame.time_base + frame.samples /
+                                              frame.rate - end*frame.time_base)*frame.rate + 0.0001), 0))
 
                 if n1 or n2:
                     pts = frame.pts
@@ -238,10 +244,12 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                     frame.time_base = tb
 
                     if whence == "seconds":
-                        frame.pts = max(pts - int(self.startpts/tb + 0.001), int((start - self.startpts)/tb + 0.001))
+                        frame.pts = max(
+                            pts - int(self.startpts/tb + 0.001), int((start - self.startpts)/tb + 0.001))
 
                     elif whence == "pts":
-                        frame.pts = max(pts - int(self.startpts/tb + 0.001), int(start - self.startpts/tb + 0.001))
+                        frame.pts = max(
+                            pts - int(self.startpts/tb + 0.001), int(start - self.startpts/tb + 0.001))
 
                 else:
                     frame.pts -= int(self.startpts/self.time_base + 0.001)
@@ -253,7 +261,8 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
             packets = self.prev.iterPackets(self.startpts + start, whence)
 
         elif whence == "pts":
-            packets = self.prev.iterPackets(int(self.startpts/self.prev.time_base + 0.5) + start, whence)
+            packets = self.prev.iterPackets(
+                int(self.startpts/self.prev.time_base + 0.5) + start, whence)
 
         for packet in packets:
             if whence == "pts":
@@ -279,7 +288,8 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
             packet.pts -= int(self.startpts/self.time_base + 0.5)
 
             if packet.duration:
-                packet.duration = int(packet.duration*packet.time_base/self.time_base + 0.5)
+                packet.duration = int(
+                    packet.duration*packet.time_base/self.time_base + 0.5)
 
             packet.time_base = self.time_base
 
@@ -291,8 +301,11 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
     def __getstate__(self):
         state = super().__getstate__()
 
-        state["startpts"] = self.startpts
-        state["endpts"] = self.endpts
+        if self.startpts:
+            state["startpts"] = self.startpts
+
+        if self.endpts is not None:
+            state["endpts"] = self.endpts
 
         if self.firstframekey:
             state["firstframekey"] = True
@@ -304,3 +317,8 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
         self.endpts = state.get("endpts")
         self.firstframekey = bool(state.get("firstframekey", False))
         super().__setstate__(state)
+
+    @staticmethod
+    def QtDlgClass():
+        from transcode.pyqtgui.qslice import QSlice
+        return QSlice

@@ -1,12 +1,12 @@
 from ...util import cached, search
 from ..base import BaseFilter, notifyIterate
-from ...containers.basereader import Track
-from fractions import Fraction as QQ
-import threading
 import numpy
 from itertools import count
 
+
 class BaseVideoFilter(BaseFilter):
+    allowedtypes = ("video",)
+
     @property
     def sar(self):
         if self.prev is not None:
@@ -52,23 +52,19 @@ class BaseVideoFilter(BaseFilter):
 
     @property
     def prev(self):
-        return self._prev
+        if self.parent is not None:
+            return self._prev or self.parent._source
+
+        return self._prev or self._source
 
     @prev.setter
     def prev(self, value):
         if value is not None and value.type and value.type != "video":
-            raise ValueError(f"Invalid media source for Video filter: {value.type}")
+            raise ValueError(
+                f"Invalid media source for Video filter: {value.type}")
 
         self._prev = value
         self.reset_cache()
-
-    @property
-    def src(self):
-        if isinstance(self.prev, Track):
-            return self.prev
-
-        elif isinstance(self.prev, BaseVideoFilter):
-            return self.prev.src
 
     def reset_cache(self, start=0, end=None):
         try:

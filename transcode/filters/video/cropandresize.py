@@ -1,6 +1,7 @@
 from . import zoned
 from .base import BaseVideoFilter
 from ...util import cached, numpify
+from ...avarrays import toNDArray, toVFrame
 from itertools import count, islice
 import numpy
 from av.video import VideoFrame
@@ -9,6 +10,7 @@ from collections import OrderedDict
 import sys
 from fractions import Fraction as QQ
 import regex
+
 
 class Crop(BaseVideoFilter):
     """Crop Video."""
@@ -54,45 +56,39 @@ class Crop(BaseVideoFilter):
 
     def _processFrames(self, iterable):
         for frame in iterable:
+            if (self.croptop % 2 or self.cropbottom % 2 or self.cropleft % 2 or self.cropright % 2) \
+                    and frame.format.name != "rgb24":
+                frame = frame.to_rgb()
+
             if frame.format.name == "rgb24":
-                A = frame.to_ndarray()
+                A = toNDArray(frame)
+
                 A = A[
                     self.croptop:-self.cropbottom if self.cropbottom else None,
                     self.cropleft:-self.cropright if self.cropright else None
-                    ].copy(order="C")
+                ]
 
-                newframe = VideoFrame.from_ndarray(A)
+                newframe = toVFrame(A, frame.format.name)
 
             elif frame.format.name == "yuv420p":
-                H = frame.height
-                W = frame.width
-                A = frame.to_ndarray()
-                Y = A[:H]
-                U = A[H:H*5//4].reshape(H//2, W//2)
-                V = A[H*5//4:].reshape(H//2, W//2)
+                Y, U, V = toNDArray(frame)
 
                 Y = Y[
                     self.croptop:-self.cropbottom if self.cropbottom else None,
                     self.cropleft:-self.cropright if self.cropright else None
-                    ]
+                ]
 
                 U = U[
-                    self.croptop//2 if self.croptop else None:-self.cropbottom//2 if self.cropbottom else None,
-                    self.cropleft//2 if self.cropleft else None:-self.cropright//2 if self.cropright else None
-                    ]
+                    self.croptop//2:-self.cropbottom//2 if self.cropbottom else None,
+                    self.cropleft//2:-self.cropright//2 if self.cropright else None
+                ]
 
                 V = V[
-                    self.croptop//2 if self.croptop else None:-self.cropbottom//2 if self.cropbottom else None,
-                    self.cropleft//2 if self.cropleft else None:-self.cropright//2 if self.cropright else None
-                    ]
+                    self.croptop//2:-self.cropbottom//2 if self.cropbottom else None,
+                    self.cropleft//2:-self.cropright//2 if self.cropright else None
+                ]
 
-                newH, newW = Y.shape
-                U = U.reshape(newH//4, newW)
-                V = V.reshape(newH//4, newW)
-
-                A = numpy.concatenate((Y, U, V), axis=0).copy(order="C")
-
-                newframe = VideoFrame.from_ndarray(A, format="yuv420p")
+                newframe = toVFrame((Y, U, V), frame.format.name)
 
             newframe.time_base = frame.time_base
             newframe.pts = frame.pts
@@ -100,28 +96,23 @@ class Crop(BaseVideoFilter):
 
             yield newframe
 
-    @classmethod
-    def QtInitialize(cls, prev, parent=None):
+    @property
+    def QtDlgClass(self):
         from transcode.pyqtgui.qcropandresize import CropDlg
+        return CropDlg
 
-        dlg = CropDlg(0, 0, 0, 0, prev, parent)
+    def _setQtDlgValues(self, dlg):
+        dlg.cropTop.setValue(self.croptop)
+        dlg.cropBottom.setValue(self.cropbottom)
+        dlg.cropLeft.setValue(self.cropleft)
+        dlg.cropRight.setValue(self.cropright)
 
-        if dlg.exec_():
-            return cls(dlg.cropTop.value(), dlg.cropBottom.value(),
-                       dlg.cropLeft.value(), dlg.cropRight.value())
+    def _applyQtDlgValues(self, dlg):
+        self.croptop = dlg.cropTop.value()
+        self.cropbottom = dlg.cropBottom.value()
+        self.cropleft = dlg.cropLeft.value()
+        self.cropright = dlg.cropRight.value()
 
-    def QtDlg(self, parent):
-        from transcode.pyqtgui.qcropandresize import CropDlg
-
-        dlg = CropDlg(self.croptop, self.cropbottom,
-                      self.cropleft, self.cropright, self.prev, parent)
-
-        if dlg.exec_():
-            self.croptop = dlg.cropTop.value()
-            self.cropbottom = dlg.cropBottom.value()
-            self.cropleft = dlg.cropLeft.value()
-            self.cropright = dlg.cropRight.value()
-            return True
 
 class Resize(BaseVideoFilter):
     """Resize video."""
@@ -199,61 +190,11 @@ class Resize(BaseVideoFilter):
             newframe.pict_type = frame.pict_type
             yield newframe
 
-    @classmethod
-    def QtInitialize(cls, prev, parent=None):
+    @staticmethod
+    def QtDlgClass():
         from transcode.pyqtgui.qcropandresize import ResizeDlg
-        dlg = ResizeDlg(parent)
+        return ResizeDlg
 
-        if prev is not None:
-            if prev.width is not None:
-                dlg.width.setValue(prev.width)
-
-            if prev.height is not None:
-                dlg.height.setValue(prev.height)
-
-            if prev.sar is not None:
-                dlg.sar.setText(str(prev.sar))
-
-        val = dlg.exec_()
-
-        if val:
-            sar = dlg.sar.text()
-
-            if regex.match(r"^\d+/\d+$", sar):
-                sar = QQ(sar)
-
-            elif regex.match(r"^\d+$", sar):
-                sar = int(sar)
-
-            else:
-                sar = float(sar)
-
-            return cls(width=dlg.width.value(), height=dlg.height.value(), sar=sar)
-
-    def QtDlg(self, parent):
-        from transcode.pyqtgui.qcropandresize import ResizeDlg
-        dlg = ResizeDlg(parent)
-
-        dlg.width.setValue(self.width)
-        dlg.height.setValue(self.height)
-        dlg.sar.setText(str(self.sar))
-        val = dlg.exec_()
-
-        if val:
-            sar = dlg.sar.text()
-
-            if regex.match(r"^\d+/\d+$", sar):
-                self.sar = QQ(sar)
-
-            elif regex.match(r"^\d+$", sar):
-                self.sar = int(sar)
-
-            else:
-                self.sar = float(sar)
-
-            self.width = dlg.width.value()
-            self.height = dlg.height.value()
-            return True
 
 class CropZone(zoned.Zone):
     def __init__(self, src_start, croptop=0, cropbottom=0, cropleft=0, cropright=0, rowanalysis=None, colanalysis=None,
@@ -291,7 +232,8 @@ class CropZone(zoned.Zone):
 
     def analyzeFrames(self, iterable=None):
         if iterable is None:
-            iterable = self.parent.prev.readFrames(self.prev_start, self.prev_end)
+            iterable = self.parent.prev.readFrames(
+                self.prev_start, self.prev_end)
 
         R = []
         C = []
@@ -329,7 +271,7 @@ class CropZone(zoned.Zone):
 
         for j in range(len(self.rowanalysis) - 1, 0, -1):
             if not S[j].all():
-                cropright = len(self.rowanalysis) - (j + 1) + (j + 1)%2
+                cropright = len(self.rowanalysis) - (j + 1) + (j + 1) % 2
                 break
         else:
             cropright = None
@@ -343,7 +285,7 @@ class CropZone(zoned.Zone):
 
         for j in range(len(self.colanalysis) - 1, 0, -1):
             if not D[j].all():
-                cropbottom = len(self.colanalysis) - (j + 1) + (j + 1)%2
+                cropbottom = len(self.colanalysis) - (j + 1) + (j + 1) % 2
                 break
         else:
             cropbottom = None
@@ -353,50 +295,42 @@ class CropZone(zoned.Zone):
             self.cropbottom = cropbottom
             self.cropleft = cropleft
             self.cropright = cropright
-        #print(self, (croptop, cropbottom, cropleft, cropright))
 
     def processFrames(self, iterable, prev_start):
         for frame in iterable:
-            if frame.format.name == "rgb24":
-                A = frame.to_ndarray()
+            if (self.croptop % 2 or self.cropbottom % 2 or self.cropleft % 2 or self.cropright % 2) \
+                    and frame.format.name != "rgb24":
+                frame = frame.to_rgb()
 
-                B = A[
+            if frame.format.name == "rgb24":
+                A = toNDArray(frame)
+
+                A = A[
                     self.croptop:-self.cropbottom if self.cropbottom else None,
                     self.cropleft:-self.cropright if self.cropright else None
-                    ].copy(order="C")
+                ]
 
-                newframe = VideoFrame.from_ndarray(B)
+                newframe = toVFrame(A, frame.format.name)
 
             elif frame.format.name == "yuv420p":
-                H = frame.height
-                W = frame.width
-                A = frame.to_ndarray()
-                Y = A[:H]
-                U = A[H:H*5//4].reshape(H//2, W//2)
-                V = A[H*5//4:].reshape(H//2, W//2)
+                Y, U, V = toNDArray(frame)
 
                 Y = Y[
                     self.croptop:-self.cropbottom if self.cropbottom else None,
                     self.cropleft:-self.cropright if self.cropright else None
-                    ]
+                ]
 
                 U = U[
-                    self.croptop//2 if self.croptop else None:-self.cropbottom//2 if self.cropbottom else None,
-                    self.cropleft//2 if self.cropleft else None:-self.cropright//2 if self.cropright else None
-                    ]
+                    self.croptop//2:-self.cropbottom//2 if self.cropbottom else None,
+                    self.cropleft//2:-self.cropright//2 if self.cropright else None
+                ]
 
                 V = V[
-                    self.croptop//2 if self.croptop else None:-self.cropbottom//2 if self.cropbottom else None,
-                    self.cropleft//2 if self.cropleft else None:-self.cropright//2 if self.cropright else None
-                    ]
+                    self.croptop//2:-self.cropbottom//2 if self.cropbottom else None,
+                    self.cropleft//2:-self.cropright//2 if self.cropright else None
+                ]
 
-                newH, newW = Y.shape
-                U = U.reshape(newH//4, newW)
-                V = V.reshape(newH//4, newW)
-
-                A = numpy.concatenate((Y, U, V), axis=0).copy(order="C")
-
-                newframe = VideoFrame.from_ndarray(A, format="yuv420p")
+                newframe = toVFrame((Y, U, V), frame.format.name)
 
             newframe.time_base = frame.time_base
             newframe.pts = frame.pts
@@ -404,10 +338,10 @@ class CropZone(zoned.Zone):
 
             yield newframe
 
+
 class CropScenes(zoned.ZonedFilter):
     """Crop video in zones. Resizes to a common size."""
     zoneclass = CropZone
-    #getinitkwargs = ["zones", "width", "height", "sar", "resample", "box"]
 
     def __init__(self, zones=[], width=None, height=None, resample=Image.LANCZOS,
                  box=None, sar=1, **kwargs):
@@ -453,63 +387,10 @@ class CropScenes(zoned.ZonedFilter):
 
         return f"Crop/Resize Scenes ({len(self)} zones, width={self.width}, height={self.height}, sar={self.sar})"
 
-    @classmethod
-    def QtInitialize(cls, prev, parent=None):
-        from transcode.pyqtgui.qcropandresize import ResizeDlg
-        dlg = ResizeDlg(parent)
-
-        if prev is not None:
-            if prev.width is not None:
-                dlg.width.setValue(prev.width)
-
-            if prev.height is not None:
-                dlg.height.setValue(prev.height)
-
-            if prev.sar is not None:
-                dlg.sar.setText(str(prev.sar))
-
-        val = dlg.exec_()
-
-        if val:
-            sar = dlg.sar.text()
-
-            if regex.match(r"^\d+/\d+$", sar):
-                sar = QQ(sar)
-
-            elif regex.match(r"^\d+$", sar):
-                sar = int(sar)
-
-            else:
-                sar = float(sar)
-
-            cnr = cls([], width=dlg.width.value(), height=dlg.height.value(), sar=sar)
-            return cnr
-
-    def QtDlg(self, parent):
-        from transcode.pyqtgui.qcropandresize import ResizeDlg
-
-        dlg = ResizeDlg(parent)
-        dlg.setWindowTitle("Configure Resize")
-        dlg.width.setValue(self.width)
-        dlg.height.setValue(self.height)
-        dlg.sar.setText(str(self.sar))
-        val = dlg.exec_()
-
-        if val:
-            sar = dlg.sar.text()
-
-            if regex.match(r"^\d+/\d+$", sar):
-                self.sar = QQ(sar)
-
-            elif regex.match(r"^\d+$", sar):
-                self.sar = int(sar)
-
-            else:
-                self.sar = float(sar)
-
-            self.width = dlg.width.value()
-            self.height = dlg.height.value()
-            return True
+    @staticmethod
+    def QtDlgClass():
+        from transcode.pyqtgui.qcropandresize import CropZoneDlg
+        return CropZoneDlg
 
     @property
     def sar(self):
@@ -564,4 +445,3 @@ class CropScenes(zoned.ZonedFilter):
     def QtTableColumns(self):
         from transcode.pyqtgui.qcropandresize import CropResizeCol
         return [CropResizeCol(self)]
-

@@ -7,6 +7,7 @@ import itertools
 from av.video import VideoFrame
 import sys
 
+
 class KeyFrames(BaseVideoFilter, set):
     def __init__(self, keyframes=[], prev=None, next=None):
         set.__init__(self, keyframes)
