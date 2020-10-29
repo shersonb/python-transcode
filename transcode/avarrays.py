@@ -63,8 +63,8 @@ def _VFrameToNDArray(frame):
     W = frame.width
 
     if frame.format.name in ('yuv420p', 'yuvj420p'):
-        Y = A[:h]
-        UV = A[h:].reshape(H*W//2)
+        Y = A[:H]
+        UV = A[H:].reshape(H*W//2)
         U = UV[:H*W//4].reshape(H//2, W//2)
         V = UV[H*W//4:].reshape(H//2, W//2)
         return (Y, U, V)
