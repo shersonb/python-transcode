@@ -1,5 +1,6 @@
 import sys
-from PyQt5.QtCore import (Qt, QAbstractItemModel, QModelIndex, QVariant, QMimeData)
+from PyQt5.QtCore import (Qt, QAbstractItemModel,
+                          QModelIndex, QVariant, QMimeData)
 from transcode.util import cached, ChildList
 
 import traceback
@@ -7,6 +8,7 @@ import threading
 
 _cookies = {}
 _cookie_lock = threading.Lock()
+
 
 class ChildNodes(ChildList):
     @staticmethod
@@ -71,10 +73,11 @@ class ChildNodes(ChildList):
         self._delitem(index)
         return super().pop(index)
 
+
 class Node(object):
     def __init__(self, value):
-        self.value = value
         self.parent = None
+        self.value = value
 
     @property
     def value(self):
@@ -84,6 +87,14 @@ class Node(object):
     def value(self, value):
         del self.children
         self._value = value
+
+        if self.parent is not None:
+            self.parent.children._setitem(self.indexInParent, value)
+
+    @property
+    def indexInParent(self):
+        if self.parent is not None:
+            return self.parent.index(self)
 
     def _iterChildren(self):
         return iter(self.value)
@@ -119,27 +130,35 @@ class Node(object):
 
         return s
 
+    def canDropChildren(self, model, index, items, row, action):
+        return False
+
+    def dropChildren(self, model, index, items, row, action):
+        return False
+
+
 class NoChildren(Node):
     def _iterChildren(self):
         raise TypeError
 
+
 class QItemModel(QAbstractItemModel):
     ROLEMAPPING = {
-            Qt.DisplayRole: "display",
-            Qt.ToolTipRole: "tooltip",
-            Qt.DecorationRole: "icon",
-            Qt.SizeHintRole: "sizehint",
-            Qt.EditRole: "editdata",
-            Qt.BackgroundColorRole: "bgcolor",
-            Qt.BackgroundRole: "bgdata",
-            Qt.ForegroundRole: "fgdata",
-            Qt.CheckStateRole: "checkstate",
-            Qt.ItemDataRole: "itemdata",
-            Qt.TextAlignmentRole: "textalign",
-            Qt.FontRole: "font",
-            Qt.UserRole + 1: "contextmenu",
-            Qt.UserRole + 2: "keypress",
-        }
+        Qt.DisplayRole: "display",
+        Qt.ToolTipRole: "tooltip",
+        Qt.DecorationRole: "icon",
+        Qt.SizeHintRole: "sizehint",
+        Qt.EditRole: "editdata",
+        Qt.BackgroundColorRole: "bgcolor",
+        Qt.BackgroundRole: "bgdata",
+        Qt.ForegroundRole: "fgdata",
+        Qt.CheckStateRole: "checkstate",
+        Qt.ItemDataRole: "itemdata",
+        Qt.TextAlignmentRole: "textalign",
+        Qt.FontRole: "font",
+        Qt.UserRole + 1: "contextmenu",
+        Qt.UserRole + 2: "keypress",
+    }
 
     def __init__(self, root, columns, vheader=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -218,20 +237,16 @@ class QItemModel(QAbstractItemModel):
             col_index = index.column()
             col_obj = self.columns[col_index]
 
-            if role in self.ROLEMAPPING.keys() and hasattr(col_obj, "set"+self.ROLEMAPPING[role]):
+            if role in self.ROLEMAPPING.keys() and \
+                    hasattr(col_obj, "set"+self.ROLEMAPPING[role]):
                 role_obj = getattr(col_obj, "set"+self.ROLEMAPPING[role])
 
-                if callable(role_obj):
-                    ret = self._callsafe(role_obj, index, obj, data)
+                if callable(role_obj) and self._callsafe(role_obj, index, obj, data):
                     idx1 = self.index(0, 0, index.parent())
-                    idx2 = self.index(self.rowCount()-1, self.columnCount()-1, index.parent())
+                    idx2 = self.index(self.rowCount()-1,
+                                      self.columnCount()-1, index.parent())
                     self.dataChanged.emit(idx1, idx2)
                     return True
-
-                else:
-                    return False
-
-            return False
 
         return False
 
@@ -260,7 +275,8 @@ class QItemModel(QAbstractItemModel):
     def emitDataChanged(self, parent=QModelIndex()):
         if parent.isValid():
             idx1 = parent.child(0, 0)
-            idx2 = parent.child(self.rowCount(parent) - 1, self.columnCount() - 1)
+            idx2 = parent.child(self.rowCount(parent) -
+                                1, self.columnCount() - 1)
 
         else:
             idx1 = self.index(0, 0)
@@ -269,9 +285,7 @@ class QItemModel(QAbstractItemModel):
         self.dataChanged.emit(idx1, idx2)
 
     def insertRow(self, row_id, row, parent=QModelIndex()):
-        #print(row_id, row.__class__, parent.data(Qt.UserRole).__class__)
         node = self.getNode(parent)
-        #print(node.__class__, node.children.__class__)
         self.beginInsertRows(parent, row_id, row_id)
         node.children.insertValue(row_id, row)
         self.endInsertRows()
@@ -433,7 +447,8 @@ class QItemModel(QAbstractItemModel):
                 cookies.append(cookie)
 
         try:
-            data.setData("application/x-qabstractitemmodeldatalist", ";".join(cookies).encode("utf8"))
+            data.setData("application/x-qabstractitemmodeldatalist",
+                         ";".join(cookies).encode("utf8"))
 
         except:
             pass
@@ -455,6 +470,17 @@ class QItemModel(QAbstractItemModel):
         return self.dropItems(items, action, row, column, parent)
 
     def dropItems(self, items, action, row, column, parent):
+        node = self.getNode(parent)
+        obj = node.value
+        col_index = parent.column()
+        col_obj = self.columns[col_index]
+
+        if row == -1 and hasattr(col_obj, "dropItems") and callable(col_obj.dropItems):
+            return bool(self._callsafe(col_obj.dropItems, self, obj, items, action))
+
+        elif row >= 0 and hasattr(node, "dropChildren") and callable(node.dropChildren):
+            return bool(self._callsafe(node.dropChildren, self, parent, items, row, action))
+
         return False
 
     def dropUrls(self, urls, action, row, column, parent):
@@ -478,6 +504,26 @@ class QItemModel(QAbstractItemModel):
         return False
 
     def canDropItems(self, items, action, row, column, parent):
+        node = self.getNode(parent)
+        obj = node.value
+        col_index = parent.column()
+        col_obj = self.columns[col_index]
+
+        if row == -1:
+            if hasattr(col_obj, "canDropItems"):
+                if callable(col_obj.canDropItems):
+                    return bool(self._callsafe(col_obj.canDropItems, parent, obj, items, action))
+
+                return bool(col_obj.canDropItems)
+
+            return False
+
+        if hasattr(node, "canDropChildren"):
+            if callable(node.canDropChildren):
+                return bool(self._callsafe(node.canDropChildren, self, parent, items, row, action))
+
+            return bool(node.canDropChildren)
+
         return False
 
     def clearCookies(self):
@@ -491,23 +537,24 @@ class QItemModel(QAbstractItemModel):
     def __del__(self):
         self.clearCookies()
 
+
 class QIntegerModel(QAbstractItemModel):
     ROLEMAPPING = {
-            Qt.DisplayRole: "display",
-            Qt.ToolTipRole: "tooltip",
-            Qt.DecorationRole: "icon",
-            Qt.SizeHintRole: "sizehint",
-            Qt.EditRole: "editdata",
-            Qt.BackgroundColorRole: "bgcolor",
-            Qt.BackgroundRole: "bgdata",
-            Qt.ForegroundRole: "fgdata",
-            Qt.CheckStateRole: "checkstate",
-            Qt.ItemDataRole: "itemdata",
-            Qt.TextAlignmentRole: "textalign",
-            Qt.FontRole: "font",
-            Qt.UserRole + 1: "contextmenu",
-            Qt.UserRole + 2: "keypress",
-        }
+        Qt.DisplayRole: "display",
+        Qt.ToolTipRole: "tooltip",
+        Qt.DecorationRole: "icon",
+        Qt.SizeHintRole: "sizehint",
+        Qt.EditRole: "editdata",
+        Qt.BackgroundColorRole: "bgcolor",
+        Qt.BackgroundRole: "bgdata",
+        Qt.ForegroundRole: "fgdata",
+        Qt.CheckStateRole: "checkstate",
+        Qt.ItemDataRole: "itemdata",
+        Qt.TextAlignmentRole: "textalign",
+        Qt.FontRole: "font",
+        Qt.UserRole + 1: "contextmenu",
+        Qt.UserRole + 2: "keypress",
+    }
 
     def __init__(self, rowcount, columns, vheader=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -532,12 +579,12 @@ class QIntegerModel(QAbstractItemModel):
 
     def index(self, row, column, parent=QModelIndex()):
         if parent.isValid():
-            return self.createIndex()
+            return QModelIndex()
 
         return self.createIndex(row, column)
 
     def parent(self, index):
-        return self.createIndex()
+        return QModelIndex()
 
     @staticmethod
     def _callsafe(func, *args, **kwargs):
@@ -574,20 +621,16 @@ class QIntegerModel(QAbstractItemModel):
             col_index = index.column()
             col_obj = self.columns[col_index]
 
-            if role in self.ROLEMAPPING.keys() and hasattr(col_obj, "set"+self.ROLEMAPPING[role]):
+            if role in self.ROLEMAPPING.keys() and \
+                    hasattr(col_obj, "set"+self.ROLEMAPPING[role]):
                 role_obj = getattr(col_obj, "set"+self.ROLEMAPPING[role])
 
-                if callable(role_obj):
-                    ret = self._callsafe(role_obj, index, row_index, data)
+                if callable(role_obj) and self._callsafe(role_obj, index, row_index, data):
                     idx1 = self.index(0, 0, index.parent())
-                    idx2 = self.index(self.rowCount()-1, self.columnCount()-1, index.parent())
+                    idx2 = self.index(self.rowCount()-1,
+                                      self.columnCount()-1, index.parent())
                     self.dataChanged.emit(idx1, idx2)
                     return True
-
-                else:
-                    return False
-
-            return False
 
         return False
 
@@ -616,7 +659,8 @@ class QIntegerModel(QAbstractItemModel):
     def emitDataChanged(self, parent=QModelIndex()):
         if parent.isValid():
             idx1 = parent.child(0, 0)
-            idx2 = parent.child(self.rowCount(parent) - 1, self.columnCount() - 1)
+            idx2 = parent.child(self.rowCount(parent) -
+                                1, self.columnCount() - 1)
 
         else:
             idx1 = self.index(0, 0)
@@ -714,4 +758,3 @@ class QIntegerModel(QAbstractItemModel):
 
     def hasChildren(self, index=QModelIndex()):
         return not index.isValid()
-

@@ -1,12 +1,10 @@
 #!/usr/bin/python
-from PyQt5.QtCore import QDir, Qt, QModelIndex, pyqtSignal, pyqtBoundSignal, QThread, QRect, QObject
-from PyQt5.QtGui import QImage, QPainter, QPalette, QPixmap, QColor, QFont, QBrush, QPen, QIcon, QFontMetrics, QPainterPath
-from PyQt5.QtWidgets import (QAction, QApplication, QFileDialog, QLabel, QFrame,
-        QMainWindow, QMenu, QMessageBox, QGridLayout, QScrollArea, QSizePolicy, QWidget,
-        QSpinBox, QDoubleSpinBox, QCheckBox, QPushButton, QTableWidget, QTableWidgetItem,
-        QAbstractItemView, QHeaderView, QProgressBar, QStatusBar, QTabWidget, QVBoxLayout,
-        QComboBox, QGridLayout, QHBoxLayout, QDialog)
-from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
+from PyQt5.QtCore import Qt, pyqtSignal, QRect
+from PyQt5.QtGui import (QPainter, QPixmap, QColor, QFont, QBrush, QPen, QIcon,
+                         QFontMetrics, QPainterPath)
+from PyQt5.QtWidgets import (QLabel, QMessageBox, QGridLayout, QScrollArea, QWidget,
+                             QCheckBox, QPushButton, QProgressBar, QVBoxLayout,
+                             QGridLayout, QHBoxLayout, QDialog)
 from PyQt5.QtCore import pyqtSlot
 from PIL import Image
 from av.video import VideoFrame
@@ -23,6 +21,7 @@ import traceback
 import io
 
 av.logging.set_level(av.logging.ERROR)
+
 
 class ProgressBar(QProgressBar):
     progressStarted = pyqtSignal(float)
@@ -53,8 +52,10 @@ class ProgressBar(QProgressBar):
     def progressEnd(self):
         self.setHidden(True)
 
+
 class Graph(QWidget):
     dataadded = pyqtSignal(list)
+
     def __init__(self, A, font, pens, *args, **kwargs):
         super(Graph, self).__init__(*args, **kwargs)
         self.A = A
@@ -65,7 +66,8 @@ class Graph(QWidget):
 
     def addPoints(self, points):
         try:
-            self.A = numpy.concatenate((self.A, numpy.moveaxis([points], 0, 1)), axis=1)
+            self.A = numpy.concatenate(
+                (self.A, numpy.moveaxis([points], 0, 1)), axis=1)
 
         except:
             return
@@ -90,7 +92,7 @@ class Graph(QWidget):
         painter.fillRect(QRect(fw, 0, w - fw - 1, h - fh), fill)
 
         if self.A.shape[1]:
-            X, Y = numpy.moveaxis(self.A[:,-w//2:], 2, 0)
+            X, Y = numpy.moveaxis(self.A[:, -w//2:], 2, 0)
             Ymin = min(0, Y.min())
             Ymax = Y.max()
 
@@ -101,12 +103,11 @@ class Graph(QWidget):
                     break
 
             ticks = Ymax/2**k
-            ticks = int(ticks + (-ticks)%1)
+            ticks = int(ticks + (-ticks) % 1)
             Ymax = ticks*2**k
 
             Xmax = X.max()
             Xmin = Xmax - w/2
-
 
             for x in range(int(Xmin + (120 - Xmin) % 120), int(Xmax), 120):
                 if x < 0:
@@ -128,7 +129,7 @@ class Graph(QWidget):
                 painter.setPen(blackpen)
                 sw = metrics.width(str(y))
                 #u = (w - fw)*(x - Xmin)/(Xmax - Xmin) + fw
-                #if u - sw//2 > fw and u + sw//2 < w:
+                # if u - sw//2 > fw and u + sw//2 < w:
                 painter.drawText(fw - sw - 4, v + ascent/3, str(y))
 
             for pen, row in zip(self.pens, self.A):
@@ -138,7 +139,7 @@ class Graph(QWidget):
 
                 painter.setPen(pen)
                 path = QPainterPath()
-                #painter.begin(self)
+                # painter.begin(self)
                 painter.setRenderHint(QPainter.Antialiasing)
                 path.moveTo(U[0], V[0])
 
@@ -149,6 +150,7 @@ class Graph(QWidget):
 
         painter.setPen(blackpen)
         painter.drawRect(QRect(fw, 0, w - fw - 1, h - fh))
+
 
 class TrackStats(QWidget):
     def __init__(self, duration, title="Untitled", framecount=None, time_base=QQ(1/1000), keep=7200, font=QFont("DejaVu Serif", 8), parent=None):
@@ -210,46 +212,56 @@ class TrackStats(QWidget):
         self.packetsreceived += 1
 
         if len(self.timestamps) >= 2 and self.timestamps[-1] - self.timestamps[0] > 0:
-            rate = (len(self.timestamps) - 1)/(self.timestamps[-1] - self.timestamps[0])
+            rate = (len(self.timestamps) - 1) / \
+                (self.timestamps[-1] - self.timestamps[0])
 
         else:
             rate = None
 
         if rate and self.framecount is not None:
-            self.frameCountLabel.setText(f"{self.packetsreceived:,d}/{self.framecount:,d} ({rate:,.2f} fps)")
+            self.frameCountLabel.setText(
+                f"{self.packetsreceived:,d}/{self.framecount:,d} ({rate:,.2f} fps)")
             timeleft = int((self.framecount - self.packetsreceived)/rate)
             m, s = divmod(timeleft, 60)
             h, m = divmod(m, 60)
             d, h = divmod(h, 24)
             eta = time.time() + timeleft
-            etastr = time.strftime("%A, %B %-d, %Y, %-I:%M:%S %p", time.localtime(eta))
+            etastr = time.strftime(
+                "%A, %B %-d, %Y, %-I:%M:%S %p", time.localtime(eta))
 
             if d > 1:
-                self.etaLabel.setText(f"{d:d} days, {h:d}:{m:02d}:{s:02d} ({etastr})")
+                self.etaLabel.setText(
+                    f"{d:d} days, {h:d}:{m:02d}:{s:02d} ({etastr})")
 
             elif d == 1:
-                self.etaLabel.setText(f"1 day, {h:d}:{m:02d}:{s:02d} ({etastr})")
+                self.etaLabel.setText(
+                    f"1 day, {h:d}:{m:02d}:{s:02d} ({etastr})")
 
             else:
                 self.etaLabel.setText(f"{h:d}:{m:02d}:{s:02d} ({etastr})")
 
         elif self.framecount is not None:
-            self.frameCountLabel.setText(f"{self.packetsreceived:,d}/{self.framecount:,d} (— fps)")
+            self.frameCountLabel.setText(
+                f"{self.packetsreceived:,d}/{self.framecount:,d} (— fps)")
 
         elif rate:
-            self.frameCountLabel.setText(f"{self.packetsreceived:,d} ({rate:,.2f} fps)")
+            self.frameCountLabel.setText(
+                f"{self.packetsreceived:,d} ({rate:,.2f} fps)")
 
         else:
             self.frameCountLabel.setText(f"{self.packetsreceived:,d} (— fps)")
 
-        self.lastpts = max(self.lastpts, (packet.pts + packet.duration)*packet.time_base)
+        self.lastpts = max(self.lastpts, (packet.pts +
+                                          packet.duration)*packet.time_base)
 
         if self.lastpts:
-            self.bitrateLabel.setText(f"{float(self.bytesreceived/self.lastpts/125):,.2f} kbps")
+            self.bitrateLabel.setText(
+                f"{float(self.bytesreceived/self.lastpts/125):,.2f} kbps")
 
         m, s = divmod(float(self.lastpts), 60)
         h, m = divmod(int(m), 60)
         self.timestampLabel.setText(f"{h:d}:{m:02d}:{s:06.3f}")
+
 
 class QEncodeDialog(QDialog):
     framesenttoencoder = pyqtSignal(VideoFrame)
@@ -377,22 +389,28 @@ class QEncodeDialog(QDialog):
 
         self.totalinfo = TrackStats(None, title="Total", framecount=sum(track.framecount for track in output_file.tracks),
                                     keep=7200, font=fonttotal, parent=self)
-        self._gridlayout.addWidget(self.totalinfo.titleLabel, len(output_file.tracks) + 2, 0)
-        self._gridlayout.addWidget(self.totalinfo.frameCountLabel, len(output_file.tracks) + 2, 1)
-        self._gridlayout.addWidget(self.totalinfo.timestampLabel, len(output_file.tracks) + 2, 2)
-        self._gridlayout.addWidget(self.totalinfo.sizeLabel, len(output_file.tracks) + 2, 3)
-        self._gridlayout.addWidget(self.totalinfo.bitrateLabel, len(output_file.tracks) + 2, 4)
-
+        self._gridlayout.addWidget(
+            self.totalinfo.titleLabel, len(output_file.tracks) + 2, 0)
+        self._gridlayout.addWidget(
+            self.totalinfo.frameCountLabel, len(output_file.tracks) + 2, 1)
+        self._gridlayout.addWidget(
+            self.totalinfo.timestampLabel, len(output_file.tracks) + 2, 2)
+        self._gridlayout.addWidget(
+            self.totalinfo.sizeLabel, len(output_file.tracks) + 2, 3)
+        self._gridlayout.addWidget(
+            self.totalinfo.bitrateLabel, len(output_file.tracks) + 2, 4)
 
         k = self._layout.count()
-        self.graph = Graph(numpy.zeros((1, 0, 2)), QFont("Dejavu Serif", 6), [QPen(QColor(255, 0, 0), 1)], self)
+        self.graph = Graph(numpy.zeros((1, 0, 2)), QFont(
+            "Dejavu Serif", 6), [QPen(QColor(255, 0, 0), 1)], self)
         self._layout.addWidget(self.graph)
         self._layout.setStretch(k, 2)
         self.graph.setHidden(output_file.vtrack is None)
 
         self.progressBar = ProgressBar(self)
         self._layout.addWidget(self.progressBar)
-        self.progressBar.setMaximum(sum(info.framecount for info in self.trackinfo if info.framecount))
+        self.progressBar.setMaximum(
+            sum(info.framecount for info in self.trackinfo if info.framecount))
         self.progressBar.setHidden(False)
 
         if self.output_file.vtrack is not None:
@@ -402,7 +420,8 @@ class QEncodeDialog(QDialog):
             m, s = divmod(self.output_file.vtrack.duration, 60)
             m = int(m)
             h, m = divmod(m, 60)
-            self._durationLabel = QLabel(f"Duration: {h:d}:{m:02d}:{s:06.3f}", self)
+            self._durationLabel = QLabel(
+                f"Duration: {h:d}:{m:02d}:{s:06.3f}", self)
             self._stats.addWidget(self._durationLabel)
             self._stats.addStretch()
 
@@ -436,7 +455,8 @@ class QEncodeDialog(QDialog):
 
         self.cancelEncodeDlg = QMessageBox(self)
         self.cancelEncodeDlg.setWindowTitle("Cancel Encode?")
-        self.cancelEncodeDlg.setText("Do you wish to cancel the current encode job?")              
+        self.cancelEncodeDlg.setText(
+            "Do you wish to cancel the current encode job?")
         self.cancelEncodeDlg.setStandardButtons(QMessageBox.Yes)
         self.cancelEncodeDlg.addButton(QMessageBox.No)
         self.cancelEncodeDlg.setDefaultButton(QMessageBox.No)
@@ -467,17 +487,20 @@ class QEncodeDialog(QDialog):
 
             if self.vhist is not None and self.vhist.ndim:
                 if len(self.vhist) >= 2:
-                    self.graph.addPoints([(k, self.vhist[-2, k]), (k, self.vhist[-1, k]), (k, pkt.size)])
+                    self.graph.addPoints(
+                        [(k, self.vhist[-2, k]), (k, self.vhist[-1, k]), (k, pkt.size)])
 
                 elif len(self.vhist) == 1:
-                    self.graph.addPoints([(k, self.vhist[-1, k]), (k, pkt.size)])
+                    self.graph.addPoints(
+                        [(k, self.vhist[-1, k]), (k, pkt.size)])
 
             else:
                 self.graph.addPoints([(k, pkt.size)])
 
         self.trackinfo[pkt.track_index].newPacket(pkt)
         self.totalinfo.newPacket(pkt)
-        framesdone = sum(info.packetsreceived for info in self.trackinfo if info.framecount)
+        framesdone = sum(
+            info.packetsreceived for info in self.trackinfo if info.framecount)
         self.progressBar.setValue(framesdone)
 
     @pyqtSlot(numpy.ndarray)
@@ -486,14 +509,15 @@ class QEncodeDialog(QDialog):
 
         if stats.ndim:
             if len(stats) >= 2:
-                pens = [QPen(QColor(160, 160, 255), 1), QPen(QColor(80, 80, 255), 1), QPen(QColor(255, 0, 0), 1)]
+                pens = [QPen(QColor(160, 160, 255), 1), QPen(
+                    QColor(80, 80, 255), 1), QPen(QColor(255, 0, 0), 1)]
 
             elif len(stats) == 1:
-                pens = [QPen(QColor(80, 80, 255), 1), QPen(QColor(255, 0, 0), 1)]
+                pens = [QPen(QColor(80, 80, 255), 1),
+                        QPen(QColor(255, 0, 0), 1)]
 
             self.graph.pens = pens
             self.graph.A = numpy.zeros((1 + min(2, len(stats)), 0, 2))
-        
 
     def startTranscode(self):
         for stats in self.trackinfo:
@@ -503,11 +527,11 @@ class QEncodeDialog(QDialog):
         self.vhist = None
 
         self.encodeThread = self.output_file.createTranscodeThread(pass_=self.pass_, logfile=self.logfile,
-                            encoderoverrides=self.encoderoverrides, notifyvencode=self.framesenttoencoder.emit,
-                            notifymux=self.packetreceived.emit, notifypaused=self.encodepaused.emit,
-                            notifyerror=self.encodeerror.emit, notifyfinish=self.encodefinished.emit,
-                            notifycancelled=self.encodeinterrupted.emit,
-                            notifystats=self.statsloaded.emit, autostart=False)
+                                                                   encoderoverrides=self.encoderoverrides, notifyvencode=self.framesenttoencoder.emit,
+                                                                   notifymux=self.packetreceived.emit, notifypaused=self.encodepaused.emit,
+                                                                   notifyerror=self.encodeerror.emit, notifyfinish=self.encodefinished.emit,
+                                                                   notifycancelled=self.encodeinterrupted.emit,
+                                                                   notifystats=self.statsloaded.emit, autostart=False)
 
         self.encodeThread.start()
         self.pauseBtn.setEnabled(True)
@@ -540,7 +564,8 @@ class QEncodeDialog(QDialog):
         self.cancelBtn.setText("&Close")
         errorDlg = QMessageBox(self)
         errorDlg.setWindowTitle("Encoding Error")
-        errorDlg.setText("The following exception was encountered while encoding \"%s\":\n\n%s" % (self.output_file.title, message))              
+        errorDlg.setText("The following exception was encountered while encoding \"%s\":\n\n%s" % (
+            self.output_file.title, message))
         errorDlg.setStandardButtons(QMessageBox.Ok)
         errorDlg.setDefaultButton(QMessageBox.Ok)
         errorDlg.setIcon(QMessageBox.Critical)
@@ -552,7 +577,7 @@ class QEncodeDialog(QDialog):
         self.pauseBtn.setText("&Resume")
         pausedDlg = QMessageBox(self)
         pausedDlg.setWindowTitle("Encoding Paused")
-        pausedDlg.setText(message)              
+        pausedDlg.setText(message)
         pausedDlg.setStandardButtons(QMessageBox.Ok)
         pausedDlg.setDefaultButton(QMessageBox.Ok)
         pausedDlg.setIcon(QMessageBox.Critical)

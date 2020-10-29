@@ -1,24 +1,16 @@
 #!/usr/bin/python
-#import movie.encoders
-#from movie.encoders import encoders
-#from fractions import Fraction as QQ
-#import codecfactory
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QComboBox, QGridLayout,
+from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QComboBox,
                              QSpinBox, QDoubleSpinBox, QLabel, QPushButton, QCheckBox, QLineEdit,
-                             QScrollArea, QWidget, QTabWidget)
-from PyQt5.QtGui import QRegExpValidator, QFont
-from PyQt5.QtCore import Qt, QRegExp, pyqtSignal, pyqtSlot
-import regex
-import av
+                             QScrollArea, QWidget)
+from PyQt5.QtCore import Qt, pyqtSlot
 from functools import partial
+
 
 class QEncoderConfigDlg(QDialog):
     def __init__(self, encoder, *args, **kwargs):
         super(QEncoderConfigDlg, self).__init__(*args, **kwargs)
 
         self.encoder = encoder
-        #self.config = config
-        #encoderstate = config.getState(encoder)
 
         self.setWindowTitle(f"Configure {self.encoder.codec} settings")
         self.setMinimumWidth(540)
@@ -26,9 +18,6 @@ class QEncoderConfigDlg(QDialog):
         self.bitrateSpinBox = QSpinBox()
         self.bitrateSpinBox.setMinimum(0)
         self.bitrateSpinBox.setMaximum(40000)
-
-        #if isinstance(encoderstate.get("bitrate"), (float, int)):
-            #self.bitrateSpinBox.setValue(encoderstate.get("bitrate"))
 
         if encoder.bitrate is not None:
             self.bitrateSpinBox.setValue(encoder.bitrate)
@@ -110,7 +99,8 @@ class QEncoderConfigDlg(QDialog):
 
         self.codec_options[opt.name] = widget
 
-        optenabled.stateChanged.connect(partial(self.setOptionEnabled, opt.name, widget))
+        optenabled.stateChanged.connect(
+            partial(self.setOptionEnabled, opt.name, widget))
         widget.valueChanged.connect(partial(self.setOption, opt.name))
 
     def addIntOption(self, opt, parent, layout=None):
@@ -149,7 +139,8 @@ class QEncoderConfigDlg(QDialog):
 
                 widget.setEnabled(False)
 
-            widget.currentIndexChanged.connect(partial(self.setOptionFromWidget, opt.name, widget))
+            widget.currentIndexChanged.connect(
+                partial(self.setOptionFromWidget, opt.name, widget))
 
         else:
             widget = QSpinBox(parent)
@@ -164,7 +155,8 @@ class QEncoderConfigDlg(QDialog):
             self.codec_options[opt.name] = widget
             widget.valueChanged.connect(partial(self.setOption, opt.name))
 
-        optenabled.stateChanged.connect(partial(self.setOptionEnabled, opt.name, widget))
+        optenabled.stateChanged.connect(
+            partial(self.setOptionEnabled, opt.name, widget))
 
     def addStrOption(self, opt, parent, layout=None):
         value = getattr(self.encoder, opt.name)
@@ -188,7 +180,8 @@ class QEncoderConfigDlg(QDialog):
         widget.setText(value if value is not None else opt.default)
 
         self.codec_options[opt.name] = widget
-        optenabled.stateChanged.connect(partial(self.setOptionEnabled, opt.name, widget))
+        optenabled.stateChanged.connect(
+            partial(self.setOptionEnabled, opt.name, widget))
         widget.textChanged.connect(partial(self.setOption, opt.name))
 
     def addBoolOption(self, opt, parent, layout=None):
@@ -207,7 +200,8 @@ class QEncoderConfigDlg(QDialog):
             widget.setCheckState(1)
 
         self.codec_options[opt.name] = widget
-        widget.stateChanged.connect(partial(self.setOptionFromWidget, opt.name, widget))
+        widget.stateChanged.connect(
+            partial(self.setOptionFromWidget, opt.name, widget))
 
     @pyqtSlot(str, QWidget, Qt.CheckState)
     def setOptionEnabled(self, option, widget, state):
@@ -225,7 +219,7 @@ class QEncoderConfigDlg(QDialog):
 
             setattr(self.encoder, option, value)
 
-        elif state == 0: # and option in encoderstate:
+        elif state == 0:  # and option in encoderstate:
             #del encoderstate[option]
             setattr(self.encoder, option, None)
 
@@ -284,4 +278,3 @@ class QEncoderConfigDlg(QDialog):
 
         else:
             self.cancelBtn.setText("&Close")
-

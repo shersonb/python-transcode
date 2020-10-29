@@ -1,14 +1,14 @@
-from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex, pyqtSignal, QFileInfo
-from PyQt5.QtGui import QFont, QIcon, QBrush, QPen
-from PyQt5.QtWidgets import (QTreeView, QAbstractItemView, QWidget, QHBoxLayout, QVBoxLayout,
+from PyQt5.QtCore import Qt, QModelIndex, pyqtSignal, QFileInfo
+from PyQt5.QtGui import QFont, QBrush
+from PyQt5.QtWidgets import (QTreeView, QAbstractItemView, QWidget, QVBoxLayout,
                              QMenu, QAction, QMessageBox, QFileIconProvider)
 
-#from .qobjectitemmodel import QObjectItemModel
 from .qitemmodel import QItemModel, Node
 from transcode.containers import writers
 from functools import partial
 
 icons = QFileIconProvider()
+
 
 class OutputFilesModel(QItemModel):
     def dropItems(self, items, action, row, column, parent):
@@ -41,6 +41,7 @@ class OutputFilesModel(QItemModel):
 
     def supportedDropActions(self):
         return Qt.MoveAction
+
 
 class OutputFileCol(object):
     headerdisplay = "File"
@@ -81,7 +82,7 @@ class OutputFileCol(object):
             insertSubMenu.addAction(item)
 
         delete = QAction("Delete selected...",
-                        table, triggered=partial(self.deleteFile, table=table, model=index.model()))
+                         table, triggered=partial(self.deleteFile, table=table, model=index.model()))
 
         if len(table.selectedIndexes()) == 0:
             delete.setDisabled(True)
@@ -90,13 +91,16 @@ class OutputFileCol(object):
         return menu
 
     def deleteFile(self, table, model):
-        selected = {index.data(Qt.UserRole) for index in table.selectedIndexes()}
+        selected = {index.data(Qt.UserRole)
+                    for index in table.selectedIndexes()}
 
         if len(selected) == 1:
-            answer = QMessageBox.question(table, "Confirm delete output file", "Do you wish to delete the selected output file?", QMessageBox.Yes | QMessageBox.No)
+            answer = QMessageBox.question(table, "Confirm delete output file",
+                                          "Do you wish to delete the selected output file?", QMessageBox.Yes | QMessageBox.No)
 
         elif len(selected) > 1:
-            answer = QMessageBox.question(table, "Confirm delete output files", "Do you wish to delete the selected output files?", QMessageBox.Yes | QMessageBox.No)
+            answer = QMessageBox.question(table, "Confirm delete output files",
+                                          "Do you wish to delete the selected output files?", QMessageBox.Yes | QMessageBox.No)
 
         if answer == QMessageBox.Yes:
 
@@ -118,6 +122,7 @@ class OutputFileCol(object):
         output_file = cls(filename, tracks=[])
         model.insertRow(row_id, output_file, QModelIndex())
         table.setCurrentIndex(model.index(row_id, 0, QModelIndex()))
+
 
 class QOutputFileList(QTreeView):
     contentsModified = pyqtSignal()
@@ -143,8 +148,8 @@ class QOutputFileList(QTreeView):
 
         if output_files is not None:
             cols = [
-                    OutputFileCol(output_files),
-                ]
+                OutputFileCol(output_files),
+            ]
 
             self.setModel(OutputFilesModel(Node(output_files), cols))
             self.model().dataChanged.connect(self.contentsModified)
@@ -168,6 +173,7 @@ class QOutputFileList(QTreeView):
 
         if isinstance(menu, QMenu):
             menu.exec_(self.mapToGlobal(event.pos()))
+
 
 class QOutputFiles(QWidget):
     contentsModified = pyqtSignal()

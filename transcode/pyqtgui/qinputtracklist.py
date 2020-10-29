@@ -1,31 +1,21 @@
-from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractTableModel,
-                          QModelIndex, QVariant, QItemSelectionModel, QItemSelection,
-                          pyqtSignal, pyqtSlot, QMimeData, QByteArray, QDataStream,
-                          QIODevice, QSortFilterProxyModel, QFileInfo)
-from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxLayout,
-                             QHBoxLayout, QAbstractItemView, QMessageBox, QPushButton,
-                             QTreeView, QTableView, QHeaderView, QLineEdit, QComboBox,
-                             QFileDialog, QProgressDialog, QCheckBox, QDoubleSpinBox,
-                             QItemDelegate, QComboBox, QCompleter, QFileIconProvider)
-from PyQt5.QtGui import (QFont, QIcon, QDrag, QBrush, QPainter, QStandardItemModel,
-                         QStandardItem, QPen, QCursor)
+from PyQt5.QtCore import (Qt, pyqtSignal, QFileInfo)
+from PyQt5.QtWidgets import (QLabel, QMessageBox, QPushButton,
+                             QTreeView, QProgressDialog, QFileIconProvider)
+from PyQt5.QtGui import (QFont, QIcon, QBrush)
 
-#from .qobjectitemmodel import QObjectItemModel
 from .qitemmodel import QItemModel, Node, ChildNodes
 from transcode.containers.basereader import BaseReader, Track
 import sys
 import traceback
 import threading
-import json
-import regex
 import av
 import os
-from functools import partial
 import types
 import transcode
 
 from .qlangselect import LANGUAGES
 icons = QFileIconProvider()
+
 
 class BaseInputCol(object):
     fontmain = QFont("DejaVu Serif", 8)
@@ -51,6 +41,7 @@ class BaseInputCol(object):
             return self.fontalt
 
         return self.fontmain
+
 
 class FileTrackCol(BaseInputCol):
     headerdisplay = "File/Track"
@@ -117,6 +108,7 @@ class FileTrackCol(BaseInputCol):
         elif isinstance(obj, BaseReader):
             return icons.icon(QFileInfo(obj.inputpathrel))
 
+
 class LanguageCol(BaseInputCol):
     width = 96
     headerdisplay = "Language"
@@ -142,6 +134,7 @@ class LanguageCol(BaseInputCol):
 
     def itemDelegate(self, parent):
         return LanguageDelegate(parent)
+
 
 class InputTypeCol(BaseInputCol):
     width = 128
@@ -182,6 +175,7 @@ class InputTypeCol(BaseInputCol):
                 codec_long = "Unknown"
 
             return f"{codec_long} ({codec})"
+
 
 class InputFmtCol(BaseInputCol):
     width = 192
@@ -224,6 +218,7 @@ class InputFmtCol(BaseInputCol):
 
     tooltip = display
 
+
 class MediaLoad(QProgressDialog):
     progressstarted = pyqtSignal(float)
     progress = pyqtSignal(float)
@@ -258,7 +253,8 @@ class MediaLoad(QProgressDialog):
             self.input_file = transcode.open(self.fileName)
 
             if hasattr(self.input_file, "scan") and callable(self.input_file.scan):
-                self.input_file.scan(self.progressStarted, self.packetRead, self.progressComplete)
+                self.input_file.scan(self.progressStarted,
+                                     self.packetRead, self.progressComplete)
 
             self.progressComplete()
 
@@ -304,11 +300,13 @@ class MediaLoad(QProgressDialog):
     def handleException(self, cls, exc, tb):
         excmsg = QMessageBox(self)
         excmsg.setWindowTitle("Error")
-        excmsg.setText("An exception was encountered\n\n%s" % "".join(traceback.format_exception(cls, exc, tb)))              
+        excmsg.setText("An exception was encountered\n\n%s" %
+                       "".join(traceback.format_exception(cls, exc, tb)))
         excmsg.setStandardButtons(QMessageBox.Ok)
         excmsg.setIcon(QMessageBox.Critical)
         excmsg.exec_()
         self.close()
+
 
 class InputFileModel(QItemModel):
     def dropItems(self, items, action, row, column, parent):
@@ -377,18 +375,22 @@ class InputFileModel(QItemModel):
     def supportedDragActions(self):
         return Qt.MoveAction | Qt.CopyAction
 
+
 class InputFilesNode(Node):
     def _wrapChildren(self, children):
         return InputFilesNodes.fromValues(children, self)
+
 
 class InputFilesNodes(ChildNodes):
     @staticmethod
     def _wrap(value):
         return InputFileNode(value)
 
+
 class InputFileNode(Node):
     def _iterChildren(self):
         return iter(self.value.tracks)
+
 
 class QInputTrackList(QTreeView):
     contentsModified = pyqtSignal()
@@ -406,11 +408,11 @@ class QInputTrackList(QTreeView):
 
         if input_files is not None:
             cols = [
-                    FileTrackCol(input_files),
-                    InputTypeCol(input_files),
-                    InputFmtCol(input_files),
-                    LanguageCol(input_files),
-                ]
+                FileTrackCol(input_files),
+                InputTypeCol(input_files),
+                InputFmtCol(input_files),
+                LanguageCol(input_files),
+            ]
 
             root = InputFilesNode(input_files)
             model = InputFileModel(root, cols)

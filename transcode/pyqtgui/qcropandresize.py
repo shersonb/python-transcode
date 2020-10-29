@@ -1,581 +1,735 @@
 #!/usr/bin/python
 from PIL import Image
-from PyQt5.QtCore import QDir, Qt, QModelIndex, pyqtSignal, pyqtSlot, pyqtBoundSignal, QThread, QRegExp, QRect
-from PyQt5.QtGui import QRegExpValidator, QImage, QPainter, QPalette, QPixmap, QColor, QFont, QBrush, QPen, QStandardItemModel, QIcon
-from PyQt5.QtWidgets import (QMenu, QAction, QLabel, QSpinBox, QDoubleSpinBox, QGridLayout, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QDialog, QSlider, QStyleOptionSlider, QStyle, QLineEdit, QScrollArea, QAbstractItemView)
+from PyQt5.QtCore import Qt, pyqtSlot, QRegExp, QTime
+from PyQt5.QtGui import QRegExpValidator, QPen
+from PyQt5.QtWidgets import (QAction, QLabel, QSpinBox, QGridLayout, QVBoxLayout,
+                             QHBoxLayout, QLineEdit, QScrollArea, QWidget, QComboBox)
 
-import numpy
-from numpy import sqrt
 from functools import partial
 from fractions import Fraction as QQ
-import qtable
 import regex
+from PIL import Image
 
-from transcode.filters.video.cropandresize import CropZone
+from transcode.filters.video.cropandresize import Crop, Resize, CropScenes
 from transcode.filters.video.scenes import Scenes
 from transcode.filters.filterchain import FilterChain
-from .qzones import ZoneDlg, BaseShadowZone
+from .qzones import ZoneDlg
 from .qframetablecolumn import ZoneCol
+from .qimageview import QImageView
+from .qfilterconfig import QFilterConfig
+from .qframeselect import QFrameSelect
 
-def _prepareGrid(self):
-    self.cropTop = QSpinBox(self)
-    self.cropLeft = QSpinBox(self)
-    self.cropRight = QSpinBox(self)
-    self.cropBottom = QSpinBox(self)
 
-    self.cropTop.setSingleStep(2)
-    self.cropTop.setMinimum(0)
-    self.cropTop.valueChanged.connect(self.setCropTop)
-    self.cropTop.setFont(self.sbfont)
-
-    self.cropBottom.setSingleStep(2)
-    self.cropBottom.setMinimum(0)
-    self.cropBottom.valueChanged.connect(self.setCropBottom)
-    self.cropBottom.setFont(self.sbfont)
-
-
-    self.cropLeft.setSingleStep(2)
-    self.cropLeft.setMinimum(0)
-    self.cropLeft.valueChanged.connect(self.setCropLeft)
-    self.cropLeft.setFont(self.sbfont)
-
-    self.cropRight.setSingleStep(2)
-    self.cropRight.setMinimum(0)
-    self.cropRight.valueChanged.connect(self.setCropRight)
-    self.cropRight.setFont(self.sbfont)
-
-    self.scrollArea = QScrollArea(self)
-    self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-    self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-
-    glayout = QGridLayout()
-
-    tlayout = QHBoxLayout()
-    tlayout.addStretch()
-    tlayout.addWidget(self.cropTop)
-    tlayout.addStretch()
-
-    glayout.addLayout(tlayout, 0, 1)
-    glayout.addWidget(self.cropLeft, 1, 0)
-    glayout.addWidget(self.scrollArea, 1, 1)
-    glayout.addWidget(self.cropRight, 1, 2)
-
-    blayout = QHBoxLayout()
-    blayout.addStretch()
-    blayout.addWidget(self.cropBottom)
-    blayout.addStretch()
-
-    glayout.addLayout(blayout, 2, 1)
-    return glayout
-
-class ShadowZone(BaseShadowZone, CropZone):
-    pass
-
-class CropDlg(QDialog):
-    sbfont = QFont("Dejavu Serif", 8)
-    def __init__(self, top, bottom, left, right, prev=None, *args, **kwargs):
-        super(CropDlg, self).__init__(*args, **kwargs)
-        self.setWindowTitle("Configure Crop")
-
-        layout = QVBoxLayout(self)
-        self.setLayout(layout)
-
-        glayout = _prepareGrid(self)
-        layout.addLayout(glayout)
-
-        #self.zoomInBtn = QPushButton(self)
-        #sublayout.addWidget(self.zoomInBtn)
-        #self.zoomInBtn.setIcon(QIcon.fromTheme("zoom-in"))
-        #self.zoomInBtn.clicked.connect(self.zoomIn)
-
-        #self.zoomOutBtn = QPushButton(self)
-        #sublayout.addWidget(self.zoomOutBtn)
-        #self.zoomOutBtn.setIcon(QIcon.fromTheme("zoom-out"))
-        #self.zoomOutBtn.clicked.connect(self.zoomOut)
-
-        #self.zoomOrigBtn = QPushButton(self)
-        #sublayout.addWidget(self.zoomOrigBtn)
-        #self.zoomOrigBtn.setIcon(QIcon.fromTheme("zoom-orig"))
-        #self.zoomOrigBtn.clicked.connect(self.zoomOrig)
-
-        #sublayout.addStretch()
-
-        self.slider = Slider(self)
-        layout.addWidget(self.slider)
-
-        self.slider.setOrientation(Qt.Horizontal)
-        self.slider.valueChanged.connect(self.loadFrame)
-        self.slider.setTickInterval(1)
-
-        ###
-
-        sublayout = QHBoxLayout()
-        layout.addLayout(sublayout)
-
-        sublayout.addStretch()
-
-        self.okayBtn = QPushButton("&OK", self)
-        sublayout.addWidget(self.okayBtn)
-
-        self.closeBtn = QPushButton("&Cancel", self)
-        sublayout.addWidget(self.closeBtn)
-
-        self.okayBtn.setDefault(True)
-        self.okayBtn.clicked.connect(self.applyAndClose)
-        self.closeBtn.clicked.connect(self.close)
-
-        if prev is not None:
-            self.load(prev)
-
-    def _paintHook(self, widget, event, painter):
-        w, h = widget.pixmap().width(), widget.pixmap().height()
-        dar = w/h
-
-        W = widget.width()
-        H = widget.height()
-
-        WW, HH = min([(W, W/dar), (H*dar, H)])
-
-        if WW < W:
-            x0, y0 = ((W - WW)/2, 0)
-
-        else:
-            x0, y0 = (0, (H - HH)/2)
-
-        zoom = WW/w
-
-        if widget.pixmap() is not None:
-            if zoom >= 8:
-                pen = QPen(Qt.gray, 1)
-                painter.setPen(pen)
-
-                for j in range(0, w + 1):
-                    J = j*hzoom
-                    painter.drawLine(x0 + J, y0, x0 + J, y0 + H)
-
-                for j in range(0, h + 1):
-                    J = j*vzoom
-                    painter.drawLine(x0, y0 + J, x0 + W, y0 + J)
-
-        pen = QPen(Qt.red, 1)
-        painter.setPen(pen)
-
-        j = k = int(zoom < 8)
-
-        if self._mode == 1:
-            painter.drawLine(x0 + self.shadow.cropleft*zoom - j, y0, x0 + self.shadow.cropleft*zoom - j, y0 + H)
-            painter.drawLine(x0 + W - self.shadow.cropright*zoom , y0, x0 + W - self.shadow.cropright*zoom , y0 + H)
-            painter.drawLine(x0, y0 + self.shadow.croptop*zoom - k, x0 + W, y0 + self.shadow.croptop*zoom - k)
-            painter.drawLine(x0, y0 + H - self.shadow.cropbottom*zoom, x0 + W, y0 + H - self.shadow.cropbottom*zoom)
-
-    #def zoomIn(self):
-        #zoom = self.imageView.hzoom
-        #newzoom = max(min(zoom*sqrt(2), 16), 0.125)
-        #self.imageView.setZoom(newzoom, newzoom)
-
-    #def zoomOut(self):
-        #zoom = self.imageView.hzoom
-        #newzoom = max(min(zoom/sqrt(2), 16), 0.125)
-        #self.imageView.setZoom(newzoom, newzoom)
-
-    #def zoomOrig(self):
-        #self.imageView.setZoom(1, 1)
-
-    def isModified(self):
-        self.modified = True
-
-    def notModified(self):
-        self.modified = False
-
-    @pyqtSlot(int)
-    def setCropTop(self, croptop):
-        self.imageView.croptop = croptop
-
-        if self.prev is not None:
-            self.cropBottom.setMaximum(self.prev.height - croptop - 2)
-
-        self.imageView.repaint()
-        self.isModified()
-
-    @pyqtSlot(int)
-    def setCropBottom(self, cropbottom):
-        self.imageView.cropbottom = cropbottom
-
-        if self.prev is not None:
-            self.cropTop.setMaximum(self.prev.height - cropbottom - 2)
-
-        self.imageView.repaint()
-        self.isModified()
-
-    @pyqtSlot(int)
-    def setCropLeft(self, cropleft):
-        self.imageView.cropleft = cropleft
-
-        if self.prev is not None:
-            self.cropRight.setMaximum(self.prev.width - cropleft - 2)
-
-        self.imageView.repaint()
-        self.isModified()
-
-    @pyqtSlot(int)
-    def setCropRight(self, cropright):
-        self.imageView.cropright = cropright
-
-        if self.prev is not None:
-            self.cropLeft.setMaximum(self.prev.width - cropright - 2)
-
-        self.imageView.repaint()
-        self.isModified()
-
-    @pyqtSlot(bool)
-    def setCrop(self, modified):
-        self.imageView.setCrop(self.cropTop.value(), self.cropBottom.value(), self.cropLeft.value(), self.cropRight.value())
-
-        if  self.prev is not None:
-            self.cropTop.setMaximum(self.prev.height - self.cropBottom.value() - 2)
-            self.cropBottom.setMaximum(self.prev.height - self.cropTop.value() - 2)
-            self.cropRight.setMaximum(self.prev.width - self.cropLeft.value() - 2)
-            self.cropLeft.setMaximum(self.prev.width - self.cropRight.value() - 2)
-
-        self.imageView.repaint()
-
-        if modified:
-            self.isModified()
-
-    def load(self, prev):
-        self.prev = prev
-
-        aspectratio = self.prev.width/self.prev.height
-
-        w, h = min([(self.prev.width, self.prev.height), (960, int(960/aspectratio)), (int(640*aspectratio), 640)])
-
-        self.slider.setMinimum(0)
-        self.slider.setMaximum(prev.framecount - 1)
-
-        self.loadFrame()
-        self.imageView.repaint()
-        self.setCrop(False)
-        self.notModified()
-        self.cropTop.setFocus()
-
-    @pyqtSlot()
-    def loadFrame(self):
-        n = self.slider.value()
-        frame = next(self.prev.readFrames(n))
-        im = frame.to_image()
-        self.imageView.setFrame(im)
-
-    @pyqtSlot()
-    def show(self):
-        if self.parent() is not None:
-            self.parent().setDisabled(True)
-        QDialog.show(self)
-
-    @pyqtSlot()
-    def applyAndClose(self):
-        self.done(1)
-
-    @pyqtSlot()
-    def close(self):
-        if self.parent() is not None:
-            self.parent().setEnabled(True)
-        QDialog.close(self)
-
-class CropZoneDlg(ZoneDlg):
-    shadowclass = ShadowZone
-    sbfont = QFont("Dejavu Serif", 8)
-
-    def _prepare(self):
-        layout = QVBoxLayout()
-        self.setLayout(layout)
-
-        glayout = _prepareGrid(self)
-        layout.addLayout(glayout)
-        
-        self._prepareImageView(self.scrollArea)
-        self.imageView.setPaintHook(self._paintHook)
-        self.imageView.setSar(1)
-
-        self._prepareStdZoneControls(layout)
-
-        self._prepareDlgButtons(layout)
-
-    def _paintHook(self, widget, event, painter):
-        w, h = widget.pixmap().width(), widget.pixmap().height()
-        dar = w/h
-
-        W = widget.width()
-        H = widget.height()
-
-        WW, HH = min([(W, W/dar), (H*dar, H)])
-
-        if WW < W:
-            x0, y0 = ((W - WW)/2, 0)
-
-        else:
-            x0, y0 = (0, (H - HH)/2)
-
-        zoom = WW/w
-
-        if widget.pixmap() is not None:
-            if zoom >= 8:
-                pen = QPen(Qt.gray, 1)
-                painter.setPen(pen)
-
-                for j in range(0, w + 1):
-                    J = j*hzoom
-                    painter.drawLine(x0 + J, y0, x0 + J, y0 + H)
-
-                for j in range(0, h + 1):
-                    J = j*vzoom
-                    painter.drawLine(x0, y0 + J, x0 + W, y0 + J)
-
-        pen = QPen(Qt.red, 1)
-        painter.setPen(pen)
-
-        j = k = int(zoom < 8)
-
-        if self._mode == 1:
-            painter.drawLine(x0 + self.shadow.cropleft*zoom - j, y0, x0 + self.shadow.cropleft*zoom - j, y0 + H)
-            painter.drawLine(x0 + W - self.shadow.cropright*zoom , y0, x0 + W - self.shadow.cropright*zoom , y0 + H)
-            painter.drawLine(x0, y0 + self.shadow.croptop*zoom - k, x0 + W, y0 + self.shadow.croptop*zoom - k)
-            painter.drawLine(x0, y0 + H - self.shadow.cropbottom*zoom, x0 + W, y0 + H - self.shadow.cropbottom*zoom)
-
-    def zoomIn(self):
-        zoom = self.imageView.hzoom
-        newzoom = max(min(zoom*sqrt(2), 16), 0.125)
-        #print(zoom, newzoom)
-        self.imageView.setZoom(newzoom, newzoom)
-
-    def zoomOut(self):
-        zoom = self.imageView.hzoom
-        newzoom = max(min(zoom/sqrt(2), 16), 0.125)
-        #print(zoom, newzoom)
-        self.imageView.setZoom(newzoom, newzoom)
-
-    def zoomOrig(self):
-        self.imageView.setZoom(1, 1)
-
-        #w, h = min()
-
-    def isModified(self):
-        self.modified = True
-        self.closeBtn.setText("&Cancel")
-        self.okayBtn.setDisabled(False)
-        self.applyBtn.setDisabled(False)
-
-    def notModified(self):
-        self.modified = False
-        self.closeBtn.setText("&Close")
-        self.okayBtn.setDisabled(True)
-        self.applyBtn.setDisabled(True)
-
-    @pyqtSlot(int)
-    def setCropTop(self, croptop):
-        if self.zone is not None and self.zone.parent.prev is not None:
-            self.cropBottom.setMaximum(self.zone.parent.prev.height - croptop - 2)
-
-        self.shadow.croptop = croptop
-
-        if self._mode == 2:
-            self.loadFrame()
-
-        else:
-            self.imageView.repaint()
-
-        self.isModified()
-
-    @pyqtSlot(int)
-    def setCropBottom(self, cropbottom):
-        if self.zone is not None and self.zone.parent.prev is not None:
-            self.cropTop.setMaximum(self.zone.parent.prev.height - cropbottom - 2)
-
-        self.shadow.cropbottom = cropbottom
-
-        if self._mode == 2:
-            self.loadFrame()
-
-        else:
-            self.imageView.repaint()
-
-        self.isModified()
-
-    @pyqtSlot(int)
-    def setCropLeft(self, cropleft):
-        if self.zone is not None and self.zone.parent.prev is not None:
-            self.cropRight.setMaximum(self.zone.parent.prev.width - cropleft - 2)
-
-        self.shadow.cropleft = cropleft
-
-        if self._mode == 2:
-            self.loadFrame()
-
-        else:
-            self.imageView.repaint()
-
-        self.isModified()
-
-    @pyqtSlot(int)
-    def setCropRight(self, cropright):
-        if self.zone is not None and self.zone.parent.prev is not None:
-            self.cropLeft.setMaximum(self.zone.parent.prev.width - cropright - 2)
-
-        self.shadow.cropright = cropright
-
-        if self._mode == 2:
-            self.loadFrame()
-
-        else:
-            self.imageView.repaint()
-
-        self.isModified()
-
-    @pyqtSlot(bool)
-    def setCrop(self, modified):
-        if self.zone is not None and self.zone.parent.prev is not None:
-            self.cropTop.setMaximum(self.zone.parent.prev.height - self.cropBottom.value() - 2)
-            self.cropBottom.setMaximum(self.zone.parent.prev.height - self.cropTop.value() - 2)
-            self.cropRight.setMaximum(self.zone.parent.prev.width - self.cropLeft.value() - 2)
-            self.cropLeft.setMaximum(self.zone.parent.prev.width - self.cropRight.value() - 2)
-
-        self.imageView.repaint()
-
-        if modified:
-            self.isModified()
-
-    def _loadZone(self):
-        zone = self.zone
-
-        self.cropTop.blockSignals(True)
-        if zone.croptop is not None:
-            self.cropTop.setValue(zone.croptop)
-            self.cropBottom.setMaximum(zone.parent.prev.height - zone.croptop - 2)
-
-        else:
-            self.cropTop.setValue(0)
-            self.cropBottom.setMaximum(zone.parent.prev.height - 2)
-
-        self.cropTop.blockSignals(False)
-
-        self.cropBottom.blockSignals(True)
-
-        if zone.cropbottom is not None:
-            self.cropBottom.setValue(zone.cropbottom)
-            self.cropTop.setMaximum(zone.parent.prev.height - zone.cropbottom - 2)
-
-        else:
-            self.cropBottom.setValue(0)
-            self.cropTop.setMaximum(zone.parent.prev.height - 2)
-
-        self.cropBottom.blockSignals(False)
-
-        self.cropLeft.blockSignals(True)
-
-        if zone.cropleft is not None:
-            self.cropRight.setMaximum(zone.parent.prev.width - zone.cropleft - 2)
-            self.cropLeft.setValue(zone.cropleft)
-
-        else:
-            self.cropRight.setMaximum(zone.parent.prev.width - 2)
-            self.cropLeft.setValue(0)
-
-        self.cropLeft.blockSignals(False)
-
-        self.cropRight.blockSignals(True)
-
-        if zone.cropright is not None:
-            self.cropLeft.setMaximum(zone.parent.prev.width - zone.cropright - 2)
-            self.cropRight.setValue(zone.cropright)
-
-        else:
-            self.cropLeft.setMaximum(zone.parent.prev.width - 2)
-            self.cropRight.setValue(0)
-
-        self.cropRight.blockSignals(False)
-
-        aspectratio = zone.parent.prev.width/zone.parent.prev.height
-
-        w, h = min([(zone.parent.prev.width, zone.parent.prev.height), (960, int(960/aspectratio)), (int(640*aspectratio), 640)])
-
-        self.imageView.setFixedSize(w, h)
-        self.cropTop.setFocus()
-
-class ResizeDlg(QDialog):
-    sbfont = QFont("Dejavu Serif", 8)
+class QCrop(QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setWindowTitle("Configure Resize")
-        self.widthLabel = QLabel("Width:")
-        self.width = QSpinBox()
-        self.width.setMinimum(96)
+        layout = QGridLayout()
+        self.setLayout(layout)
+
+        self.cropTop = QSpinBox(self)
+        self.cropLeft = QSpinBox(self)
+        self.cropRight = QSpinBox(self)
+        self.cropBottom = QSpinBox(self)
+
+        self.cropTop.setSingleStep(2)
+        self.cropTop.setMinimum(0)
+        self.cropTop.valueChanged.connect(self.setCropTop)
+
+        self.cropBottom.setSingleStep(2)
+        self.cropBottom.setMinimum(0)
+        self.cropBottom.valueChanged.connect(self.setCropBottom)
+
+        self.cropLeft.setSingleStep(2)
+        self.cropLeft.setMinimum(0)
+        self.cropLeft.valueChanged.connect(self.setCropLeft)
+
+        self.cropRight.setSingleStep(2)
+        self.cropRight.setMinimum(0)
+        self.cropRight.valueChanged.connect(self.setCropRight)
+
+        self.scrollArea = QScrollArea(self)
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+        self.imageView = QImageView(self)
+        self.scrollArea.setWidget(self.imageView)
+        self.imageView.setPaintHook(self._paintHook)
+
+        tlayout = QHBoxLayout()
+        tlayout.addStretch()
+        tlayout.addWidget(self.cropTop)
+        tlayout.addStretch()
+
+        layout.addLayout(tlayout, 0, 1)
+        layout.addWidget(self.cropLeft, 1, 0)
+        layout.addWidget(self.scrollArea, 1, 1)
+        layout.addWidget(self.cropRight, 1, 2)
+
+        blayout = QHBoxLayout()
+        blayout.addStretch()
+        blayout.addWidget(self.cropBottom)
+        blayout.addStretch()
+
+        layout.addLayout(blayout, 2, 1)
+
+        self.setFrameWidth(1920)
+        self.setFrameHeight(720)
+
+    def setFrameWidth(self, width):
+        self._width = width
+        self.cropRight.setMaximum(width - self.cropLeft.value() - 2)
+        self.cropLeft.setMaximum(width - self.cropRight.value() - 2)
+
+    def setFrameHeight(self, height):
+        self._height = height
+        self.cropTop.setMaximum(height - self.cropBottom.value() - 2)
+        self.cropBottom.setMaximum(height - self.cropTop.value() - 2)
+
+    def frameWidth(self):
+        return self._width
+
+    def frameHeight(self):
+        return self._height
+
+    @pyqtSlot(int)
+    def setCropTop(self, croptop):
+        self.cropBottom.setMaximum(self.frameHeight() - croptop - 2)
+        self.imageView.update()
+
+    @pyqtSlot(int)
+    def setCropBottom(self, cropbottom):
+        self.cropTop.setMaximum(self.frameHeight() - cropbottom - 2)
+        self.imageView.update()
+
+    @pyqtSlot(int)
+    def setCropLeft(self, cropleft):
+        self.cropRight.setMaximum(self.frameWidth() - cropleft - 2)
+        self.imageView.update()
+
+    @pyqtSlot(int)
+    def setCropRight(self, cropright):
+        self.cropLeft.setMaximum(self.frameWidth() - cropright - 2)
+        self.imageView.update()
+
+    def setFrame(self, frame):
+        self.setFrameWidth(max(2, frame.width()))
+        self.setFrameHeight(max(2, frame.height()))
+        self.imageView.setFrame(frame)
+        self.imageView.resize(frame.width(), frame.height())
+
+    def _paintHook(self, widget, event, painter):
+        w, h = widget.pixmap().width(), widget.pixmap().height()
+        dar = w/h
+
+        W = widget.width()
+        H = widget.height()
+
+        WW, HH = min([(W, W/dar), (H*dar, H)])
+
+        if WW < W:
+            x0, y0 = ((W - WW)/2, 0)
+
+        else:
+            x0, y0 = (0, (H - HH)/2)
+
+        zoom = WW/w
+
+        if widget.pixmap() is not None:
+            if zoom >= 8:
+                pen = QPen(Qt.gray, 1)
+                painter.setPen(pen)
+
+                for j in range(0, w + 1):
+                    J = j*zoom
+                    painter.drawLine(x0 + J, y0, x0 + J, y0 + H)
+
+                for j in range(0, h + 1):
+                    J = j*zoom
+                    painter.drawLine(x0, y0 + J, x0 + W, y0 + J)
+
+        pen = QPen(Qt.red, 1)
+        painter.setPen(pen)
+
+        j = k = int(zoom < 8)
+
+        painter.drawLine(x0 + self.cropLeft.value()*zoom - j,
+                         y0, x0 + self.cropLeft.value()*zoom - j, y0 + H)
+        painter.drawLine(x0 + W - self.cropRight.value()*zoom,
+                         y0, x0 + W - self.cropRight.value()*zoom, y0 + H)
+        painter.drawLine(x0, y0 + self.cropTop.value()*zoom - k,
+                         x0 + W, y0 + self.cropTop.value()*zoom - k)
+        painter.drawLine(x0, y0 + H - self.cropBottom.value()
+                         * zoom, x0 + W, y0 + H - self.cropBottom.value()*zoom)
+
+
+class QResize(QWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        gridlayout = QGridLayout()
+        self.setLayout(gridlayout)
+
+        widthLabel = QLabel("Width:", self)
+
+        self.width = QSpinBox(self)
+        self.width.setSingleStep(16)
+        self.width.setSpecialValueText("No change")
         self.width.setMaximum(4*1920)
-        self.widthLabel.setFont(self.sbfont)
-        self.width.setFont(self.sbfont)
         self.width.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-        self.heightLabel = QLabel("Height:")
-        self.height = QSpinBox()
-        self.height.setMinimum(64)
+        heightLabel = QLabel("Height:", self)
+
+        self.height = QSpinBox(self)
+        self.height.setSingleStep(16)
+        self.height.setSpecialValueText("No change")
         self.height.setMaximum(4*1080)
-        self.heightLabel.setFont(self.sbfont)
-        self.height.setFont(self.sbfont)
         self.height.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         regex = QRegExp(r"^(\d+(?:\.\d+)?|\.\d+|\d+/\d+)$")
         validator = QRegExpValidator(regex)
 
-        self.sarLabel = QLabel("SAR:")
-        self.sarLabel.setFont(self.sbfont)
+        sarLabel = QLabel("SAR:", self)
 
         self.sar = QLineEdit()
         self.sar.setText("1")
-        self.sar.setFont(self.sbfont)
         self.sar.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.sar.setValidator(validator)
 
-        gridlayout = QGridLayout()
-        gridlayout.addWidget(self.widthLabel, 0, 0)
+        resampleLabel = QLabel("Resampling:", self)
+
+        self.resample = QComboBox(self)
+        self.resample.addItem("Nearest Neighbor", Image.NEAREST)
+        self.resample.addItem("Bilinear", Image.BILINEAR)
+        self.resample.addItem("Bicubic", Image.BICUBIC)
+        self.resample.addItem("Lanczos", Image.LANCZOS)
+
+        gridlayout.addWidget(widthLabel, 0, 0)
         gridlayout.addWidget(self.width, 0, 1)
-        gridlayout.addWidget(self.heightLabel, 1, 0)
+        gridlayout.addWidget(heightLabel, 1, 0)
         gridlayout.addWidget(self.height, 1, 1)
-        gridlayout.addWidget(self.sarLabel, 2, 0)
+        gridlayout.addWidget(sarLabel, 2, 0)
         gridlayout.addWidget(self.sar, 2, 1)
+        gridlayout.addWidget(resampleLabel, 3, 0)
+        gridlayout.addWidget(self.resample, 3, 1)
 
         gridlayout.setRowMinimumHeight(0, 32)
         gridlayout.setRowMinimumHeight(1, 32)
         gridlayout.setRowMinimumHeight(2, 32)
+        gridlayout.setRowMinimumHeight(3, 32)
         gridlayout.setHorizontalSpacing(4)
 
         gridlayout.setColumnMinimumWidth(1, 96)
 
-        self.okayBtn = QPushButton("&OK")
-        self.okayBtn.setDefault(True)
-        self.okayBtn.setFont(self.sbfont)
-        self.okayBtn.clicked.connect(self.applyAndClose)
-        self.closeBtn = QPushButton("&Cancel")
-        self.closeBtn.clicked.connect(self.close)
-        self.closeBtn.setFont(self.sbfont)
+    def setFrameWidth(self, width):
+        self._width = width
+        self.cropRight.setMaximum(width - self.cropLeft.value() - 2)
+        self.cropLeft.setMaximum(width - self.cropRight.value() - 2)
 
-        btnlayout = QHBoxLayout()
-        btnlayout.setSpacing(4)
-        btnlayout.addWidget(self.okayBtn)
-        btnlayout.addWidget(self.closeBtn)
+    def setFrameHeight(self, height):
+        self._height = height
+        self.cropTop.setMaximum(height - self.cropBottom.value() - 2)
+        self.cropBottom.setMaximum(height - self.cropTop.value() - 2)
 
-        layout = QVBoxLayout()
-        layout.setSpacing(4)
+    def frameWidth(self):
+        return self._width
 
-        layout.addLayout(gridlayout)
-        layout.addLayout(btnlayout)
+    def frameHeight(self):
+        return self._height
 
+    @pyqtSlot(int)
+    def setCropTop(self, croptop):
+        self.cropBottom.setMaximum(self.frameHeight() - croptop - 2)
+        self.imageView.update()
+
+    @pyqtSlot(int)
+    def setCropBottom(self, cropbottom):
+        self.cropTop.setMaximum(self.frameHeight() - cropbottom - 2)
+        self.imageView.update()
+
+    @pyqtSlot(int)
+    def setCropLeft(self, cropleft):
+        self.cropRight.setMaximum(self.frameWidth() - cropleft - 2)
+        self.imageView.update()
+
+    @pyqtSlot(int)
+    def setCropRight(self, cropright):
+        self.cropLeft.setMaximum(self.frameWidth() - cropright - 2)
+        self.imageView.update()
+
+    def setFrame(self, frame):
+        self.setFrameWidth(max(2, frame.width()))
+        self.setFrameHeight(max(2, frame.height()))
+        self.imageView.setFrame(frame)
+        self.imageView.resize(frame.width(), frame.height())
+
+    def _paintHook(self, widget, event, painter):
+        w, h = widget.pixmap().width(), widget.pixmap().height()
+        dar = w/h
+
+        W = widget.width()
+        H = widget.height()
+
+        WW, HH = min([(W, W/dar), (H*dar, H)])
+
+        if WW < W:
+            x0, y0 = ((W - WW)/2, 0)
+
+        else:
+            x0, y0 = (0, (H - HH)/2)
+
+        zoom = WW/w
+
+        if widget.pixmap() is not None:
+            if zoom >= 8:
+                pen = QPen(Qt.gray, 1)
+                painter.setPen(pen)
+
+                for j in range(0, w + 1):
+                    J = j*zoom
+                    painter.drawLine(x0 + J, y0, x0 + J, y0 + H)
+
+                for j in range(0, h + 1):
+                    J = j*zoom
+                    painter.drawLine(x0, y0 + J, x0 + W, y0 + J)
+
+        pen = QPen(Qt.red, 1)
+        painter.setPen(pen)
+
+        j = k = int(zoom < 8)
+
+        painter.drawLine(x0 + self.cropLeft.value()*zoom - j,
+                         y0, x0 + self.cropLeft.value()*zoom - j, y0 + H)
+        painter.drawLine(x0 + W - self.cropRight.value()*zoom,
+                         y0, x0 + W - self.cropRight.value()*zoom, y0 + H)
+        painter.drawLine(x0, y0 + self.cropTop.value()*zoom - k,
+                         x0 + W, y0 + self.cropTop.value()*zoom - k)
+        painter.drawLine(x0, y0 + H - self.cropBottom.value()
+                         * zoom, x0 + W, y0 + H - self.cropBottom.value()*zoom)
+
+# class ShadowZone(BaseShadowZone, CropZone):
+    # pass
+
+
+class CropDlg(QFilterConfig):
+    allowedtypes = ("video",)
+
+    def _createControls(self):
+        self.setWindowTitle("Configure Crop")
+
+        layout = QVBoxLayout(self)
         self.setLayout(layout)
 
-        self.setFixedHeight(32 + 2*(32 + 4) + 32)
-        self.setFixedWidth(140)
+        self.sourceWidget = QWidget(self)
+        self.sourceSelection = self.createSourceControl(self.sourceWidget)
+        self.sourceSelection.currentDataChanged.connect(self.setFilterSource)
 
-    def applyAndClose(self):
-        self.done(1)
-        self.close()
+        srclayout = QHBoxLayout()
+        srclayout.addWidget(QLabel("Source: ", self.sourceWidget))
+        srclayout.addWidget(self.sourceSelection)
+
+        self.sourceWidget.setLayout(srclayout)
+        layout.addWidget(self.sourceWidget)
+
+        self.cropWidget = QCrop(self)
+        self.cropWidget.cropRight.valueChanged.connect(self.setCropRight)
+        self.cropWidget.cropLeft.valueChanged.connect(self.setCropLeft)
+        self.cropWidget.cropTop.valueChanged.connect(self.setCropTop)
+        self.cropWidget.cropBottom.valueChanged.connect(self.setCropBottom)
+
+        self.slider = QFrameSelect(self)
+        self.slider.frameSelectionChanged.connect(self.loadFrame)
+
+        layout.addWidget(self.cropWidget)
+        layout.addWidget(self.slider)
+
+        self._prepareDlgButtons()
+
+    @pyqtSlot(int, QTime)
+    def loadFrame(self, n, t):
+        if self.shadow.prev is not None:
+            frame = next(self.shadow.prev.iterFrames(n, whence="framenumber"))
+            im = frame.to_image()
+            pixmap = im.toqpixmap()
+            self.cropWidget.setFrame(pixmap)
+            self.cropWidget.resize(pixmap.size())
+
+    def createNewFilterInstance(self):
+        return Crop()
+
+    def _prevChanged(self, source):
+        self._resetControlMaximums()
+        self.slider.setPtsTimeArray(source.pts_time)
+        self.loadFrame(self.slider.slider.value(),
+                       self.slider.currentTime.time())
+
+    def _resetControlMaximums(self):
+        if self.shadow.prev is not None:
+            self.cropWidget.cropTop.setMaximum(
+                self.shadow.prev.height - self.shadow.cropbottom - 2)
+            self.cropWidget.cropBottom.setMaximum(
+                self.shadow.prev.height - self.shadow.croptop - 2)
+            self.cropWidget.cropRight.setMaximum(
+                self.shadow.prev.width - self.shadow.cropleft - 2)
+            self.cropWidget.cropLeft.setMaximum(
+                self.shadow.prev.width - self.shadow.cropright - 2)
+
+    def _resetControls(self):
+        self.cropWidget.cropTop.blockSignals(True)
+        self.cropWidget.cropTop.setValue(self.shadow.croptop)
+        self.cropWidget.cropTop.blockSignals(False)
+
+        self.cropWidget.cropBottom.blockSignals(True)
+        self.cropWidget.cropBottom.setValue(self.shadow.cropbottom)
+        self.cropWidget.cropBottom.blockSignals(False)
+
+        self.cropWidget.cropLeft.blockSignals(True)
+        self.cropWidget.cropLeft.setValue(self.shadow.cropleft)
+        self.cropWidget.cropLeft.blockSignals(False)
+
+        self.cropWidget.cropRight.blockSignals(True)
+        self.cropWidget.cropRight.setValue(self.shadow.cropright)
+        self.cropWidget.cropRight.blockSignals(False)
+
+        if self.shadow.prev is not None:
+            self.cropWidget.setFrameWidth(self.shadow.prev.width)
+            self.cropWidget.setFrameHeight(self.shadow.prev.height)
+            self.slider.setPtsTimeArray(self.shadow.prev.pts_time)
+            self.loadFrame(self.slider.slider.value(), QTime())
+
+        else:
+            self.cropWidget.setFrameWidth(1920)
+            self.cropWidget.setFrameHeight(1080)
+            self.slider.setPtsTimeArray(None)
+
+    @pyqtSlot(int)
+    def setCropTop(self, croptop):
+        self.shadow.croptop = croptop
+        self.isModified()
+
+    @pyqtSlot(int)
+    def setCropBottom(self, cropbottom):
+        self.shadow.cropbottom = cropbottom
+        self.isModified()
+
+    @pyqtSlot(int)
+    def setCropLeft(self, cropleft):
+        self.shadow.cropleft = cropleft
+        self.isModified()
+
+    @pyqtSlot(int)
+    def setCropRight(self, cropright):
+        self.shadow.cropright = cropright
+        self.isModified()
+
+
+class CropZoneDlg(ZoneDlg):
+    allowedtypes = ("video",)
+
+    def createNewFilterInstance(self):
+        return CropScenes()
+
+    def _createImageView(self, layout=None, index=None):
+        if layout is None:
+            layout = self.layout()
+
+        self.cropWidget = QCrop(self)
+        self.imageView = self.cropWidget.imageView
+
+        self.cropWidget.cropRight.valueChanged.connect(self.setCropRight)
+        self.cropWidget.cropLeft.valueChanged.connect(self.setCropLeft)
+        self.cropWidget.cropTop.valueChanged.connect(self.setCropTop)
+        self.cropWidget.cropBottom.valueChanged.connect(self.setCropBottom)
+
+        if isinstance(layout, QGridLayout):
+            layout.addWidget(self.cropWidget, *index)
+
+        elif isinstance(layout, QScrollArea):
+            layout.setWidget(self.cropWidget)
+
+        elif index is not None:
+            layout.insertWidget(index, self.cropWidget)
+
+        else:
+            layout.addWidget(self.cropWidget)
+
+    def _createGlobalControls(self, layout=None, index=None):
+        if layout is None:
+            layout = self.layout()
+
+        hlayout = QHBoxLayout()
+        self.resizeWidget = QResize(self)
+        self.resizeWidget.width.valueChanged.connect(self.setWidth)
+        self.resizeWidget.height.valueChanged.connect(self.setHeight)
+        self.resizeWidget.sar.textChanged.connect(self.setSar)
+        self.resizeWidget.resample.currentIndexChanged.connect(
+            self.setResample)
+
+        hlayout.addStretch()
+        hlayout.addWidget(self.resizeWidget)
+        hlayout.addStretch()
+
+        if isinstance(layout, QGridLayout):
+            layout.addLayout(hlayout, *index)
+
+        elif index is not None:
+            layout.insertLayout(index, hlayout)
+
+        else:
+            layout.addLayout(hlayout)
+
+    def _resetControlMaximums(self):
+        if self.shadow.prev is not None:
+            self.cropWidget.cropTop.setMaximum(
+                self.shadow.prev.height - self.shadowzone.cropbottom - 2)
+            self.cropWidget.cropBottom.setMaximum(
+                self.shadow.prev.height - self.shadowzone.croptop - 2)
+            self.cropWidget.cropRight.setMaximum(
+                self.shadow.prev.width - self.shadowzone.cropleft - 2)
+            self.cropWidget.cropLeft.setMaximum(
+                self.shadow.prev.width - self.shadowzone.cropright - 2)
+
+    def _resetZoneControls(self):
+        self.cropWidget.cropTop.blockSignals(True)
+        self.cropWidget.cropTop.setValue(self.shadowzone.croptop)
+        self.cropWidget.cropTop.blockSignals(False)
+
+        self.cropWidget.cropBottom.blockSignals(True)
+        self.cropWidget.cropBottom.setValue(self.shadowzone.cropbottom)
+        self.cropWidget.cropBottom.blockSignals(False)
+
+        self.cropWidget.cropLeft.blockSignals(True)
+        self.cropWidget.cropLeft.setValue(self.shadowzone.cropleft)
+        self.cropWidget.cropLeft.blockSignals(False)
+
+        self.cropWidget.cropRight.blockSignals(True)
+        self.cropWidget.cropRight.setValue(self.shadowzone.cropright)
+        self.cropWidget.cropRight.blockSignals(False)
+
+    def _resetGlobalControls(self):
+        self.resizeWidget.height.blockSignals(True)
+        self.resizeWidget.height.setValue(self.shadow.height or 0)
+        self.resizeWidget.height.blockSignals(False)
+
+        self.resizeWidget.width.blockSignals(True)
+        self.resizeWidget.width.setValue(self.shadow.width or 0)
+        self.resizeWidget.width.blockSignals(False)
+
+        self.resizeWidget.sar.blockSignals(True)
+        self.resizeWidget.sar.setText(str(self.shadow.sar))
+        self.resizeWidget.sar.blockSignals(False)
+
+        idx = self.resizeWidget.resample.findData(self.shadow.sar)
+
+        if idx >= 0:
+            self.resizeWidget.resample.blockSignals(True)
+            self.resizeWidget.resample.setCurrentIndex(idx)
+            self.resizeWidget.resample.blockSignals(False)
+
+    # def zoomIn(self):
+        #zoom = self.imageView.hzoom
+        #newzoom = max(min(zoom*sqrt(2), 16), 0.125)
+        ##print(zoom, newzoom)
+        #self.imageView.setZoom(newzoom, newzoom)
+
+    # def zoomOut(self):
+        #zoom = self.imageView.hzoom
+        #newzoom = max(min(zoom/sqrt(2), 16), 0.125)
+        ##print(zoom, newzoom)
+        #self.imageView.setZoom(newzoom, newzoom)
+
+    # def zoomOrig(self):
+        #self.imageView.setZoom(1, 1)
+
+        ##w, h = min()
+
+    @pyqtSlot(int, QTime)
+    def loadFrame(self, n, t):
+        if self._mode == 1:
+            self.imageView.setPaintHook(self.cropWidget._paintHook)
+
+        else:
+            self.imageView.setPaintHook(None)
+
+        super().loadFrame(n, t)
+        self.imageView.resize(self.imageView.pixmap().size())
+
+    @pyqtSlot(int)
+    def setCropTop(self, croptop):
+        self.shadowzone.croptop = croptop
+        self.zoneModified()
+
+    @pyqtSlot(int)
+    def setCropBottom(self, cropbottom):
+        self.shadowzone.cropbottom = cropbottom
+        self.zoneModified()
+
+    @pyqtSlot(int)
+    def setCropLeft(self, cropleft):
+        self.shadowzone.cropleft = cropleft
+        self.zoneModified()
+
+    @pyqtSlot(int)
+    def setCropRight(self, cropright):
+        self.shadowzone.cropright = cropright
+        self.zoneModified()
+
+    @pyqtSlot(int)
+    def setHeight(self, height):
+        self.shadow.height = height or None
+        self.isModified()
+
+    @pyqtSlot(int)
+    def setWidth(self, width):
+        self.shadow.width = width or None
+        self.isModified()
+
+    def zoneModified(self):
+        if self._mode == 2 and self.shadow.prev is not None:
+            self.loadFrame(self.slider.slider.value(),
+                           self.slider.currentTime.time())
+
+        super().zoneModified()
+
+    def zoneNotModified(self):
+        super().zoneNotModified()
+
+        if self._mode == 2 and self.shadow.prev is not None:
+            self.loadFrame(self.slider.slider.value(),
+                           self.slider.currentTime.time())
+
+        else:
+            self.imageView.update()
+
+    @pyqtSlot(str)
+    def setSar(self, sar):
+        if not regex.match(r"^(\d+(?:\.\d+)?|\.\d+|\d+/\d+)$", sar):
+            return
+
+        if regex.match(r"^\d+/\d+$", sar):
+            sar = QQ(sar)
+
+        elif regex.match(r"^\d+$", sar):
+            sar = int(sar)
+
+        else:
+            sar = float(sar)
+
+        self.shadow.sar = sar
+        self.isModified()
+
+    @pyqtSlot(int)
+    def setResample(self, resample):
+        resample = self.resizeWidget.resample.currentData()
+        self.shadow.resample = resample
+        self.isModified()
+
+    def _prevChanged(self, source):
+        self._resetControlMaximums()
+        self.slider.setPtsTimeArray(source.pts_time)
+        self.loadFrame(self.slider.slider.value(),
+                       self.slider.currentTime.time())
+
+        if self.shadow.height is None:
+            self.resizeWidget.height.setValue(source.height)
+
+        if self.shadow.width is None:
+            self.resizeWidget.width.setValue(source.width)
+
+
+class ResizeDlg(QFilterConfig):
+    allowedtypes = ("video",)
+
+    def _createControls(self):
+        self.setWindowTitle("Configure Resize")
+
+        layout = QVBoxLayout(self)
+        self.setLayout(layout)
+
+        self.sourceWidget = QWidget(self)
+        srclayout = QHBoxLayout()
+        self.sourceWidget.setLayout(srclayout)
+
+        self.sourceSelection = self.createSourceControl(self.sourceWidget)
+        self.sourceSelection.currentDataChanged.connect(self.setFilterSource)
+
+        srclayout.setContentsMargins(0, 0, 0, 0)
+        srclayout.addWidget(QLabel("Source: "))
+        srclayout.addWidget(self.sourceSelection)
+
+        layout.addWidget(self.sourceWidget)
+
+        self.resizeWidget = QResize(self)
+        self.resizeWidget.width.valueChanged.connect(self.setWidth)
+        self.resizeWidget.height.valueChanged.connect(self.setHeight)
+        self.resizeWidget.sar.textChanged.connect(self.setSar)
+        self.resizeWidget.resample.currentIndexChanged.connect(
+            self.setResample)
+        layout.addWidget(self.resizeWidget)
+
+        self._prepareDlgButtons()
+
+    def createNewFilterInstance(self):
+        return Resize()
+
+    def _resetControls(self):
+        self.resizeWidget.height.blockSignals(True)
+        self.resizeWidget.height.setValue(self.shadow.height or 0)
+        self.resizeWidget.height.blockSignals(False)
+
+        self.resizeWidget.width.blockSignals(True)
+        self.resizeWidget.width.setValue(self.shadow.width or 0)
+        self.resizeWidget.width.blockSignals(False)
+
+        self.resizeWidget.sar.blockSignals(True)
+        self.resizeWidget.sar.setText(str(self.shadow.sar))
+        self.resizeWidget.sar.blockSignals(False)
+
+        idx = self.resizeWidget.resample.findData(self.shadow.sar)
+
+        if idx >= 0:
+            self.resizeWidget.resample.blockSignals(True)
+            self.resizeWidget.resample.setCurrentIndex(idx)
+            self.resizeWidget.resample.blockSignals(False)
+
+    def _prevChanged(self, source):
+        if self.shadow.height is None:
+            self.resizeWidget.height.setValue(source.height)
+
+        if self.shadow.width is None:
+            self.resizeWidget.width.setValue(source.width)
+
+    @pyqtSlot(int)
+    def setHeight(self, height):
+        self.shadow.height = height or None
+        self.isModified()
+
+    @pyqtSlot(int)
+    def setWidth(self, width):
+        self.shadow.width = width or None
+        self.isModified()
+
+    @pyqtSlot(str)
+    def setSar(self, sar):
+        if not regex.match(r"^(\d+(?:\.\d+)?|\.\d+|\d+/\d+)$", sar):
+            return
+
+        if regex.match(r"^\d+/\d+$", sar):
+            sar = QQ(sar)
+
+        elif regex.match(r"^\d+$", sar):
+            sar = int(sar)
+
+        else:
+            sar = float(sar)
+
+        self.shadow.sar = sar
+        self.isModified()
+
+    @pyqtSlot(int)
+    def setResample(self, resample):
+        resample = self.resizeWidget.resample.currentData()
+        self.shadow.resample = resample
+        self.isModified()
+
 
 class CropResizeCol(ZoneCol):
     bgcolor = QColor(255, 128, 64)
@@ -596,27 +750,33 @@ class CropResizeCol(ZoneCol):
         if isinstance(self.filter.parent, FilterChain):
             for scenes in self.filter.parent:
                 if isinstance(scenes, Scenes):
-                    zoneatscenes = QAction("Create zones from scenes", table, triggered=partial(self.zoneAtScenes, table=table, scenes=scenes))
+                    zoneatscenes = QAction("Create zones from scenes", table, triggered=partial(
+                        self.zoneAtScenes, table=table, scenes=scenes))
                     break
 
             else:
-                zoneatscenes = QAction("Create zones from scenes", table, triggered=partial(self.zoneAtScenes, table=table, scenes=None))
+                zoneatscenes = QAction("Create zones from scenes", table, triggered=partial(
+                    self.zoneAtScenes, table=table, scenes=None))
                 zoneatscenes.setEnabled(False)
 
         else:
-            zoneatscenes = QAction("Create zones from scenes", table, triggered=partial(self.zoneAtScenes, table=table, scenes=None))
+            zoneatscenes = QAction("Create zones from scenes", table, triggered=partial(
+                self.zoneAtScenes, table=table, scenes=None))
             zoneatscenes.setEnabled(False)
 
         menu.addAction(zoneatscenes)
 
-        configure = QAction("Configure zone...", table, triggered=partial(self.createDlg, table=table, index=index))
+        configure = QAction("Configure zone...", table, triggered=partial(
+            self.createDlg, table=table, index=index))
         menu.addAction(configure)
         return menu
 
     def createDlg(self, table, index):
         J, zone = self.filter.zoneAt(index.row())
-        dlg = CropZoneDlg(zone, table)
-        dlg.settingsChanged.connect(table.contentsModified)
+        dlg = CropZoneDlg(table)
+        dlg.setFilter(self.filter, True)
+        dlg.setZone(zone)
+        dlg.contentsModified.connect(table.contentsModified)
         dlg.slider.setValue(self.filter.cumulativeIndexMap[index.row()])
         dlg.exec_()
 
@@ -627,6 +787,7 @@ class CropResizeCol(ZoneCol):
             if p.src_start == scene.src_start:
                 continue
 
-            self.filter.insertZoneAt(scene.src_start, croptop=p.croptop, cropbottom=p.cropbottom, cropleft=p.cropleft, cropright=p.cropright)
+            self.filter.insertZoneAt(scene.src_start, croptop=p.croptop,
+                                     cropbottom=p.cropbottom, cropleft=p.cropleft, cropright=p.cropright)
 
         table.contentsModified.emit()

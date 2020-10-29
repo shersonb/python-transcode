@@ -1,10 +1,11 @@
-from PyQt5.QtCore import Qt, QItemSelectionModel, QSortFilterProxyModel, QModelIndex
+from PyQt5.QtCore import Qt, QItemSelectionModel
 from PyQt5.QtGui import QColor, QFont
 from itertools import count
 from functools import partial
 from fractions import Fraction as QQ
 from PyQt5.QtWidgets import QMenu, QAction, QApplication, QAbstractItemView
 from transcode.containers.basereader import Track
+
 
 class BaseColumn(object):
     checkstate = None
@@ -40,6 +41,7 @@ class BaseColumn(object):
     def createContextMenu(self, table, index, obj):
         return None
 
+
 class FrameNumberCol(BaseColumn):
     headerdisplay = "Old #"
     width = 64
@@ -54,6 +56,7 @@ class FrameNumberCol(BaseColumn):
             return f"{index.row()} (K)"
 
         return f"{index.row()}"
+
 
 class ZoneCol(BaseColumn):
     flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
@@ -75,9 +78,11 @@ class ZoneCol(BaseColumn):
 
         if self.checkstate(index, obj):
             self.filter.removeZoneAt(index.row())
+            return True
 
         else:
             self.filter.insertZoneAt(index.row())
+            return True
 
     def bgdata(self, index, obj):
         if index.row() in self.filter.zone_indices:
@@ -103,12 +108,14 @@ class ZoneCol(BaseColumn):
 
         next_index = zone.next.src_start if zone.next is not None else None
 
-        move_to_prev = QAction(f"Move to &previous {self.zonestring}", table, triggered=partial(table.goto, row=prev_index))
+        move_to_prev = QAction(f"Move to &previous {self.zonestring}", table, triggered=partial(
+            table.goto, row=prev_index))
         menu.addAction(move_to_prev)
         if prev_index is None:
             move_to_prev.setDisabled(True)
 
-        move_to_next = QAction(f"Move to &next {self.zonestring}", table, triggered=partial(table.goto, row=next_index))
+        move_to_next = QAction(f"Move to &next {self.zonestring}", table, triggered=partial(
+            table.goto, row=next_index))
         menu.addAction(move_to_next)
         if next_index is None:
             move_to_next.setDisabled(True)
@@ -117,16 +124,20 @@ class ZoneCol(BaseColumn):
 
         n = index.row()
         J, zone = self.filter.zoneAt(n)
-        zones = set(self.filter.zone_indices) # {scene.src_start for scene in self.filter}
+        # {scene.src_start for scene in self.filter}
+        zones = set(self.filter.zone_indices)
         thiszone = set(range(zone.src_start, zone.src_end))
 
-        filterzones = QAction(f"&Show {self.zonestring} cuts", table, triggered=partial(self.setFilter, table=table, filter=zones))
+        filterzones = QAction(f"&Show {self.zonestring} cuts", table, triggered=partial(
+            self.setFilter, table=table, filter=zones))
         menu.addAction(filterzones)
 
-        filterzones = QAction(f"&Show this {self.zonestring}", table, triggered=partial(self.setFilter, table=table, filter=thiszone))
+        filterzones = QAction(f"&Show this {self.zonestring}", table, triggered=partial(
+            self.setFilter, table=table, filter=thiszone))
         menu.addAction(filterzones)
 
-        showall = QAction("Show &all rows", table, triggered=partial(self.showAll, table=table))
+        showall = QAction("Show &all rows", table,
+                          triggered=partial(self.showAll, table=table))
         menu.addAction(showall)
 
         return menu
@@ -140,12 +151,6 @@ class ZoneCol(BaseColumn):
             if len(S):
                 m = max(S)
                 selected = table.model().sourceModel().index(m, selected.column())
-        #J, zone = self.filter.zoneAt(n)
-
-        #zonestart = table.model().sourceModel().index(zone.src_start, selected.column())
-        #zones = set(self.filter.zone_indices) # {scene.src_start for scene in self.filter}
-
-        #table.model().setFilterFunc(zones)
 
         table.model().setFilterFunc(filter)
 
@@ -181,15 +186,6 @@ class ZoneCol(BaseColumn):
         table.setCurrentIndex(selected)
         table.scrollTo(selected, QAbstractItemView.PositionAtCenter)
 
-    #def moveToRow(self, table, index, row):
-        #newindex = table.model().createIndex(row, index.column())
-
-        #sm = table.selectionModel()
-        #sm.setCurrentIndex(newindex, QItemSelectionModel.Select)
-        ##sm.currentChanged.emit(newindex, index)
-
-        #table.setCurrentIndex(newindex)
-        #table.scrollTo(newindex, QAbstractItemView.PositionAtCenter)
 
 class TimeStampCol(BaseColumn):
     headerdisplay = "Old PTS"
@@ -209,6 +205,7 @@ class TimeStampCol(BaseColumn):
         m = int(m)
         h, m = divmod(m, 60)
         return "%s%d:%02d:%06.3f (%.3f)" % (sgn, h, m, s, pts)
+
 
 class NewTimeStampCol(BaseColumn):
     headerdisplay = "New PTS"
@@ -247,6 +244,7 @@ class NewTimeStampCol(BaseColumn):
 
         return QColor(160, 160, 160)
 
+
 class NewFrameNumberCol(BaseColumn):
     headerdisplay = "New #"
     width = 64
@@ -278,6 +276,7 @@ class NewFrameNumberCol(BaseColumn):
 
         return QColor(160, 160, 160)
 
+
 class DiffCol(BaseColumn):
     headerdisplay = "Diff"
     width = 64
@@ -303,7 +302,7 @@ class DiffCol(BaseColumn):
 
         if n is not None and n >= 0:
             new_pts = self.filter.pts_time[n]
-            old_pts = self.filter.src.pts_time[index.row()]
+            old_pts = self.filter.source.pts_time[index.row()]
             return new_pts - old_pts
 
     def fgdata(self, index, obj):
@@ -328,4 +327,3 @@ class DiffCol(BaseColumn):
             return self.red
 
         return self.bgcolor
-

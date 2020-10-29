@@ -1,21 +1,14 @@
 #!/usr/bin/python
-from PyQt5.QtCore import (QDir, Qt, QModelIndex, pyqtSignal, QThread, QAbstractListModel, QAbstractTableModel,
-                          QVariant, QModelIndex, QAbstractItemModel, QItemSelectionModel)
-from PyQt5.QtGui import QImage, QPainter, QPalette, QPixmap, QColor, QFont, QBrush, QPen, QStandardItemModel
-from PyQt5.QtWidgets import (QAction, QApplication, QFileDialog, QLabel, QFrame,
-        QMainWindow, QMenu, QMessageBox, QGridLayout, QScrollArea, QSizePolicy, QWidget,
-        QSpinBox, QDoubleSpinBox, QCheckBox, QPushButton, QTableWidget, QTableWidgetItem,
-        QAbstractItemView, QHeaderView, QProgressBar, QStatusBar, QTabWidget, QVBoxLayout,
-        QComboBox, QItemDelegate, QListView, QStyle, QTableView)
-from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
+from PyQt5.QtCore import (Qt, QModelIndex, pyqtSignal, QModelIndex, QItemSelectionModel)
+from PyQt5.QtWidgets import (QApplication, QMenu, QAbstractItemView, QItemDelegate,
+                             QTableView)
 from PyQt5.QtCore import pyqtSlot
 import sys
-from functools import partial
 import traceback
 
-from transcode.util import ConfigStore
 from .qitemmodel import QIntegerModel
 from .qframetablecolumn import *
+
 
 class FrameTable(QTableView):
     contentsModified = pyqtSignal()
@@ -50,17 +43,13 @@ class FrameTable(QTableView):
 
         if filters is not None:
             self.columns_by_filter = []
-            self.idcol.srcstream = filters.src
-            self.tscol.stream = filters.src
+            self.idcol.srcstream = filters.source
+            self.tscol.stream = filters.source
             self.id2col.filter = filters
             self.ts2col.filter = filters
             self.diffcol.filter = filters
 
             newfiltercols = []
-            headersizes = [self.columnWidth(k) for k in range(self.datamodel.columnCount())]
-
-            self.datamodel = QIntegerModel(filters.prev.framecount, self.colsleft+self.colsright, self)
-            self.model().setSourceModel(self.datamodel)
 
             """Create new filter column list."""
             for filter in filters:
@@ -74,42 +63,50 @@ class FrameTable(QTableView):
                     newfiltercols.extend(filtercols)
                     self.columns_by_filter.append(filtercols)
 
-            """Compare new filter column list to old."""
-            for col in self.filter_columns.copy():
-                if col not in newfiltercols:
-                    """Old column does not appear in newfiltercols, so it is removed from the model."""
-                    self.filter_columns.remove(col)
-                    m = self.datamodel.columns.index(col)
-                    self.datamodel.removeColumn(m)
-                    del headersizes[m]
+            #"""Compare new filter column list to old."""
+            # for col in self.filter_columns.copy():
+                # if col not in newfiltercols:
+                    #"""Old column does not appear in newfiltercols, so it is removed from the model."""
+                    # self.filter_columns.remove(col)
 
-            """Insert new columns, move existing columns."""
-            for n, col in enumerate(newfiltercols, len(self.colsleft)):
-                if col in self.datamodel.columns:
-                    """Column exists in model, so it will just be moved."""
-                    m = self.datamodel.columns.index(col)
+                    # if col in self.datamodel.columns:
+                    #m = self.datamodel.columns.index(col)
+                    # self.datamodel.removeColumn(m)
+                    #del headersizes[m]
 
-                    if m > n: # Should never have m < n.
-                        self.datamodel.moveColumn(m, n)
-                        size = headersizes.pop(m)
-                        headersizes.insert(n, size)
+            #"""Insert new columns, move existing columns."""
+            # for n, col in enumerate(newfiltercols, len(self.colsleft)):
+                # if col in self.datamodel.columns:
+                    #"""Column exists in model, so it will just be moved."""
+                    #m = self.datamodel.columns.index(col)
 
-                else:
-                    """Column is new."""
-                    self.datamodel.insertColumn(n, col)
+                    # if m > n: # Should never have m < n.
+                    #self.datamodel.moveColumn(m, n)
+                    #size = headersizes.pop(m)
+                    #headersizes.insert(n, size)
 
-                    if hasattr(col, "width"):
-                        headersizes.insert(n, col.width)
+                # else:
+                    #"""Column is new."""
+                    #self.datamodel.insertColumn(n, col)
 
-                    else:
-                        headersizes.insert(n, None)
+                    # if hasattr(col, "width"):
+                    #headersizes.insert(n, col.width)
 
-                    if hasattr(col, "itemdelegate") and isinstance(col.itemdelegate, QItemDelegate):
-                        self.setItemDelegateForColumn(n, col.itemdelegate)
+                    # else:
+                    #headersizes.insert(n, None)
 
-            for n, size in enumerate(headersizes):
-                if size is not None:
-                    self.setColumnWidth(n, size)
+            self.datamodel = QIntegerModel(filters.prev.framecount,
+                                           self.colsleft + newfiltercols + self.colsright, self)
+            self.model().setSourceModel(self.datamodel)
+
+            #headersizes = [self.columnWidth(k) for k in range(self.datamodel.columnCount())]
+
+            for n, col in enumerate(self.colsleft + newfiltercols + self.colsright):
+                if hasattr(col, "itemdelegate") and isinstance(col.itemdelegate, QItemDelegate):
+                    self.setItemDelegateForColumn(n, col.itemdelegate)
+
+                if hasattr(col, "width") and col.width is not None:
+                    self.setColumnWidth(n, col.width)
 
             self.filter_columns = newfiltercols
 
@@ -163,14 +160,14 @@ class FrameTable(QTableView):
             idx = self.currentIndex()
 
             if modifiers & Qt.ShiftModifier:
-                if idx.column() > 0: 
+                if idx.column() > 0:
                     self.setCurrentCell(idx.row(), idx.column()-1)
 
                 elif idx.row() > 0:
                     self.setCurrentCell(self.row() - 1, idx.columncount()-1)
 
             elif self.state() == QAbstractItemView.EditingState:
-                if idx.column() < model.columnCount() - 1: 
+                if idx.column() < model.columnCount() - 1:
                     self.setCurrentCell(idx.row(), idx.column()+1)
 
                 elif idx.row() < model.rowCount() - 1:
@@ -233,13 +230,14 @@ class FrameTable(QTableView):
             row = current.row()
 
         elif col is None:
-            col = current.column()
+            col = max(0, current.column())
 
-        newindex = self.model().sourceModel().createIndex(row, col)
+        newindex = self.model().sourceModel().index(row, col)
         newindex = self.model().mapFromSource(newindex)
+        self.setCurrentIndex(newindex)
         sm = self.selectionModel()
-        sm.setCurrentIndex(newindex, QItemSelectionModel.Select)
-        sm.currentChanged.emit(newindex, current)
+        sm.setCurrentIndex(newindex, QItemSelectionModel.ClearAndSelect)
+        #sm.currentChanged.emit(newindex, current)
 
         self.setCurrentIndex(newindex)
         self.scrollTo(newindex, QAbstractItemView.PositionAtCenter)
@@ -320,6 +318,7 @@ class FrameTable(QTableView):
                 if hasattr(col, "itemdelegate") and isinstance(col.itemdelegate, QItemDelegate):
                     self.setItemDelegateForColumn(n, col.itemdelegate)
 
+
 class SortAndFilterProxy(QSortFilterProxyModel):
     def __init__(self, filterFunc=None, *args, **kwargs):
         super(SortAndFilterProxy, self).__init__(*args, **kwargs)
@@ -340,5 +339,3 @@ class SortAndFilterProxy(QSortFilterProxyModel):
             return row in self._filter
 
         return True
-
-

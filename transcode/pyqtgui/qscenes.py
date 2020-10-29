@@ -1,69 +1,57 @@
-from PyQt5.QtGui import QImage, QPainter, QPalette, QPixmap, QColor, QFont, QBrush, QPen, QStandardItemModel, QIcon, QFontMetrics
-from PyQt5.QtCore import Qt, QRegExp, QItemSelectionModel, QObject, QPoint
-from PyQt5.QtWidgets import (QApplication, QItemDelegate, QLineEdit, QMenu, QAction, QAbstractItemView, QProgressDialog, QMessageBox,
-                             QDialog, QVBoxLayout, QHBoxLayout, QScrollArea, QPushButton, QSlider, QStyleOptionSlider, QStyle, QCheckBox,
-                             QLabel, QWidget, QScrollBar, QGridLayout, QComboBox)
+from PyQt5.QtGui import QColor
+from PyQt5.QtCore import Qt, QObject, QPoint
+from PyQt5.QtWidgets import (QAction, QAbstractItemView, QProgressDialog, QMessageBox,
+                             QCheckBox, QComboBox)
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QRegExpValidator
-from fractions import Fraction as QQ
-import regex
-from functools import partial
-import numpy
-from numpy import sqrt
-import threading
 
-from .qzones import ZoneDlg, BaseShadowZone
+from functools import partial
+from numpy import isnan, arange, array
+
+from .qzones import ZoneDlg
 from transcode.filters.video.base import BaseVideoFilter
-from transcode.filters.video.scenes import Scene, AnalysisThread
+from transcode.filters.video.scenes import Scenes, AnalysisThread
+from transcode.filters.base import BaseFilter
 from transcode.containers.basewriter import Track
 from .qframetablecolumn import ZoneCol
 from more_itertools import windowed
 
-class ShadowZone(BaseShadowZone, Scene):
-    def __init__(self, zone):
-        self.yblend = None
-        self.uvblend = None
-        super().__init__(zone)
 
 class QScenes(ZoneDlg):
     zonename = "Scene"
     title = "Scene Editor"
-    shadowclass = ShadowZone
+
+    def createNewFilterInstance(self):
+        return Scenes()
 
     def _createModeBox(self):
         self.modeBox = comboBox = QComboBox(self)
         comboBox.addItem("Input", 1)
+        self._mode = 1
 
-    def _prepare(self):
-        self.fixPtsCheckBox = QCheckBox("Fix PTS times (for variable frame rate video)", self)
+    def _createGlobalControls(self, layout=None, index=None):
+        if layout is None:
+            layout = self.layout()
 
-        if self.zone.parent.fixpts:
-            self.fixPtsCheckBox.setCheckState(Qt.Checked)
-
+        self.fixPtsCheckBox = QCheckBox(
+            "Fix PTS times (for variable frame rate video)", self)
         self.fixPtsCheckBox.stateChanged.connect(self.toggleFixPts)
+        layout.addWidget(self.fixPtsCheckBox)
 
-        layout = QVBoxLayout(self)
-        self.setLayout(layout)
-
-        self._prepareImageView()
-        self._prepareStdZoneControls()
-
-        sublayout = QHBoxLayout()
-        sublayout.addWidget(self.fixPtsCheckBox)
-        sublayout.addStretch()
-
-        layout.addLayout(sublayout)
-
-        self._prepareDlgButtons(layout)
+    def _resetGlobalControls(self):
+        self.fixPtsCheckBox.blockSignals(True)
+        self.fixPtsCheckBox.setCheckState(2 if self.shadow.fixpts else 0)
+        self.fixPtsCheckBox.blockSignals(False)
 
     def toggleFixPts(self, checkstate):
         if checkstate == Qt.Checked:
-            self.zone.parent.fixpts = 1
+            self.shadow.fixpts = 1
 
         else:
-            self.zone.parent.fixpts = 0
+            self.shadow.fixpts = 0
 
-        self.contentsModified.emit()
+        self.isModified()
+
 
 class BaseSceneCol(ZoneCol, QObject):
     analysisstarted = pyqtSignal()
@@ -89,7 +77,8 @@ class BaseSceneCol(ZoneCol, QObject):
         newIndex = datamodel.index(zone.src_start, col)
 
         if isinstance(filtermodel.filterFunc(), set):
-            self.setFilter(table, filtermodel.filterFunc().union({zone.src_start}))
+            self.setFilter(
+                table, filtermodel.filterFunc().union({zone.src_start}))
 
         elif filtermodel.filterFunc() is not None:
             self.setFilter(table, None)
@@ -97,7 +86,6 @@ class BaseSceneCol(ZoneCol, QObject):
         newFilterIndex = filtermodel.mapFromSource(newIndex)
         table.setCurrentIndex(newFilterIndex)
         table.scrollTo(newFilterIndex, QAbstractItemView.PositionAtCenter)
-
 
     def createContextMenu(self, table, index, obj):
         menu = ZoneCol.createContextMenu(self, table, index, obj)
@@ -137,7 +125,8 @@ class BaseSceneCol(ZoneCol, QObject):
                 end = self.filter.prev.framecount
 
             else:
-                end = min(self.filter.prev.cumulativeIndexMap[k], self.filter.prev.framecount)
+                end = min(
+                    self.filter.prev.cumulativeIndexMap[k], self.filter.prev.framecount)
 
         else:
             start = j
@@ -147,34 +136,40 @@ class BaseSceneCol(ZoneCol, QObject):
                                                                               table=table, start=start, end=end))
         analyzeall = QAction("Analyze &all", table, triggered=partial(self.startAnalysis, table=table,
                                                                       start=0, end=self.filter.prev.framecount))
-        autoscenes = QAction("A&utoscenes", table, triggered=partial(self.autoScenes, table=table))
+        autoscenes = QAction("A&utoscenes", table,
+                             triggered=partial(self.autoScenes, table=table))
 
-        if self.filter.stats is None or self.filter.stats.shape[0] < self.filter.src.framecount - 1 \
-            or numpy.isnan(self.filter.stats[self.filter.prev.cumulativeIndexReverseMap[1:] - 1]).any():
+        if self.filter.stats is None or self.filter.stats.shape[0] < self.filter.source.framecount - 1 \
+                or isnan(self.filter.stats[self.filter.prev.cumulativeIndexReverseMap[1:] - 1]).any():
             autoscenes.setDisabled(True)
 
-        keyscenes = QAction("Scenes from &Key Frames", table, triggered=partial(self.scenesFromKeyFrames, table=table))
+        keyscenes = QAction("Scenes from &Key Frames", table, triggered=partial(
+            self.scenesFromKeyFrames, table=table))
         menu.addAction(analyzevisible)
         menu.addAction(analyzeall)
         menu.addAction(autoscenes)
         menu.addAction(keyscenes)
         menu.addSeparator()
-        scenedlg = QAction("Scene &Dialog...", table, triggered=partial(self.sceneDlg, table=table, index=index))
+        scenedlg = QAction("Scene &Dialog...", table, triggered=partial(
+            self.sceneDlg, table=table, index=index))
         menu.addAction(scenedlg)
 
         return menu
 
     def sceneDlg(self, table, index):
         J, zone = self.filter.zoneAt(index.row())
-        dlg = QScenes(zone, table)
+        dlg = QScenes(table)
+        dlg.setFilter(self.filter, True)
+        dlg.setZone(zone)
         dlg.contentsModified.connect(table.contentsModified)
         dlg.zoneChanged.connect(partial(self.scrollTableToZone, table))
-        dlg.slider.setValue(self.filter.cumulativeIndexMap[index.row()])
+        dlg.slider.slider.setValue(self.filter.cumulativeIndexMap[index.row()])
         dlg.exec_()
 
     def checkSelected(self, table, check=True):
         sm = table.selectionModel()
-        selected = {table.model().data(idx, Qt.UserRole) for idx in sm.selectedIndexes()}
+        selected = {table.model().data(idx, Qt.UserRole)
+                    for idx in sm.selectedIndexes()}
 
         for k in selected:
             if table.isRowHidden(k):
@@ -182,7 +177,8 @@ class BaseSceneCol(ZoneCol, QObject):
 
             if check and k not in self.filter.zone_indices:
                 self.filter.insertZoneAt(k)
-            elif not check and k in self.filter.zone_indices: # and zone is self.filter[0]:
+            # and zone is self.filter[0]:
+            elif not check and k in self.filter.zone_indices:
                 self.filter.removeZoneAt(k)
 
         table.contentsModified.emit()
@@ -190,8 +186,8 @@ class BaseSceneCol(ZoneCol, QObject):
     def autoScenes(self, table):
         if len(self.filter) <= 1 or \
                 QMessageBox.question(table, "Auto Scenes", "Current zone settings will be lost! Do you wish to proceed?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
-            isan = numpy.isnan(self.filter.stats).sum(axis=1) == 0
-            N = numpy.arange(1, self.filter.src.framecount)[isan]
+            isan = isnan(self.filter.stats).sum(axis=1) == 0
+            N = arange(1, self.filter.source.framecount)[isan]
             stats = self.filter.stats[isan]
 
             newzones = set()
@@ -199,28 +195,28 @@ class BaseSceneCol(ZoneCol, QObject):
             K1 = N[:-1][Q >= 2]
             newzones.update(K1 + 1)
 
-            W = numpy.array(list(windowed(stats[47:], 13)))
+            W = array(list(windowed(stats[47:], 13)))
             V = W.max(axis=2)
             K2 = N[47:-12][(V[:, :12] < 1).all(axis=1)*(V[:, 12] >= 1)]
             newzones.update(K2)
 
-                #val = stats[:,0]
-                #qvals = (val[1:] + 5)/(val[:-1] + 5)
+            #val = stats[:,0]
+            #qvals = (val[1:] + 5)/(val[:-1] + 5)
 
-                #newzones = set()
+            #newzones = set()
 
-                #for k in range(1, self.filter.prev.framecount):
-                    #content_val, delta_hue, delta_sat, delta_lum = self.filter.stats[k - 1]
+            # for k in range(1, self.filter.prev.framecount):
+            #content_val, delta_hue, delta_sat, delta_lum = self.filter.stats[k - 1]
 
-                    #if k > 1:
-                        #qval = qvals[k-2]
+            # if k > 1:
+            #qval = qvals[k-2]
 
-                    #else:
-                        #qval = 0
+            # else:
+            #qval = 0
 
-                    #if qval >= 2 or \
-                            #(k + 12 < self.filter.prev.framecount and (self.filter.stats[k - 1:k + 11] <= 1).all() and (self.filter.stats[k + 11] > 1).any()):
-                        #newzones.add(k)
+            # if qval >= 2 or \
+            # (k + 12 < self.filter.prev.framecount and (self.filter.stats[k - 1:k + 11] <= 1).all() and (self.filter.stats[k + 11] > 1).any()):
+            # newzones.add(k)
 
             existing = set()
             zonestoremove = set()
@@ -246,24 +242,27 @@ class BaseSceneCol(ZoneCol, QObject):
             table.contentsModified.emit()
 
     def scenesFromKeyFrames(self, table):
-        answer = QMessageBox.question(table, "Scenes from Key Frames", "Current zone settings will be lost! Do you wish to proceed?", QMessageBox.Yes | QMessageBox.No)
+        answer = QMessageBox.question(
+            table, "Scenes from Key Frames", "Current zone settings will be lost! Do you wish to proceed?", QMessageBox.Yes | QMessageBox.No)
         if answer == QMessageBox.Yes:
             while len(self.filter) > 1:
                 self.filter.removeZoneAt(self.filter[1].src_start)
 
-            for k in self.filter.src.keyframes:
+            for k in self.filter.source.keyframes:
                 self.filter.insertZoneAt(k)
 
             table.contentsModified.emit()
 
     def startAnalysis(self, table, start, end):
-        #table.setDisabled(True)
-        self.progress = QProgressDialog("Analyzing Frames", "&Cancel", 0, end - start - 1, table)
+        # table.setDisabled(True)
+        self.progress = QProgressDialog(
+            "Analyzing Frames", "&Cancel", 0, end - start - 1, table)
         self.analysisended.connect(partial(self.endAnalysis, table))
         self.analysisprogress.connect(self.progress.setValue)
         self.progress.setWindowTitle("Analyzing Frames")
         self.progress.show()
-        t = AnalysisThread(self.filter, start, end, self.analysisprogress.emit, self.analysisended.emit)
+        t = AnalysisThread(self.filter, start, end,
+                           self.analysisprogress.emit, self.analysisended.emit)
         self.progress.canceled.connect(t.interrupt)
         t.start()
 
@@ -271,7 +270,7 @@ class BaseSceneCol(ZoneCol, QObject):
         self.progress.canceled.disconnect()
         self.progress.close()
         self.progress = None
-        #table.setEnabled(True)
+        # table.setEnabled(True)
         self.analysisprogress.disconnect()
         self.analysisended.disconnect()
         table.contentsModified.emit()
@@ -294,6 +293,7 @@ class BaseSceneCol(ZoneCol, QObject):
             return True
 
         return False
+
 
 class SceneCol(BaseSceneCol):
     headerdisplay = "Scene"
@@ -328,13 +328,15 @@ class SceneCol(BaseSceneCol):
                     self.filter.removeZoneAt(n)
 
             idx1 = table.model().index(0, 0)
-            idx2 = table.model().index(table.model().rowCount()-1, table.model().columnCount()-1)
+            idx2 = table.model().index(table.model().rowCount() -
+                                       1, table.model().columnCount()-1)
             table.model().dataChanged.emit(idx1, idx2)
             table.contentsModified.emit()
 
             return True
 
         return BaseSceneCol._keyPressFunc(self, table, event)
+
 
 class ContentCol(BaseSceneCol):
     checkstate = None
@@ -348,18 +350,20 @@ class ContentCol(BaseSceneCol):
         if n > 0 and self.filter.stats is not None and \
                 self.filter.stats.shape[0] >= n and \
                 self.filter.stats.shape[1] >= 1 and \
-                not numpy.isnan(self.filter.stats[n - 1, 0]):
+                not isnan(self.filter.stats[n - 1, 0]):
             return "%0.3f" % self.filter.stats[n - 1, 0]
 
         return "-"
 
-    def fgdata(self, index, obj):
-        n = index.row()
+    def fgdata(self, index, n):
+        if not isinstance(self.filter.prev, BaseFilter):
+            return self.fgcolor
 
         if n >= 0 and self.filter.prev.cumulativeIndexMap[n] >= 0:
             return self.fgcolor
 
         return self.fgcoloralt
+
 
 class DeltaHueCol(BaseSceneCol):
     checkstate = None
@@ -373,16 +377,20 @@ class DeltaHueCol(BaseSceneCol):
         if n > 0 and self.filter.stats is not None and \
                 self.filter.stats.shape[0] >= n and \
                 self.filter.stats.shape[1] >= 2 and \
-                not numpy.isnan(self.filter.stats[n - 1, 1]):
+                not isnan(self.filter.stats[n - 1, 1]):
             return "%0.3f" % self.filter.stats[n - 1, 1]
 
         return "-"
 
     def fgdata(self, index, n):
+        if not isinstance(self.filter.prev, BaseFilter):
+            return self.fgcolor
+
         if n >= 0 and self.filter.prev.cumulativeIndexMap[n] >= 0:
             return self.fgcolor
 
         return self.fgcoloralt
+
 
 class DeltaSatCol(BaseSceneCol):
     checkstate = None
@@ -396,16 +404,20 @@ class DeltaSatCol(BaseSceneCol):
         if n > 0 and self.filter.stats is not None and \
                 self.filter.stats.shape[0] >= n and \
                 self.filter.stats.shape[1] >= 3 and \
-                not numpy.isnan(self.filter.stats[n - 1, 2]):
+                not isnan(self.filter.stats[n - 1, 2]):
             return "%0.3f" % self.filter.stats[n - 1, 2]
 
         return "-"
 
     def fgdata(self, index, n):
+        if not isinstance(self.filter.prev, BaseFilter):
+            return self.fgcolor
+
         if n >= 0 and self.filter.prev.cumulativeIndexMap[n] >= 0:
             return self.fgcolor
 
         return self.fgcoloralt
+
 
 class DeltaLumCol(BaseSceneCol):
     checkstate = None
@@ -419,14 +431,16 @@ class DeltaLumCol(BaseSceneCol):
         if n > 0 and self.filter.stats is not None and \
                 self.filter.stats.shape[0] >= n and \
                 self.filter.stats.shape[1] >= 4 and \
-                not numpy.isnan(self.filter.stats[n - 1, 3]):
+                not isnan(self.filter.stats[n - 1, 3]):
             return "%0.3f" % self.filter.stats[n - 1, 3]
 
         return "-"
 
     def fgdata(self, index, n):
+        if not isinstance(self.filter.prev, BaseFilter):
+            return self.fgcolor
+
         if n >= 0 and self.filter.prev.cumulativeIndexMap[n] >= 0:
             return self.fgcolor
 
         return self.fgcoloralt
-

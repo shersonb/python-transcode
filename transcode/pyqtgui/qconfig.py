@@ -1,23 +1,23 @@
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, pyqtBoundSignal, QModelIndex, QEvent
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal
 from PyQt5.QtGui import QFont, QIcon
 from .qinputtracklist import QInputTrackList
 # TODO: Filters
 from .qoutputfiles import QOutputFileList
 from .qoutputconfig import QOutputConfig
 
-from PyQt5.QtWidgets import (QApplication, QWidget, QDialog, QMainWindow,
+from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow,
                              QVBoxLayout, QHBoxLayout, QSplitter, QMessageBox,
                              QLabel, QAction, QFileDialog, QToolBar)
 
 import threading
 from transcode.config import Config
 from transcode.config.ebml import ConfigElement
-from functools import partial
 import os
 import sys
 import types
 import traceback
 import time
+
 
 class QConfig(QWidget):
     contentsModified = pyqtSignal()
@@ -40,7 +40,8 @@ class QConfig(QWidget):
         inputLabelLayout = QHBoxLayout()
 
         inputTrackListLabel = QLabel("Input Files", inputWidget)
-        inputTrackListLabel.setFont(QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
+        inputTrackListLabel.setFont(
+            QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
         inputLabelLayout.addWidget(inputTrackListLabel)
 
         inputLabelLayout.addStretch()
@@ -64,7 +65,8 @@ class QConfig(QWidget):
         outputFilesLabelLayout = QHBoxLayout()
 
         outputFilesLabel = QLabel("Output Files", outputFilesWidget)
-        outputFilesLabel.setFont(QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
+        outputFilesLabel.setFont(
+            QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
         outputFilesLabelLayout.addWidget(outputFilesLabel)
 
         outputFilesLabelLayout.addStretch()
@@ -75,7 +77,6 @@ class QConfig(QWidget):
 
         outputFilesLayout.addWidget(self.outputFiles)
 
-
         outputConfigWidget = QWidget(subsplitter)
 
         outputConfigLayout = QVBoxLayout()
@@ -85,7 +86,8 @@ class QConfig(QWidget):
         outputConfigLabelLayout = QHBoxLayout()
 
         outputConfigLabel = QLabel("Tracks", outputConfigWidget)
-        outputConfigLabel.setFont(QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
+        outputConfigLabel.setFont(
+            QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
         outputConfigLabelLayout.addWidget(outputConfigLabel)
 
         outputConfigLabelLayout.addStretch()
@@ -119,12 +121,14 @@ class QConfig(QWidget):
             self.outputFiles.selectionModel().currentRowChanged.connect(self.selectOutputFile)
 
             if self.outputFiles.model().rowCount():
-                self.outputFiles.setCurrentIndex(self.outputFiles.model().index(0, 0))
+                self.outputFiles.setCurrentIndex(
+                    self.outputFiles.model().index(0, 0))
 
-        #else:
-            #self.inputTrackList.setInputFiles(None)
-            #self.outputFiles.setOutputFiles(None)
-            #self.inputTrackList.setInputFiles(None)
+        # else:
+            # self.inputTrackList.setInputFiles(None)
+            # self.outputFiles.setOutputFiles(None)
+            # self.inputTrackList.setInputFiles(None)
+
 
 class QConfigWindow(QMainWindow):
     fileLoading = pyqtSignal()
@@ -134,7 +138,6 @@ class QConfigWindow(QMainWindow):
     delayedNew = pyqtSignal()
     delayedExit = pyqtSignal()
     exceptionCaptured = pyqtSignal(type, BaseException, types.TracebackType)
-    
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -144,27 +147,27 @@ class QConfigWindow(QMainWindow):
         self.configWidget.contentsModified.connect(self.isModified)
 
         self.newAct = QAction("&New", self, shortcut="Ctrl+N",
-                triggered=self.fileNew)
+                              triggered=self.fileNew)
         self.newAct.setIcon(QIcon.fromTheme("document-new"))
         self.addAction(self.newAct)
 
         self.openAct = QAction("&Open...", self, shortcut="Ctrl+O",
-                triggered=self.fileOpen)
+                               triggered=self.fileOpen)
         self.openAct.setIcon(QIcon.fromTheme("document-open"))
         self.addAction(self.openAct)
 
         self.saveAct = QAction("&Save", self, shortcut="Ctrl+S",
-                triggered=self.fileSave, enabled=False)
+                               triggered=self.fileSave, enabled=False)
         self.saveAct.setIcon(QIcon.fromTheme("document-save"))
         self.addAction(self.saveAct)
 
         self.saveAsAct = QAction("Save As...", self, shortcut="Ctrl+Shift+S",
-                triggered=self.fileSaveAs, enabled=False)
+                                 triggered=self.fileSaveAs, enabled=False)
         self.saveAsAct.setIcon(QIcon.fromTheme("document-save-as"))
         self.addAction(self.saveAsAct)
 
         self.exitAct = QAction("E&xit", self, shortcut="Ctrl+Q",
-                triggered=self.close)
+                               triggered=self.close)
         self.exitAct.setIcon(QIcon.fromTheme("application-exit"))
         self.addAction(self.exitAct)
 
@@ -185,7 +188,6 @@ class QConfigWindow(QMainWindow):
         self.fileLoading.connect(self.handleFileLoading)
         self.fileLoaded.connect(self.handleFileLoaded)
         self.exceptionCaptured.connect(self.handleException)
-
 
         self.loading = False
         self.loadConfig(Config())
@@ -236,10 +238,11 @@ class QConfigWindow(QMainWindow):
 
         filters = "All supported files (*.ptc *.ptc.gz *.ptc.bz2 *.ptc.xz)"
         fileName, _ = QFileDialog.getOpenFileName(self, "Open File",
-                None, filters)
+                                                  None, filters)
 
         if fileName:
-            t = threading.Thread(target=self.loadFile, args=(fileName,), kwargs={})
+            t = threading.Thread(target=self.loadFile,
+                                 args=(fileName,), kwargs={})
             t.start()
 
     def fileSave(self, signal=None, signalargs=()):
@@ -255,7 +258,7 @@ class QConfigWindow(QMainWindow):
 
         defaultname = self.config.configname or "untitled.ptc.xz"
         fileName, _ = QFileDialog.getSaveFileName(self, "Save File",
-                str(defaultname), filters)
+                                                  str(defaultname), filters)
 
         return fileName
 
@@ -300,7 +303,8 @@ class QConfigWindow(QMainWindow):
         if fileName:
             self.config.configname = fileName
             self.fileSave()
-            self.setWindowTitle(f"QTranscode Editor - [{self.config.configname}]")
+            self.setWindowTitle(
+                f"QTranscode Editor - [{self.config.configname}]")
 
         return fileName
 
@@ -332,14 +336,16 @@ class QConfigWindow(QMainWindow):
             self.fileLoaded.emit()
 
     def saveChangesDlg(self):
-        answer = QMessageBox.question(self, "Save Changes?", "Do you wish to save changes?", QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+        answer = QMessageBox.question(self, "Save Changes?", "Do you wish to save changes?",
+                                      QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
         return answer
 
     def handleException(self, cls, exc, tb):
         print(traceback.format_exception(cls, exc, tb), file=sys.stderr)
         excmsg = QMessageBox(self)
         excmsg.setWindowTitle("Error")
-        excmsg.setText("An exception was encountered\n\n%s" % "".join(traceback.format_exception(cls, exc, tb)))              
+        excmsg.setText("An exception was encountered\n\n%s" %
+                       "".join(traceback.format_exception(cls, exc, tb)))
         excmsg.setStandardButtons(QMessageBox.Ok)
         excmsg.setIcon(QMessageBox.Critical)
         excmsg.exec_()
@@ -366,6 +372,7 @@ class QConfigWindow(QMainWindow):
 
         event.accept()
 
+
 def main():
     import argparse
     import sys
@@ -384,6 +391,7 @@ def main():
 
     app.exec_()
     return win.config
+
 
 if __name__ == "__main__":
     main()

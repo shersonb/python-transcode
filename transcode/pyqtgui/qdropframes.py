@@ -1,6 +1,7 @@
 from .qframetablecolumn import BaseColumn
 from PyQt5.QtCore import Qt
 
+
 class DropFrameCol(BaseColumn):
     headerdisplay = "D"
     display = ""
@@ -13,10 +14,11 @@ class DropFrameCol(BaseColumn):
     def setcheckstate(self, index, obj, data):
         if self.checkstate(index, obj):
             self.dropframes.remove(obj)
+            return True
 
         else:
             self.dropframes.add(obj)
+            return True
 
     def checkstate(self, index, obj):
         return obj in self.dropframes
-

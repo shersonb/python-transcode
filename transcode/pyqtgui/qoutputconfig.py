@@ -1,9 +1,10 @@
 from .qoutputtracklist import OutputTrackList
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
                              QLineEdit, QFileDialog, QDialog, QCheckBox, QDoubleSpinBox)
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt
+from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QIcon
 import os
+
 
 class QCheckBoxMatchHeight(QCheckBox):
     def __init__(self, *args, **kwargs):
@@ -22,6 +23,7 @@ class QCheckBoxMatchHeight(QCheckBox):
     def setHeightMatch(self, widget):
         self._hwidget = widget
         self.updateGeometry()
+
 
 class QOutputConfig(QWidget):
     contentsModified = pyqtSignal()
@@ -60,7 +62,8 @@ class QOutputConfig(QWidget):
         layout.addLayout(sublayout)
 
         sublayout = QHBoxLayout()
-        self.targetSizeCheckBox = QCheckBoxMatchHeight("&Target File Size (Overrides settings in video encoder)", self)
+        self.targetSizeCheckBox = QCheckBoxMatchHeight(
+            "&Target File Size (Overrides settings in video encoder)", self)
 
         self.targetSizeSpinBox = QDoubleSpinBox(self)
         self.targetSizeSpinBox.setMinimum(1)
@@ -78,7 +81,6 @@ class QOutputConfig(QWidget):
         sublayout.addStretch()
         layout.addLayout(sublayout)
 
-
         self.settingsBtn = QPushButton("Con&figure Container...", self)
         self.settingsBtn.setIcon(QIcon.fromTheme("preferences-other"))
         self.settingsBtn.clicked.connect(self.configureContainer)
@@ -91,15 +93,15 @@ class QOutputConfig(QWidget):
         self.setOutputFile(None)
 
     def setOutputTitle(self, title):
-        output_file.title = title
+        self.output_file.title = title
         self.isModified()
 
     def setOutputPath(self, path):
-        output_file.outputpathrel = path
+        self.output_file.outputpathrel = path
         self.isModified()
 
     def setTargetSize(self, value):
-        output_file.targetsize = value*1024**2
+        self.output_file.targetsize = value*1024**2
         self.isModified()
 
     def setTargetSizeMode(self, flag):
@@ -117,20 +119,23 @@ class QOutputConfig(QWidget):
         filters = f"{output_file.fmtname} Files ({' '.join(f'*{ext}' for ext in output_file.extensions)})"
 
         if output_file.config and output_file.config.workingdir:
-            fileName = os.path.join(output_file.config.workingdir, self.fileEdit.text())
+            fileName = os.path.join(
+                output_file.config.workingdir, self.fileEdit.text())
 
         else:
             fileName = self.fileEdit.text()
 
         fileName, _ = QFileDialog.getSaveFileName(self, "Save File",
-                fileName, filters)
+                                                  fileName, filters)
 
         if fileName:
             if output_file.config and output_file.config.workingdir:
-                fileName = os.path.join(output_file.config.workingdir, fileName)
+                fileName = os.path.join(
+                    output_file.config.workingdir, fileName)
 
                 if not os.path.relpath(fileName, output_file.config.workingdir).startswith("../"):
-                    fileName = os.path.relpath(fileName, output_file.config.workingdir)
+                    fileName = os.path.relpath(
+                        fileName, output_file.config.workingdir)
 
             self.fileEdit.setText(fileName)
 
@@ -164,7 +169,8 @@ class QOutputConfig(QWidget):
             self.fileEdit.blockSignals(False)
 
             self.targetSizeCheckBox.blockSignals(True)
-            self.targetSizeCheckBox.setCheckState(2 if output_file.targetsize is not None else 0)
+            self.targetSizeCheckBox.setCheckState(
+                2 if output_file.targetsize is not None else 0)
             self.targetSizeCheckBox.blockSignals(False)
 
             self.targetSizeSpinBox.setHidden(output_file.targetsize is None)
@@ -176,7 +182,8 @@ class QOutputConfig(QWidget):
 
             self.browseBtn.setEnabled(True)
 
-            self.settingsBtn.setEnabled(hasattr(output_file, "QtDlgExec") and callable(output_file.QtDlgExec))
+            self.settingsBtn.setEnabled(
+                hasattr(output_file, "QtDlgExec") and callable(output_file.QtDlgExec))
             self.settingsBtn.setText(f"{output_file.fmtname} Options...")
 
         else:
@@ -201,6 +208,7 @@ class QOutputConfig(QWidget):
     def configureContainer(self):
         if self.output_file.QtDlgExec(self):
             self.contentsModified.emit()
+
 
 class QOutputConfigDlg(QDialog):
     def __init__(self, input_files, filters, output_file=None, *args, **kwargs):
@@ -231,13 +239,16 @@ class QOutputConfigDlg(QDialog):
         return self.widget.modified
 
     def updateTitle(self):
-        self.setWindowTitle(f"Configure — {self.widget._output_file_copy.title} [{self.widget._output_file_copy.outputpathrel}]")
+        self.setWindowTitle(
+            f"Configure — {self.widget._output_file_copy.title} [{self.widget._output_file_copy.outputpathrel}]")
+
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Output File Configuration.")
     parser.add_argument("file", action='store', help="Config file")
-    parser.add_argument("-n", action='store', help="Select output file to configure.", default=0, type=int)
+    parser.add_argument(
+        "-n", action='store', help="Select output file to configure.", default=0, type=int)
     args = parser.parse_args()
 
     from transcode.config.ebml import ConfigElement
@@ -254,5 +265,6 @@ if __name__ == "__main__":
 
         import time
         T = time.localtime()
-        os.rename(args.file, f"{args.file}-backup-{T.tm_year:04d}.{T.tm_mon:02d}.{T.tm_mday:02d}-{T.tm_hour:02d}.{T.tm_min:02d}.{T.tm_sec:02d}")
+        os.rename(
+            args.file, f"{args.file}-backup-{T.tm_year:04d}.{T.tm_mon:02d}.{T.tm_mday:02d}-{T.tm_hour:02d}.{T.tm_min:02d}.{T.tm_sec:02d}")
         ConfigElement.save(config, args.file)

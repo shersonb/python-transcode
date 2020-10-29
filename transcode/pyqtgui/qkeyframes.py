@@ -1,6 +1,7 @@
 from .qframetablecolumn import BaseColumn
 from PyQt5.QtCore import Qt
 
+
 class KeyFrameCol(BaseColumn):
     headerdisplay = "K"
     display = ""
@@ -13,10 +14,11 @@ class KeyFrameCol(BaseColumn):
     def setcheckstate(self, index, obj, data):
         if self.checkstate(index, obj):
             self.forcekeyframes.remove(obj)
+            return True
 
         else:
             self.forcekeyframes.add(obj)
+            return True
 
     def checkstate(self, index, obj):
         return obj in self.forcekeyframes
-
