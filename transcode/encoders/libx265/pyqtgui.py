@@ -7,6 +7,7 @@ from PyQt5.QtGui import QRegExpValidator, QFont
 from PyQt5.QtCore import Qt, QRegExp, pyqtSignal, pyqtSlot
 import regex
 from functools import partial
+from . import x265colonrationalparams, x265slashrationalparams
 
 
 class Choices(QWidget):
@@ -517,6 +518,47 @@ class QualityRateControlTab(QWidget):
         hlayout.addWidget(self.qpSpinBox)
         hlayout.addWidget(self.rcSpacer)
         layout.addLayout(hlayout)
+
+        self.aqmotion = BoolOption(encoder, "AQ Motion", "aq-motion", self)
+        self.aqmotion.stateChanged.connect(self.optionchanged.emit)
+        self.aqmotion.setToolTip("--aq-motion, --no-aq-motion\n\n"
+                                "Adjust the AQ offsets based on the relative motion of each block with respect to the motion\n"
+                                     "of the frame. The more the relative motion of the block, the more quantization is used.\n\n"
+                                     "Default disabled. <b>Experimental Feature.</b>")
+        layout.addWidget(self.aqmotion)
+
+        self.aqmode = Choices(encoder, "AQ Mode", "aq-mode",
+                              [("Disabled", 0), ("AQ Enabled", 1), ("AQ enabled with auto-variance", 2), ("AQ enabled with auto-variance and bias to dark scenes", 3), ("AQ enabled with auto-variance and edge information", 4)], self)
+        self.aqmode.selection.currentIndexChanged.connect(
+            self.optionchanged.emit)
+        self.aqmode.setToolTip("--aq-mode <0|1|2|3|4>\n\n"
+                                     "Adaptive Quantization operating mode. Raise or lower per-block quantization based on\n"
+                                     "complexity analysis of the source image. The more complex the block, the more\n"
+                                     "quantization is used. These offsets the tendency of the encoder to spend too many bits\n"
+                                     "on complex areas and not enough in flat areas.")
+        layout.addWidget(self.aqmode)
+
+        self.aqstrength = FloatOption(
+            encoder, "AQ Strength", "aq-strength", 0, 3, 1, 2, self)
+        self.aqstrength.spinbox.valueChanged.connect(self.optionchanged.emit)
+        self.aqstrength.setToolTip("--aq-strength <float>\n\n"
+                                     "Adjust the strength of the adaptive quantization offsets. Setting --aq-strength to 0\n"
+                                     "disables AQ. At aq-modes 2 and 3, high aq-strengths will lead to high QP offsets\n"
+                                     "resulting in a large difference in achieved bitrates.\n\n"
+                                     "Default 1.0. Range of values: 0.0 to 3.0")
+        layout.addWidget(self.aqstrength)
+
+        self.qgsize = Choices(encoder, "QG Size", "qg-size",
+                              [("8", 8), ("16", 16), ("32", 32), ("64", 64)], self)
+        self.qgsize.selection.currentIndexChanged.connect(
+            self.optionchanged.emit)
+        self.qgsize.setToolTip("--qg-size <64|32|16|8>\n\n"
+                                     "Enable adaptive quantization for sub-CTUs. This parameter specifies the minimum CU size\n"
+                                     "at which QP can be adjusted, ie. Quantization Group size. Allowed range of values are 64,\n"
+                                     "32, 16, 8 provided this falls within the inclusive range [maxCUSize, minCUSize].\n\n"
+                                     "Default: same as maxCUSize")
+        layout.addWidget(self.qgsize)
+
         """
         TODO:
         --vbv-bufsize
@@ -533,12 +575,10 @@ class QualityRateControlTab(QWidget):
 
         --lossless
 
-        --aq-mode
-        --aq-strength
         --aq-motion
         --hevc-aq
         --qp-adaptation-range
-        --qg-size
+        #--qg-size
         --cutree
         --slow-firstpass
         --multi-pass-opt-analysis
@@ -635,6 +675,8 @@ class QualityRateControlTab(QWidget):
 
 
 class x265ConfigDlg(QDialog):
+    settingsApplied = pyqtSignal()
+
     def __init__(self, encoder, *args, **kwargs):
         super(x265ConfigDlg, self).__init__(*args, **kwargs)
         self.encoder = encoder
@@ -662,6 +704,10 @@ class x265ConfigDlg(QDialog):
         self.sliceDecision = SliceDecisionTab(encoder, self.tabs)
         self.sliceDecision.optionchanged.connect(self.isModified)
         self.tabs.addTab(self.sliceDecision, "Slice Decision")
+
+        self.optionsLabel = QLabel("libx265 options: ", self)
+        self.optionsLabel.setWordWrap(True)
+        layout.addWidget(self.optionsLabel)
 
         #self.pltTab = QWidget(self.tabs)
         #self.tabs.addTab(self.pltTab, "Profile/Level/Tier")
@@ -1011,13 +1057,45 @@ class x265ConfigDlg(QDialog):
         self.isModified()
 
     def applyAndClose(self):
+        self.settingsApplied.emit()
         self.done(1)
         self.close()
 
+    def updateOptionLabel(self):
+        opts = []
+
+        if self.encoder.crf is not None:
+            opts.append(f"--crf {self.encoder.crf:.2f}")
+
+        for key, value in self.encoder.x265params.items():
+            if value is True:
+                opts.append(f"--{key}")
+
+            elif value is False:
+                opts.append(f"--no-{key}")
+
+            elif isinstance(value, str):
+                opts.append(f"--{key} {value}")
+
+            elif isinstance(value, QQ):
+                if key in x265colonrationalparams:
+                    opts.append(f"--{key} {value.numerator}\\:{value.denominator}")
+
+                if key in x265slashrationalparams:
+                    opts.append(f"--{key} {value.numerator}/{value.denominator}")
+
+            elif value is not None:
+                opts.append(f"--{key} {value}")
+
+        self.optionsLabel.setText(f"libx265 options: {' '.join(opts)}")
+
     def isModified(self, flag=True):
+        self.updateOptionLabel()
         self.okayBtn.setEnabled(flag)
+
         if flag:
             self.cancelBtn.setText("&Cancel")
+
         else:
             self.cancelBtn.setText("&Close")
 
