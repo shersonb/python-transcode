@@ -9,6 +9,7 @@ import random
 from .quidspinbox import UIDDelegate
 from transcode.pyqtgui.qimageview import QImageView
 from transcode.pyqtgui.slider import Slider
+from transcode.pyqtgui.qtimeselect import QTimeSelect
 from transcode.filters.video.scenes import Scenes
 from ..reader import MatroskaReader
 from matroska.chapters import EditionEntry as InputEditionEntry
@@ -247,7 +248,7 @@ class AvailableEditionsSelection(QDialog):
 
     def applyAndClose(self):
         self.selectedEditions = [
-            (index.data(Qt.UserRole), index.data(Qt.UserRole))
+            (index.parent().data(Qt.UserRole), index.data(Qt.UserRole))
             for index in self.selectionTree.selectionModel().selectedRows()
         ]
         self.done(1)
@@ -702,6 +703,10 @@ class StartCol(BaseColumn):
     def display(self, index, obj):
         if isinstance(obj, ChapterAtom):
             pts = self.editdata(index, obj)
+
+            if pts is None:
+                return "—"
+
             m, s = divmod(pts/10**9, 60)
             h, m = divmod(int(m), 60)
             return f"{h}:{m:02d}:{s:012.9f}"
@@ -780,7 +785,7 @@ class QChapterTree(QTreeView):
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
-        self.setData(None, None)
+        self.setData(None, None, None)
 
     def contextMenuEvent(self, event):
         selected = self.currentIndex()
@@ -792,8 +797,9 @@ class QChapterTree(QTreeView):
         if isinstance(menu, QMenu):
             menu.exec_(self.mapToGlobal(event.pos()))
 
-    def setData(self, tags, editions):
+    def setData(self, track, tags, editions):
         self.tags = tags
+        self.vtrack = track
         self.editions = editions
 
         if editions is not None:
@@ -915,8 +921,9 @@ class QChapterTree(QTreeView):
         self.edit(parent.child(row, 0))
 
     def addFromInput(self):
+        input_files = self.editions.parent.config.input_files
         dlg = AvailableEditionsSelection(self)
-        dlg.setInputFiles(self.editions.parent.config.input_files)
+        dlg.setInputFiles(input_files)
         existingEditionUIDs = {edition.UID for edition in self.editions}
         existingChapterUIDs = {chapter.UID
                                for edition in self.editions
@@ -933,18 +940,6 @@ class QChapterTree(QTreeView):
                 editionUID = edition.editionUID
                 ordered = bool(edition.editionFlagOrdered)
 
-                if vtrack:
-                    frameIndexFromPts = vtrack.source.frameIndexFromPts
-
-                else:
-                    for track in input_files.tracks:
-                        if track.type == "video":
-                            frameIndexFromPts = track.frameIndexFromPts
-                            break
-
-                    else:
-                        frameIndexFromPts = None
-
                 while editionUID in existingEditionUIDs:
                     editionUID = random.randint(1, 2**128 - 1)
 
@@ -956,15 +951,26 @@ class QChapterTree(QTreeView):
                     while chapterUID in existingChapterUIDs:
                         chapterUID = random.randint(1, 2**128 - 1)
 
-                    startFrame = frameIndexFromPts(
-                        chapteratom.chapterTimeStart + 8*10**6, "-")
+                    if self.vtrack is not None:
+                        startFrame = self.vtrack.frameIndexFromPts(chapteratom.chapterTimeStart + 8*10**6, "-")
 
-                    if ordered:
-                        endFrame = frameIndexFromPts(
-                            chapteratom.chapterTimeEnd, "-")
+                        if ordered:
+                            endFrame = self.vtrack.frameIndexFromPts(chapteratom.chapterTimeEnd + 8*10**6, "-")
+
+                        else:
+                            endFrame = None
+
+                        timeStart = timeEnd = None
 
                     else:
-                        endFrame = None
+                        startFrame = endFrame = None
+                        timeStart = chapteratom.chapterTimeStart
+
+                        if ordered:
+                            timeEnd = chapteratom.chapterTimeEnd
+
+                        else:
+                            timeEnd = None
 
                     displays = []
 
@@ -980,7 +986,7 @@ class QChapterTree(QTreeView):
                     enabled = bool(chapteratom.chapterFlagEnabled)
 
                     newchapteratom = ChapterAtom(chapterUID, startFrame, endFrame,
-                                                 displays, hidden, enabled)
+                                                 timeStart, timeEnd, displays, hidden, enabled)
                     chapters.append(newchapteratom)
 
                     existingChapterUIDs.add(chapterUID)
@@ -1168,17 +1174,36 @@ class QChaptersWidget(QWidget):
 
         frameselectlayout = QHBoxLayout()
         layout.addLayout(frameselectlayout)
+
         self.startFrameSelect = QFrameSelect(self)
         self.startFrameSelect.imageView.setMaximumHeight(360)
         self.startFrameSelect.frameSelectionChanged.connect(
-            self.handleStartSelectionChange)
+            self.handleStartFrameSelectionChange)
+
         self.endFrameSelect = QFrameSelect(self)
-        self.endFrameSelect.frameSelectionChanged.connect(
-            self.handleEndSelectionChange)
-        self.endFrameSelect.setHidden(True)
         self.endFrameSelect.imageView.setMaximumHeight(360)
+        self.endFrameSelect.frameSelectionChanged.connect(
+            self.handleEndFrameSelectionChange)
+        self.endFrameSelect.setHidden(True)
+
         frameselectlayout.addWidget(self.startFrameSelect)
         frameselectlayout.addWidget(self.endFrameSelect)
+
+        timeselectlayout = QHBoxLayout()
+        self.startTimeSelect = QTimeSelect(self)
+        self.startTimeSelect.valueChanged.connect(
+            self.handleStartTimeSelectionChange)
+        self.startTimeSelect.setHidden(True)
+
+        self.endTimeSelect = QTimeSelect(self)
+        self.endTimeSelect.valueChanged.connect(
+            self.handleEndTimeSelectionChange)
+        self.endTimeSelect.setHidden(True)
+
+        timeselectlayout.addWidget(self.startTimeSelect)
+        timeselectlayout.addWidget(self.endTimeSelect)
+
+        layout.addLayout(timeselectlayout)
 
         btnlayout = QHBoxLayout()
         layout.addLayout(btnlayout)
@@ -1193,7 +1218,7 @@ class QChaptersWidget(QWidget):
         btnlayout.addWidget(self.removeBtn)
         btnlayout.addStretch()
 
-    def handleStartSelectionChange(self, n, t):
+    def handleStartFrameSelectionChange(self, n, t):
         selected = self.chapterTree.currentIndex().data(Qt.UserRole)
 
         if isinstance(selected, ChapterDisplay):
@@ -1203,7 +1228,7 @@ class QChaptersWidget(QWidget):
             selected.startFrame = n
             self.chapterTree.model().emitDataChanged()
 
-    def handleEndSelectionChange(self, n, t):
+    def handleEndFrameSelectionChange(self, n, t):
         selected = self.chapterTree.currentIndex().data(Qt.UserRole)
 
         if isinstance(selected, ChapterDisplay):
@@ -1211,6 +1236,26 @@ class QChaptersWidget(QWidget):
 
         if isinstance(selected, ChapterAtom):
             selected.endFrame = n
+            self.chapterTree.model().emitDataChanged()
+
+    def handleStartTimeSelectionChange(self, t):
+        selected = self.chapterTree.currentIndex().data(Qt.UserRole)
+
+        if isinstance(selected, ChapterDisplay):
+            selected = selected.parent
+
+        if isinstance(selected, ChapterAtom):
+            selected.timeStart = int(10**9*t)
+            self.chapterTree.model().emitDataChanged()
+
+    def handleEndTimeSelectionChange(self, t):
+        selected = self.chapterTree.currentIndex().data(Qt.UserRole)
+
+        if isinstance(selected, ChapterDisplay):
+            selected = selected.parent
+
+        if isinstance(selected, ChapterAtom):
+            selected.timeEnd = int(10**9*t)
             self.chapterTree.model().emitDataChanged()
 
     def handleIndexChange(self, newindex, oldindex):
@@ -1221,18 +1266,40 @@ class QChaptersWidget(QWidget):
 
         if isinstance(selected, ChapterAtom):
             self.endFrameSelect.setHidden(not selected.parent.ordered)
-            self.startFrameSelect.blockSignals(True)
-            self.startFrameSelect.slider.setValue(selected.startFrame)
-            self.startFrameSelect.blockSignals(False)
+
+            if selected.startFrame is not None:
+                self.startFrameSelect.blockSignals(True)
+                self.startFrameSelect.slider.setValue(selected.startFrame)
+                self.startFrameSelect.blockSignals(False)
+
+            self.startTimeSelect.blockSignals(True)
+            self.startTimeSelect.setValue(selected.timeStart/10**9)
+            self.startTimeSelect.blockSignals(False)
 
             if selected.parent.ordered:
-                self.endFrameSelect.blockSignals(True)
-                self.endFrameSelect.slider.setValue(
-                    selected.endFrame or selected.startFrame)
-                self.endFrameSelect.blockSignals(False)
+                if selected.endFrame is not None or selected.startFrame is not None:
+                    self.endFrameSelect.blockSignals(True)
+                    self.endFrameSelect.slider.setValue(
+                        selected.endFrame or selected.startFrame)
+                    self.endFrameSelect.blockSignals(False)
 
-    def setData(self, tags, chapters):
-        self.chapterTree.setData(tags, chapters)
+                self.endTimeSelect.blockSignals(True)
+                self.endTimeSelect.setValue(selected.timeEnd/10**9)
+                self.endTimeSelect.blockSignals(False)
+
+
+    def setData(self, tracks, tags, chapters):
+        for track in tracks:
+            if track.type == "video":
+                self.vtrack = track
+                break
+
+        else:
+            self.vtrack = None
+
+        self.chapterTree.setData(self.vtrack, tags, chapters)
+
+        duration = max(float(track.duration) for track in tracks)
 
         if chapters is not None:
             self.chapterTree.selectionModel().currentChanged.connect(self.handleIndexChange)
@@ -1244,25 +1311,42 @@ class QChaptersWidget(QWidget):
                 self.handleSelectionChanged)
             self.handleSelectionChanged()
 
-            if chapters.parent is not None and chapters.parent.vtrack is not None:
+            if chapters.parent is not None and self.vtrack is not None:
                 self.startFrameSelect.blockSignals(True)
                 self.startFrameSelect.setFrameSource(
-                    chapters.parent.vtrack.source, chapters.parent.vtrack.filters)
+                    self.vtrack.source, self.vtrack.filters)
                 self.startFrameSelect.blockSignals(False)
+                self.startFrameSelect.setVisible(True)
 
                 self.endFrameSelect.blockSignals(True)
                 self.endFrameSelect.setFrameSource(
-                    chapters.parent.vtrack.source, chapters.parent.vtrack.filters)
+                    self.vtrack.source, self.vtrack.filters)
                 self.endFrameSelect.blockSignals(False)
+                self.endFrameSelect.setVisible(True)
+
+                self.startTimeSelect.setHidden(True)
+                self.endTimeSelect.setHidden(True)
 
             else:
                 self.startFrameSelect.blockSignals(True)
                 self.startFrameSelect.setFrameSource(None)
                 self.startFrameSelect.blockSignals(False)
+                self.startFrameSelect.setVisible(False)
 
                 self.endFrameSelect.blockSignals(True)
                 self.endFrameSelect.setFrameSource(None)
                 self.endFrameSelect.blockSignals(False)
+                self.endFrameSelect.setVisible(False)
+
+                self.startTimeSelect.blockSignals(True)
+                self.startTimeSelect.setMaximum(duration)
+                self.startTimeSelect.blockSignals(False)
+                self.startTimeSelect.setHidden(False)
+
+                self.endTimeSelect.blockSignals(True)
+                self.endTimeSelect.setMaximum(duration)
+                self.endTimeSelect.blockSignals(False)
+                self.endTimeSelect.setHidden(False)
 
     def handleSelectionChanged(self):
         self.removeBtn.setEnabled(

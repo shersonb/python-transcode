@@ -30,7 +30,7 @@ class QMatroskaConfig(QTabWidget):
     def setData(self, tags, tracks, editions, attachments):
         self.tagsTab.setData(tags, tracks, editions, attachments)
         self.attachmentsTab.setData(tags, attachments)
-        self.chaptersTab.setData(tags, editions)
+        self.chaptersTab.setData(tracks, tags, editions)
 
 
 class QMatroskaConfigDlg(QDialog):

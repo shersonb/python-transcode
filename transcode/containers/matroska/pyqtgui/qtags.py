@@ -938,6 +938,59 @@ class QTagTree(QTreeView):
         if answer == QMessageBox.Yes:
             self.deleteSelected()
 
+    def newTag(self, row_id=-1):
+        model = self.model()
+
+        existing = [(tag.type, int(tag.typeValue)) for tag in self.tags]
+        dlg = NewTagDlg(self)
+
+        for (type, typeValue) in TYPES:
+            if (type, typeValue) not in existing:
+                cbindex = dlg.typeComboBox.findData([type, typeValue])
+
+                if cbindex >= 0:
+                    dlg.typeComboBox.setCurrentIndex(cbindex)
+                    break
+
+        else:
+            dlg.typeComboBox.setCurrentIndex(0)
+
+        if dlg.exec_():
+            type, typeValue = dlg.typeComboBox.currentData()
+            tag = Tag(typeValue, type)
+
+            for simpleTag, N in dlg.selectedTags():
+                for k in range(N):
+                    tag.simpletags.append(SimpleTag(simpleTag))
+
+            if row_id == -1:
+                row_id = model.rowCount(QModelIndex())
+
+            model.insertRow(row_id, tag)
+
+    def newSimpleTag(self, parent=None, row_id=-1, tagname=""):
+        if parent is None:
+            parent = self.currentIndex()
+
+        model = self.model()
+
+        for col_id, col in enumerate(model.columns):
+            if isinstance(col, ValueCol):
+                break
+
+        else:
+            col_id = 0
+
+        if row_id == -1:
+            row_id = model.rowCount(parent)
+
+        tag = SimpleTag(tagname)
+        model.insertRow(row_id, tag, parent)
+
+        idx = model.index(row_id, col_id, parent)
+        self.setCurrentIndex(idx)
+        self.edit(idx)
+
     def deleteSelected(self):
         model = self.model()
         sm = self.selectionModel()
@@ -1018,13 +1071,20 @@ class QTagsWidget(QWidget):
         btnlayout = QHBoxLayout()
         layout.addLayout(btnlayout)
 
-        self.addTagBtn = QPushButton("&Add top-level tag", self)
-        self.addSubTagBtn = QPushButton("&Add simple tag", self)
+        self.addTagBtn = QPushButton("&Add top-level tag...", self)
+        self.addTagBtn.clicked.connect(self.tagTree.newTag)
+        #self.addSubTagBtn = QPushButton("&Add simple tag", self)
+        #self.addSubTagBtn.clicked.connect(self.tagTree.askDeleteSelected)
+
+        self.importTagBtn = QPushButton("&Import tags...", self)
+        self.importTagBtn.clicked.connect(self.tagTree.importTags)
+
         self.removeTagBtn = QPushButton("&Delete selected", self)
         self.removeTagBtn.clicked.connect(self.tagTree.askDeleteSelected)
 
         btnlayout.addWidget(self.addTagBtn)
-        btnlayout.addWidget(self.addSubTagBtn)
+        #btnlayout.addWidget(self.addSubTagBtn)
+        btnlayout.addWidget(self.importTagBtn)
         btnlayout.addWidget(self.removeTagBtn)
         btnlayout.addStretch()
 
