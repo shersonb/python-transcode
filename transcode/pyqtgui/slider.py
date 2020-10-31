@@ -2,6 +2,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QSlider, QStyleOptionSlider, QStyle)
 import time
 
+
 class Slider(QSlider):
     def __init__(self, *args, **kwargs):
         super(Slider, self).__init__(*args, **kwargs)
@@ -71,7 +72,8 @@ class Slider(QSlider):
                 value = max(less)
 
             else:
-                value = min([min(more), max(less)], key=lambda x: abs(value - x))
+                value = min([min(more), max(less)],
+                            key=lambda x: abs(value - x))
 
             if self.invertedAppearance():
                 self.setValue(self.maximum() + self.minimum() - value)
@@ -98,7 +100,8 @@ class Slider(QSlider):
         lastAngleSum = sum([a for t, a in self._angleHistory])
         newAngleSum = lastAngleSum + angle
 
-        delta = (newAngleSum*abs(newAngleSum)**(p - 1) - lastAngleSum*abs(lastAngleSum)**(p - 1))
+        delta = (newAngleSum*abs(newAngleSum)**(p - 1) -
+                 lastAngleSum*abs(lastAngleSum)**(p - 1))
 
         self._angleHistory.append((T, angle))
 
@@ -106,13 +109,13 @@ class Slider(QSlider):
 
         dn, self._scrollWheelValue = divmod(self._scrollWheelValue, 1)
 
-
         if dn:
             x = self.value()
 
             if event.modifiers() & Qt.ShiftModifier and self._snapValues:
                 snapIndex = len([n for n in self._snapValues if n < x])
-                newSnapIndex = max(0, min(snapIndex + int(dn), len(self._snapValues) - 1))
+                newSnapIndex = max(
+                    0, min(snapIndex + int(dn), len(self._snapValues) - 1))
                 value = self._snapValues[newSnapIndex]
                 super().setValue(value)
 
