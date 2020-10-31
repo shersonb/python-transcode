@@ -1,8 +1,8 @@
 #!/usr/bin/python
-from PyQt5.QtCore import (Qt, QModelIndex, pyqtSignal, QModelIndex, QItemSelectionModel)
+from PyQt5.QtCore import (Qt, QModelIndex, pyqtSignal, QModelIndex, QItemSelectionModel,
+                          QSortFilterProxyModel, pyqtSlot)
 from PyQt5.QtWidgets import (QApplication, QMenu, QAbstractItemView, QItemDelegate,
                              QTableView)
-from PyQt5.QtCore import pyqtSlot
 import sys
 import traceback
 
@@ -20,6 +20,7 @@ class FrameTable(QTableView):
         model.dataChanged.connect(self.contentsModified)
         self.setModel(model)
         self.setFilters(None)
+        self.setMinimumHeight(240)
         self.verticalHeader().setDefaultSectionSize(self.fontMetrics().height())
 
     def setFont(self, font):
@@ -43,8 +44,8 @@ class FrameTable(QTableView):
 
         if filters is not None:
             self.columns_by_filter = []
-            self.idcol.srcstream = filters.source
-            self.tscol.stream = filters.source
+            self.idcol.srcstream = filters.prev
+            self.tscol.stream = filters.prev
             self.id2col.filter = filters
             self.ts2col.filter = filters
             self.diffcol.filter = filters

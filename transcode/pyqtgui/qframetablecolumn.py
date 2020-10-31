@@ -302,7 +302,7 @@ class DiffCol(BaseColumn):
 
         if n is not None and n >= 0:
             new_pts = self.filter.pts_time[n]
-            old_pts = self.filter.source.pts_time[index.row()]
+            old_pts = self.filter.prev.pts_time[index.row()]
             return new_pts - old_pts
 
     def fgdata(self, index, obj):

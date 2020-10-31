@@ -233,7 +233,12 @@ class QFilterConfig(QDialog):
             layout.addLayout(sublayout)
 
     def isModified(self):
-        self.closeBtn.setText("&Cancel")
+        if self.shadow is self.filter:
+            self.settingsApplied.emit()
+
+        else:
+            self.closeBtn.setText("&Cancel")
+
         self.okayBtn.setEnabled(True)
         self.applyBtn.setEnabled(True)
         self.resetBtn.setEnabled(True)

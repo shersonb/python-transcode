@@ -1,7 +1,7 @@
 #!/usr/bin/python
 from PIL import Image
 from PyQt5.QtCore import Qt, pyqtSlot, QRegExp, QTime
-from PyQt5.QtGui import QRegExpValidator, QPen
+from PyQt5.QtGui import QRegExpValidator, QPen, QColor
 from PyQt5.QtWidgets import (QAction, QLabel, QSpinBox, QGridLayout, QVBoxLayout,
                              QHBoxLayout, QLineEdit, QScrollArea, QWidget, QComboBox)
 

@@ -602,11 +602,6 @@ class ZonedFilter(llist, BaseVideoFilter):
     def pts_time(self):
         return numpy.concatenate([zone.pts_time for zone in self])
 
-    # @pts_time.setter
-    # def pts_time(self, value):
-        # if self.next is not None:
-        # self.next.reset_cache()
-
     @BaseVideoFilter.indexMap.getter
     def indexMap(self):
         return numpy.concatenate([zone.indexMap for zone in self])
@@ -614,55 +609,6 @@ class ZonedFilter(llist, BaseVideoFilter):
     @BaseVideoFilter.reverseIndexMap.getter
     def reverseIndexMap(self):
         return numpy.concatenate([zone.reverseIndexMap for zone in self])
-
-    # def _translate_index(self, n):
-        # if isinstance(n, numpy.ndarray):
-        #n_min = n.min()
-        #results = numpy.zeros(n.shape, dtype=numpy.int0)
-        #matched = numpy.zeros(n.shape, dtype=bool)
-
-        # while not matched.all():
-        #n_min = n[~matched].min()
-        #k, zone = self.zoneAtPrev(n_min)
-        #filter = (n >= zone.prev_start)*(n < zone.prev_end)
-
-        # if not filter.any():
-        # continue
-
-        #results[filter] = zone._translate_index(n[filter])
-        #matched[filter] = True
-
-        # return results
-        # elif n < 0:
-        # return -1
-        # elif n == self.prev.framecount:
-        # return self.framecount
-        # else:
-        #k, zone = self.zoneAtPrev(n)
-        #m = zone._translate_index(n)
-        # return m
-
-    # def _backtranslate_index(self, m):
-        # if isinstance(m, numpy.ndarray):
-        #m = numpy.array(m)
-        #m_min = m.min()
-        #m_max = m.max()
-        #results = numpy.zeros(m.shape, dtype=numpy.int0)
-        #matched = numpy.zeros(m.shape, dtype=bool)
-
-        # while not matched.all():
-        #m_min = m[~matched].min()
-        #k, zone = self.zoneAtNew(m_min)
-        #filter = (m >= zone.dest_start)*(m < zone.dest_end)
-        # if not filter.any():
-        # continue
-        #results[filter] = zone._backtranslate_index(m[filter])
-        #matched[filter] = True
-
-        # return results
-        # else:
-        #k, zone = self.zoneAtNew(m)
-        # return zone._backtranslate_index(m)
 
     def removeZoneAt(self, n):
         k, zone = self.zoneAt(n)

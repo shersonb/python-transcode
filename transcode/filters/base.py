@@ -227,6 +227,9 @@ class BaseFilter(object):
 
     @property
     def prev(self):
+        if self.parent is not None:
+            return self._prev or self._source or self.parent.prev
+
         return self._prev or self._source
 
     @prev.setter
@@ -388,7 +391,7 @@ class BaseFilter(object):
 
     @classmethod
     def QtInitialize(cls, parent=None):
-        self = cls(prev=prev)
+        self = cls()
         dlg = self.QtDlg(parent)
         dlg.setNewConfig(True)
         return dlg
@@ -404,6 +407,8 @@ class FilterChain(llist, BaseFilter):
     from copy import deepcopy as copy
 
     def __init__(self, filters=[], **kwargs):
+        self.parent = None
+        self._prev = self._source = None
         self._source = None
         llist.__init__(self, filters.copy())
         BaseFilter.__init__(self, **kwargs)

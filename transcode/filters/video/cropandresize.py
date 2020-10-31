@@ -96,8 +96,8 @@ class Crop(BaseVideoFilter):
 
             yield newframe
 
-    @property
-    def QtDlgClass(self):
+    @staticmethod
+    def QtDlgClass():
         from transcode.pyqtgui.qcropandresize import CropDlg
         return CropDlg
 

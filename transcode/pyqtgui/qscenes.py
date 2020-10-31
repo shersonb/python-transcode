@@ -161,7 +161,8 @@ class BaseSceneCol(ZoneCol, QObject):
         dlg = QScenes(table)
         dlg.setFilter(self.filter, True)
         dlg.setZone(zone)
-        dlg.contentsModified.connect(table.contentsModified)
+        dlg.settingsApplied.connect(table.contentsModified)
+        #dlg.contentsModified.connect(table.contentsModified)
         dlg.zoneChanged.connect(partial(self.scrollTableToZone, table))
         dlg.slider.slider.setValue(self.filter.cumulativeIndexMap[index.row()])
         dlg.exec_()
@@ -200,24 +201,6 @@ class BaseSceneCol(ZoneCol, QObject):
             K2 = N[47:-12][(V[:, :12] < 1).all(axis=1)*(V[:, 12] >= 1)]
             newzones.update(K2)
 
-            #val = stats[:,0]
-            #qvals = (val[1:] + 5)/(val[:-1] + 5)
-
-            #newzones = set()
-
-            # for k in range(1, self.filter.prev.framecount):
-            #content_val, delta_hue, delta_sat, delta_lum = self.filter.stats[k - 1]
-
-            # if k > 1:
-            #qval = qvals[k-2]
-
-            # else:
-            #qval = 0
-
-            # if qval >= 2 or \
-            # (k + 12 < self.filter.prev.framecount and (self.filter.stats[k - 1:k + 11] <= 1).all() and (self.filter.stats[k + 11] > 1).any()):
-            # newzones.add(k)
-
             existing = set()
             zonestoremove = set()
 
@@ -254,7 +237,6 @@ class BaseSceneCol(ZoneCol, QObject):
             table.contentsModified.emit()
 
     def startAnalysis(self, table, start, end):
-        # table.setDisabled(True)
         self.progress = QProgressDialog(
             "Analyzing Frames", "&Cancel", 0, end - start - 1, table)
         self.analysisended.connect(partial(self.endAnalysis, table))
@@ -270,7 +252,6 @@ class BaseSceneCol(ZoneCol, QObject):
         self.progress.canceled.disconnect()
         self.progress.close()
         self.progress = None
-        # table.setEnabled(True)
         self.analysisprogress.disconnect()
         self.analysisended.disconnect()
         table.contentsModified.emit()

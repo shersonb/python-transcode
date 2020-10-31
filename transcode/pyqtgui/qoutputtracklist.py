@@ -46,6 +46,8 @@ class BaseOutputTrackCol(object):
 
 
 class QCodecSelection(QWidget):
+    contentsModified = pyqtSignal()
+
     def __init__(self, track, savedencoders, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.track = track
@@ -116,6 +118,8 @@ class QCodecSelection(QWidget):
         encoder = self.savedencoders[id(self.track), data]
 
         dlg = encoder.copy().QtDlg(self)
+        if hasattr(dlg, "settingsApplied") and isinstance(dlg.settingsApplied, pyqtBoundSignal):
+            dlg.settingsApplied.connect(self.contentsModified)
 
         if dlg is not None and dlg.exec_():
             encoder.__setstate__(dlg.encoder.__getstate__())
@@ -148,6 +152,8 @@ class QCodecSelection(QWidget):
 
 
 class CodecDelegate(QItemDelegate):
+    contentsModified = pyqtSignal()
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.savedencoders = {}
@@ -157,6 +163,7 @@ class CodecDelegate(QItemDelegate):
         editor = QCodecSelection(track, self.savedencoders, parent)
         editor.encoderSelectionComboBox.currentIndexChanged.connect(partial(self.setModelData, editor=editor,
                                                                             model=index.model(), index=index))
+        editor.contentsModified.connect(self.contentsModified)
         return editor
 
     def setEditorData(self, editor, index):

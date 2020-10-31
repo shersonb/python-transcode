@@ -233,8 +233,9 @@ class CurrentFiltersListView(QTreeView):
     def configureFilter(self, filter):
         if hasattr(filter, "QtDlg") and callable(filter.QtDlg):
             try:
-                filter.QtDlg(
-                    parent=self, settingsApplied=self.contentsModified)
+                dlg = filter.QtDlg()
+                dlg.settingsApplied.connect(self.contentsModified)
+                dlg.exec_()
 
             except:
                 (cls, exc, tb) = sys.exc_info()
@@ -473,10 +474,10 @@ class VFilterEdit(QSplitter):
         self.filters = filters
 
         if filters is not None:
-            self.previews.inputPreviewWindow.setFrameSource(filters.source)
-            self.previews.inputPreviewWindow.setSar(filters.source.sar)
+            self.previews.inputPreviewWindow.setFrameSource(filters.prev)
+            self.previews.inputPreviewWindow.setSar(filters.prev.sar)
             self.previews.inputFrameSelect.setPtsTimeArray(
-                filters.source.pts_time)
+                filters.prev.pts_time)
 
             self.previews.outputPreviewWindow.setFrameSource(filters)
             self.previews.outputPreviewWindow.setSar(filters.sar)

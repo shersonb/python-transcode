@@ -53,7 +53,7 @@ class BaseVideoFilter(BaseFilter):
     @property
     def prev(self):
         if self.parent is not None:
-            return self._prev or self.parent._source
+            return self._prev or self.parent.prev
 
         return self._prev or self._source
 
