@@ -41,11 +41,13 @@ class ChapterDisplay(object):
 class ChapterAtom(object):
     from copy import deepcopy as copy
 
-    def __init__(self, UID, startFrame, endFrame=None, displays=[], hidden=False, enabled=True, segmentUID=None,
+    def __init__(self, UID, startFrame=None, endFrame=None, timeStart=None, timeEnd=None, displays=[], hidden=False, enabled=True, segmentUID=None,
                  segmentEditionUID=None, physicalEquiv=None, tracks=None, next=None, prev=None, parent=None):
         self.UID = UID
         self.startFrame = startFrame
         self.endFrame = endFrame
+        self._timeStart = timeStart
+        self._timeEnd = timeEnd
         self.displays = displays.copy()
         self.hidden = hidden
         self.enabled = enabled
@@ -88,45 +90,103 @@ class ChapterAtom(object):
 
     @property
     def timeStart(self):
-        if self.segment and self.segment.vtrack:
-            if self.segment.vtrack.filters:
+        if self.startFrame is not None and self.segment:
+            vtrack = self.segment.vtrack
+
+            if vtrack is None:
+                for vtrack in self.segment.tracks:
+                    if vtrack.type == "video":
+                        break
+
+                else:
+                    return
+
+            if vtrack.filters is not None:
                 k = -1
                 n = self.startFrame
 
                 while k < 0:
-                    k = self.segment.vtrack.filters.indexMap[n]
+                    k = vtrack.filters.indexMap[n]
                     n += 1
 
             else:
                 k = self.startFrame
 
-            return self.parent.parent.vtrack.pts[k]
+            return vtrack.pts[k]
+
+        return self._timeStart
+
+    @timeStart.setter
+    def timeStart(self, value):
+        self._timeStart = value
+
+        if value is not None:
+            self.startFrame = None
 
     @property
     def timeEnd(self):
         if self.parent:
-            if self.parent.ordered and self.segment and self.segment.vtrack:
+            if self.parent.ordered and self.segment:
                 if self.endFrame is None:
                     return
 
-                if self.segment.vtrack.filters:
+                vtrack = self.segment.vtrack
+
+                if vtrack is None:
+                    for vtrack in self.segment.tracks:
+                        if vtrack.type == "video":
+                            break
+
+                    else:
+                        return
+
+                if vtrack.filters:
                     k = -1
                     n = self.endFrame
 
                     while k < 0:
-                        k = self.segment.vtrack.filters.indexMap[n]
+                        k = vtrack.filters.indexMap[n]
                         n += 1
 
                 else:
                     k = self.endFrame
 
-                return self.segment.vtrack.pts[self.endFrame]
+                return vtrack.pts[self.endFrame]
 
             elif self.next:
                 return self.next.timeStart
 
             elif self.segment and self.segment.vtrack:
                 return int(self.segment.vtrack.duration/self.segment.vtrack.time_base)
+
+    @timeEnd.setter
+    def timeEnd(self, value):
+        self._timeEnd = value
+
+        if value is not None:
+            self.endFrame = None
+
+    @property
+    def startFrame(self):
+        return self._startFrame
+
+    @startFrame.setter
+    def startFrame(self, value):
+        self._startFrame = value
+
+        if value is not None:
+            self._timeStart = None
+
+    @property
+    def endFrame(self):
+        return self._endFrame
+
+    @endFrame.setter
+    def endFrame(self, value):
+        self._endFrame = value
+
+        if value is not None:
+            self._timeEnd = None
 
     def prepare(self, logfile=None):
         flagstrings = [f"UID {self.UID}"]
@@ -160,13 +220,22 @@ class ChapterAtom(object):
         return ebml
 
     def __reduce__(self):
-        return self.__class__, (self.UID, self.startFrame), self.__getstate__()
+        return self.__class__, (self.UID,), self.__getstate__()
 
     def __getstate__(self):
         state = OrderedDict()
 
+        if self.startFrame is not None:
+            state["startFrame"] = self.startFrame
+
         if self.endFrame is not None:
             state["endFrame"] = self.endFrame
+
+        if self._timeStart is not None:
+            state["_timeStart"] = self._timeStart
+
+        if self._timeEnd is not None:
+            state["_timeEnd"] = self._timeEnd
 
         if self.displays is not None:
             state["displays"] = self.displays
@@ -192,7 +261,14 @@ class ChapterAtom(object):
         return state
 
     def __setstate__(self, state):
+        if "startFrame" in state:
+            self.startFrame = state.get("startFrame")
+
         self.endFrame = state.get("endFrame")
+
+        self._timeStart = state.get("timeStart")
+        self._timeEnd = state.get("timeEnd")
+
         self.displays = state.get("displays", [])
         self.hidden = state.get("hidden", False)
         self.enabled = state.get("enabled", True)
