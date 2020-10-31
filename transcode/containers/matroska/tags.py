@@ -202,80 +202,15 @@ class SimpleTag(object):
         self.binary = state.get("binary")
         self.subtags = state.get("subtags", [])
 
-# class BaseTag(object):
-    #from copy import deepcopy as copy
-    #type = None
-    #typeValue = None
-
-    # def __init__(self, tracks=[], editions=[], chapters=[], attachments=[]):
-        #self.tracks = list(tracks)
-        #self.editions = list(editions)
-        #self.chapters = list(chapters)
-        #self.attachments = list(attachments)
-        #self.simpletags = []
-
-    # @property
-    # def simpletags(self):
-        # return self._simpletags
-
-    # @simpletags.setter
-    # def simpletags(self, value):
-        #self._simpletags = ChildList(value, self)
-
-    # def __reduce__(self):
-        # return self.__class__, (), self.__getstate__()
-
-    # def __getstate__(self):
-        #state = OrderedDict()
-
-        # if self.tracks:
-        #state["tracks"] = self.tracks
-
-        # if self.editions:
-        #state["editions"] = self.editions
-
-        # if self.chapters:
-        #state["chapters"] = self.chapters
-
-        # if self.attachments:
-        #state["attachments"] = self.attachments
-
-        # return state
-
-    # def __setstate__(self, state):
-        #self.tracks = state.get("tracks", [])
-        #self.editions = state.get("editions", [])
-        #self.chapters = state.get("chapters", [])
-        #self.attachments = state.get("attachments", [])
-
-    # def prepare(self, logfile=None):
-        #print(f"{self.type} ({self.typeValue}):", file=logfile)
-
-        # if len(self.tracks):
-        #print(f"    Target Tracks: {', '.join(str(item) for item in self.tracks)}", file=logfile)
-
-        # if len(self.editions):
-        #print(f"    Target Editions: {', '.join(str(item) for item in self.editions)}", file=logfile)
-
-        # if len(self.chapters):
-        #print(f"    Target Chapters: {', '.join(str(item) for item in self.chapters)}", file=logfile)
-
-        # if len(self.attachments):
-        #print(f"    Target Attachments: {', '.join(str(item) for item in self.attachments)}", file=logfile)
-
-        # targets = matroska.tags.Targets(self.typeValue, self.type,
-        # self.tracks, self.editions, self.chapters, self.attachments)
-        #simpletags = [simpletag.prepare(0, logfile) for simpletag in self.simpletags]
-
-        # return matroska.tags.Tag(targets, simpletags)
-
 
 class Tag(object):
     from copy import deepcopy as copy
 
     def __init__(self, typeValue=None, type=None, simpletags=[],
                  tracks=[], editions=[], chapters=[], attachments=[]):
-        self.typeValue = typeValue
+        if typeValue is not None:
+            self.typeValue = int(typeValue)
+
         self.type = type
         self.simpletags = simpletags
         self.tracks = list(tracks)
@@ -321,7 +256,12 @@ class Tag(object):
         return state
 
     def __setstate__(self, state):
-        self.typeValue = state.get("typeValue")
+        try:
+            self.typeValue = int(state.get("typeValue"))
+
+        except:
+            pass
+
         self.type = state.get("type")
         self.simpletags = state.get("simpletags")
         self.tracks = state.get("tracks", [])
