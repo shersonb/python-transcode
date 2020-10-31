@@ -196,8 +196,10 @@ class QOutputConfig(QWidget):
             self.fileEdit.blockSignals(False)
 
             self.trackTable.setOutputFile(None)
+
             self.settingsBtn.setEnabled(False)
             self.settingsBtn.setText("Options...")
+
             self.browseBtn.setEnabled(False)
 
             self.targetSizeCheckBox.blockSignals(True)
@@ -242,29 +244,3 @@ class QOutputConfigDlg(QDialog):
         self.setWindowTitle(
             f"Configure — {self.widget._output_file_copy.title} [{self.widget._output_file_copy.outputpathrel}]")
 
-
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="Output File Configuration.")
-    parser.add_argument("file", action='store', help="Config file")
-    parser.add_argument(
-        "-n", action='store', help="Select output file to configure.", default=0, type=int)
-    args = parser.parse_args()
-
-    from transcode.config.ebml import ConfigElement
-    config = ConfigElement.load(args.file)
-    outfile = config.output_files[args.n]
-
-    import sys
-    from PyQt5.QtWidgets import QApplication
-    app = QApplication(sys.argv)
-    cfg = QOutputConfigDlg(config.input_files, config.filter_chains, outfile)
-
-    if cfg.exec_():
-        config.output_files[args.n] = cfg.output_file
-
-        import time
-        T = time.localtime()
-        os.rename(
-            args.file, f"{args.file}-backup-{T.tm_year:04d}.{T.tm_mon:02d}.{T.tm_mday:02d}-{T.tm_hour:02d}.{T.tm_min:02d}.{T.tm_sec:02d}")
-        ConfigElement.save(config, args.file)
