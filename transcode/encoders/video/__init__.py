@@ -6,6 +6,7 @@ _path = os.path.split(__file__)[0]
 
 encoders = {}
 
+
 def scan():
     encoders.clear()
 
@@ -27,6 +28,7 @@ def scan():
 
             if isinstance(_cls, type) and issubclass(_cls, VideoEncoderConfig) and\
                     _cls not in (VideoEncoderConfig,) and hasattr(_cls, "codec"):
-                        encoders[_cls.codec] = _cls
+                encoders[_cls.codec] = _cls
+
 
 scan()

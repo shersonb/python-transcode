@@ -2,6 +2,7 @@ import av
 from collections import deque
 from fractions import Fraction as QQ
 
+
 class VideoEncoderContext(object):
     def __init__(self, codec, framesource, notifyencode=None, logfile=None, **kwargs):
         if isinstance(codec, av.Codec):
@@ -45,7 +46,7 @@ class VideoEncoderContext(object):
         packets = self._encoder.encode()
         self._packets.extend(packets)
         self._noMoreFrames = True
-        #self.close()
+        # self.close()
         self._encoder.close()
         return len(packets)
 
@@ -91,6 +92,7 @@ class VideoEncoderContext(object):
         self._streamSize += packet.size
         return packet
 
+
 class VideoEncoderConfig(object):
     def __init__(self, codec, bitrate=None, **options):
         self.codec = codec
@@ -102,31 +104,37 @@ class VideoEncoderConfig(object):
 
         for option, value in options.items():
             if option.replace("-", "_").rstrip("_") not in slots2:
-                raise ValueError(f"Invalid option '{option}' for codec '{codec}'.")
+                raise ValueError(
+                    f"Invalid option '{option}' for codec '{codec}'.")
 
-            self.options[slots[slots2.index(option.replace("-", "_").rstrip("_"))]] = value
+            self.options[slots[slots2.index(
+                option.replace("-", "_").rstrip("_"))]] = value
 
     def create(self, framesource,
-                width, height, sample_aspect_ratio=1,
-                rate=None, pix_fmt=None, time_base=None,
-                bitrate=None,
-                notifyencode=None, logfile=None, **override):
+               width, height, sample_aspect_ratio=1,
+               rate=None, pix_fmt=None, time_base=None,
+               bitrate=None,
+               notifyencode=None, logfile=None, **override):
 
         override2 = {}
 
         for option, value in override.items():
             if option.replace("-", "_").rstrip("_") not in slots2:
-                raise ValueError(f"Invalid option '{option}' for codec '{codec}'.")
+                raise ValueError(
+                    f"Invalid option '{option}' for codec '{codec}'.")
 
-            override2[slots[slots2.index(option.replace("-", "_").rstrip("_"))]] = value
+            override2[slots[slots2.index(
+                option.replace("-", "_").rstrip("_"))]] = value
 
         options = self.options.copy()
         options.update(override2)
-        options = {key: val for (key, val) in options.items() if val is not None}
+        options = {key: val for (
+            key, val) in options.items() if val is not None}
         return VideoEncoderContext(self.codec, framesource, notifyencode, logfile,
                                    width=width, height=height, sample_aspect_ratio=sample_aspect_ratio,
                                    rate=rate, pix_fmt=pix_fmt, time_base=time_base,
-                                   bit_rate=int(bitrate*1000 if bitrate is not None else self.bitrate*1000),
+                                   bit_rate=int(
+                                       bitrate*1000 if bitrate is not None else self.bitrate*1000),
                                    options=options)
 
     @property
