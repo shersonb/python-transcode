@@ -260,6 +260,9 @@ class QConfigWindow(QMainWindow):
         fileName, _ = QFileDialog.getSaveFileName(self, "Save File",
                                                   str(defaultname), filters)
 
+        if fileName:
+            self.config.configname = fileName
+
         return fileName
 
     def _save(self, signal=None, signalargs=()):
