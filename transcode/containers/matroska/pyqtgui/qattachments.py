@@ -11,8 +11,9 @@ from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxL
                              QFileIconProvider, QMenu, QAction, QScrollArea, QFileDialog)
 from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QRegExpValidator
 
-from transcode.pyqtgui.qitemmodel import QItemModel, Node, ChildNodes, NoChildren
 from ..tags import Tag, Tags
+from transcode.pyqtgui.qitemmodel import QItemModel, Node, ChildNodes, NoChildren
+from transcode.pyqtgui.qimageview import QImageView
 from transcode.pyqtgui.qlangselect import LanguageDelegate, LANGUAGES
 from titlecase import titlecase
 from functools import partial
@@ -24,6 +25,8 @@ from ...basereader import BaseReader
 import pathlib
 import os
 import random
+import io
+from PIL import Image
 
 icons = QFileIconProvider()
 
@@ -194,8 +197,17 @@ class AvailableAttachmentsSelection(QDialog):
         super().__init__(*args, **kwargs)
         layout = QVBoxLayout()
         self.setLayout(layout)
+
+        hlayout = QHBoxLayout()
+        layout.addLayout(hlayout)
         self.selectionTree = AvailableAttachmentsTree(self)
-        layout.addWidget(self.selectionTree)
+        self.selectionTree.setMinimumHeight(240)
+        self.previewWidget = QImageView(self)
+        self.previewWidget.setMinimumWidth(240)
+        self.previewWidget.setMaximumWidth(360)
+        self.previewWidget.hide()
+        hlayout.addWidget(self.selectionTree)
+        hlayout.addWidget(self.previewWidget)
 
         hlayout = QHBoxLayout()
         layout.addLayout(hlayout)
@@ -213,6 +225,25 @@ class AvailableAttachmentsSelection(QDialog):
     def handleSelectionChanged(self):
         self.okayBtn.setEnabled(
             len(self.selectionTree.selectionModel().selectedRows()) > 0)
+
+        selected = self.selectionTree.currentIndex().data(Qt.UserRole)
+
+        if selected.mimeType in ("image/jpeg", "image/png"):
+            try:
+                with io.BytesIO() as b:
+                    b.write(b"".join(selected.fileData))
+                    b.seek(0)
+                    im = Image.open(b).copy()
+
+            except:
+                self.previewWidget.hide()
+                return
+
+            self.previewWidget.setFrame(im.toqpixmap())
+            self.previewWidget.show()
+
+        else:
+            self.previewWidget.hide()
 
     def applyAndClose(self):
         self.selectedAttachments = [
@@ -671,8 +702,17 @@ class QAttachmentsWidget(QWidget):
         layout = QVBoxLayout()
         self.setLayout(layout)
 
+        hlayout = QHBoxLayout()
+        layout.addLayout(hlayout)
+
         self.attachTree = QAttachmentTree(self)
-        layout.addWidget(self.attachTree)
+        self.attachTree.setMinimumHeight(240)
+        hlayout.addWidget(self.attachTree)
+        self.previewWidget = QImageView(self)
+        self.previewWidget.setMinimumWidth(240)
+        self.previewWidget.setMaximumWidth(360)
+        self.previewWidget.hide()
+        hlayout.addWidget(self.previewWidget)
 
         btnlayout = QHBoxLayout()
         layout.addLayout(btnlayout)
@@ -684,6 +724,7 @@ class QAttachmentsWidget(QWidget):
         self.add1Btn.clicked.connect(self.attachTree.addFromFile)
         self.add2Btn.clicked.connect(self.attachTree.addFromInput)
         self.removeBtn.clicked.connect(self.attachTree.askDeleteSelected)
+
 
         btnlayout.addWidget(self.add1Btn)
         btnlayout.addWidget(self.add2Btn)
@@ -705,3 +746,27 @@ class QAttachmentsWidget(QWidget):
     def handleSelectionChanged(self):
         self.removeBtn.setEnabled(
             len(self.attachTree.selectionModel().selectedRows()) > 0)
+
+        selected = self.attachTree.currentIndex().data(Qt.UserRole)
+
+        if isinstance(selected, AttachedFile) and selected.mimeType in ("image/jpeg", "image/png"):
+            try:
+                if isinstance(selected.source, AttachmentRef):
+                    with io.BytesIO() as b:
+                        b.write(b"".join(selected.source.attachment.fileData))
+                        b.seek(0)
+                        im = Image.open(b).copy()
+
+
+                else:
+                    im = Image.open(selected.source)
+
+            except:
+                self.previewWidget.hide()
+                return
+
+            self.previewWidget.setFrame(im.toqpixmap())
+            self.previewWidget.show()
+
+        else:
+            self.previewWidget.hide()
