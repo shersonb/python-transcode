@@ -116,11 +116,11 @@ class QOutputConfig(QWidget):
         self.isModified()
 
     def execBrowseDlg(self):
-        filters = f"{output_file.fmtname} Files ({' '.join(f'*{ext}' for ext in output_file.extensions)})"
+        filters = f"{self.output_file.fmtname} Files ({' '.join(f'*{ext}' for ext in self.output_file.extensions)})"
 
-        if output_file.config and output_file.config.workingdir:
+        if self.output_file.config and self.output_file.config.workingdir:
             fileName = os.path.join(
-                output_file.config.workingdir, self.fileEdit.text())
+                self.output_file.config.workingdir, self.fileEdit.text())
 
         else:
             fileName = self.fileEdit.text()
@@ -129,13 +129,13 @@ class QOutputConfig(QWidget):
                                                   fileName, filters)
 
         if fileName:
-            if output_file.config and output_file.config.workingdir:
+            if self.output_file.config and self.output_file.config.workingdir:
                 fileName = os.path.join(
-                    output_file.config.workingdir, fileName)
+                    self.output_file.config.workingdir, fileName)
 
-                if not os.path.relpath(fileName, output_file.config.workingdir).startswith("../"):
+                if not os.path.relpath(fileName, self.output_file.config.workingdir).startswith("../"):
                     fileName = os.path.relpath(
-                        fileName, output_file.config.workingdir)
+                        fileName, self.output_file.config.workingdir)
 
             self.fileEdit.setText(fileName)
 
