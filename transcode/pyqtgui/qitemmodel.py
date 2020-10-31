@@ -475,8 +475,12 @@ class QItemModel(QAbstractItemModel):
         col_index = parent.column()
         col_obj = self.columns[col_index]
 
-        if row == -1 and hasattr(col_obj, "dropItems") and callable(col_obj.dropItems):
-            return bool(self._callsafe(col_obj.dropItems, self, obj, items, action))
+        if row == -1:
+            if hasattr(col_obj, "dropItems") and callable(col_obj.dropItems) and self._callsafe(col_obj.dropItems, self, obj, items, action):
+                return True
+
+            if hasattr(node, "dropItems") and callable(node.dropChildren):
+                return bool(self._callsafe(node.dropItems, self, parent, items, action))
 
         elif row >= 0 and hasattr(node, "dropChildren") and callable(node.dropChildren):
             return bool(self._callsafe(node.dropChildren, self, parent, items, row, action))
@@ -511,10 +515,17 @@ class QItemModel(QAbstractItemModel):
 
         if row == -1:
             if hasattr(col_obj, "canDropItems"):
-                if callable(col_obj.canDropItems):
-                    return bool(self._callsafe(col_obj.canDropItems, parent, obj, items, action))
+                if callable(col_obj.canDropItems) and self._callsafe(col_obj.canDropItems, parent, obj, items, action):
+                    return True
 
-                return bool(col_obj.canDropItems)
+                if col_obj.canDropItems:
+                    return True
+
+            if hasattr(node, "canDropItems"):
+                if callable(node.canDropItems):
+                    return bool(self._callsafe(node.canDropItems, self, parent, items, action))
+
+                return bool(node.canDropItems)
 
             return False
 
