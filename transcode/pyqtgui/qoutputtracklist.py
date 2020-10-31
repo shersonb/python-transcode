@@ -4,9 +4,10 @@ from PyQt5.QtWidgets import (QHBoxLayout, QAbstractItemView, QMessageBox, QPushB
                              QComboBox, QWidget)
 from PyQt5.QtGui import QFont, QIcon, QBrush
 
-from .qitemmodel import QItemModel, Node, ChildNodes
+from .qitemmodel import QItemModel, Node, ChildNodes, NoChildren
 
 from .qlangselect import LanguageDelegate, LANGUAGES
+from transcode.containers.basereader import BaseReader
 from transcode.containers.basereader import Track as InputTrack
 from transcode.containers.basewriter import Track as OutputTrack
 from transcode.encoders import vencoders, aencoders, sencoders
@@ -15,6 +16,7 @@ from transcode.filters.filterchain import FilterChain
 from transcode.filters.base import BaseFilter
 import av
 from functools import partial
+from itertools import count
 
 
 class BaseOutputTrackCol(object):
@@ -441,50 +443,6 @@ class OutputFmtCol(BaseOutputTrackCol):
 
 
 class OutputTrackModel(QItemModel):
-    def dropItems(self, items, action, row, column, parent):
-        if parent.isValid():
-            return False
-
-        if row == -1:
-            row = self.rowCount(parent)
-
-        j = 0
-
-        if action == Qt.CopyAction:
-            for k, item in enumerate(items):
-                newtrack = self.root.value.trackclass(item.value,
-                                                      name=item.value.name, language=item.value.language)
-
-                self.insertRow(row + k - j, newtrack, parent)
-
-        elif action == Qt.MoveAction:
-            for k, item in enumerate(items):
-                old_row = self.root.index(item)
-                self.moveRow(old_row, row + k - j, parent, parent)
-
-                if old_row < row:
-                    j += 1
-
-        return True
-
-    def canDropItems(self, items, action, row, column, parent):
-        if parent.isValid():
-            return False
-
-        parent_obj = parent.data(Qt.UserRole)
-
-        if action == Qt.CopyAction:
-            for item in items:
-                if not isinstance(item.value, (InputTrack, BaseFilter)):
-                    return False
-
-        elif action == Qt.MoveAction:
-            for item in items:
-                if not isinstance(item.value, OutputTrack) or item not in self.root.children:
-                    return False
-
-        return True
-
     def supportedDropActions(self):
         return Qt.MoveAction | Qt.CopyAction
 
@@ -495,6 +453,59 @@ class OutputFileNode(Node):
 
     def _wrapChildren(self, children):
         return OutputTrackNodes.fromValues(children, self)
+
+    def canDropChildren(self, model, parent, items, row, action):
+        if action == Qt.CopyAction:
+            for item in items:
+                if not isinstance(item.value, (InputTrack, BaseFilter, BaseReader)):
+                    return False
+
+        elif action == Qt.MoveAction:
+            for item in items:
+                if item not in self.children:
+                    return False
+
+        return True
+
+    def dropChildren(self, model, parent, items, row, action):
+        if action == Qt.CopyAction:
+            K = count(row)
+
+            for item in items:
+                if isinstance(item.value, BaseReader):
+                    for track in item.value.tracks:
+                        newtrack = self.value.trackclass(track,
+                                                         name=track.name, language=track.language)
+
+                        model.insertRow(next(K), newtrack, parent)
+
+                elif isinstance(item.value, BaseFilter):
+                    newtrack = self.value.trackclass(item.value)
+                    model.insertRow(next(K), newtrack, parent)
+
+                else:
+                    newtrack = self.value.trackclass(item.value,
+                                                     name=item.value.name, language=item.value.language)
+
+                    model.insertRow(next(K), newtrack, parent)
+
+        elif action == Qt.MoveAction:
+            j = 0
+
+            for k, item in enumerate(items, row):
+                old_row = self.children.index(item)
+                model.moveRow(old_row, k - j, parent)
+
+                if old_row < row:
+                    j += 1
+
+        return True
+
+    def canDropItems(self, model, parent, items, action):
+        return self.canDropChildren(model, parent, items, len(self.children), action)
+
+    def dropItems(self, model, parent, items, action):
+        return self.dropChildren(model, parent, items, len(self.children), action)
 
 
 class OutputTrackNodes(ChildNodes):
@@ -528,10 +539,9 @@ class OutputTrackList(QTreeView):
         self.setDragDropMode(QTreeView.DragDrop)
         self.setDefaultDropAction(Qt.MoveAction)
         self.setDragEnabled(True)
-        self.setAcceptDrops(True)
         self.setDragDropOverwriteMode(False)
         self.setDropIndicatorShown(True)
-        self.viewport().setAcceptDrops(True)
+        # self.viewport().setAcceptDrops(True)
 
         self.setIndentation(0)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -561,6 +571,8 @@ class OutputTrackList(QTreeView):
             root = OutputFileNode(output_file)
             self.setModel(OutputTrackModel(root, cols))
             self.model().dataChanged.connect(self.contentsModified)
+            self.setAcceptDrops(True)
+            self.viewport().setAcceptDrops(True)
 
             for k, col in enumerate(cols):
                 if hasattr(col, "width"):
@@ -578,6 +590,7 @@ class OutputTrackList(QTreeView):
 
         else:
             self.setModel(QItemModel(Node(None), []))
+            self.setAcceptDrops(False)
 
     def currentChanged(self, newindex, oldindex):
         if oldindex.isValid():
