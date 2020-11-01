@@ -554,6 +554,14 @@ class OutputTrackList(QTreeView):
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setOutputFile(None)
 
+    def dragMoveEvent(self, event):
+        ret = super().dragMoveEvent(event)
+
+        if event.source() is not self:
+            event.setDropAction(Qt.CopyAction)
+
+        return ret
+
     def setOutputFile(self, output_file=None):
         self.output_file = output_file
 

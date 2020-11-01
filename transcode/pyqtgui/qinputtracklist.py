@@ -1,10 +1,13 @@
-from PyQt5.QtCore import (Qt, pyqtSignal, QFileInfo)
-from PyQt5.QtWidgets import (QLabel, QMessageBox, QPushButton,
-                             QTreeView, QProgressDialog, QFileIconProvider)
+from PyQt5.QtCore import (Qt, pyqtSignal, QFileInfo, QModelIndex)
+from PyQt5.QtWidgets import (QLabel, QMessageBox, QPushButton, QFileDialog, QWidget,
+                             QTreeView, QProgressDialog, QFileIconProvider, QVBoxLayout,
+                             QHBoxLayout)
 from PyQt5.QtGui import (QFont, QIcon, QBrush)
 
 from .qitemmodel import QItemModel, Node, ChildNodes
 from transcode.containers.basereader import BaseReader, Track
+from transcode.containers import readers
+
 import sys
 import traceback
 import threading
@@ -309,24 +312,6 @@ class MediaLoad(QProgressDialog):
 
 
 class InputFileModel(QItemModel):
-    def dropItems(self, items, action, row, column, parent):
-        node = self.getNode(parent)
-
-        if row == -1:
-            row = self.rowCount(parent)
-
-        j = 0
-
-        if action == Qt.MoveAction:
-            for k, item in enumerate(items):
-                old_row = node.children.index(item)
-                self.moveRow(old_row, row + k - j, parent, parent)
-
-                if old_row < row:
-                    j += 1
-
-        return True
-
     def canDropUrls(self, urls, action, row, column, parent):
         if parent.isValid():
             return False
@@ -344,7 +329,6 @@ class InputFileModel(QItemModel):
         if row == -1:
             row = self.rowCount(parent)
 
-        k = 0
         newfiles = []
 
         for url in urls:
@@ -359,16 +343,6 @@ class InputFileModel(QItemModel):
         self.insertRows(row, newfiles, parent)
         return True
 
-    def canDropItems(self, items, action, row, column, parent):
-        if parent.isValid():
-            return False
-
-        for item in items:
-            if item not in self.root.children:
-                return False
-
-        return True
-
     def supportedDropActions(self):
         return Qt.MoveAction | Qt.CopyAction
 
@@ -376,9 +350,38 @@ class InputFileModel(QItemModel):
         return Qt.MoveAction | Qt.CopyAction
 
 
-class InputFilesNode(Node):
+class InputFilesRoot(Node):
     def _wrapChildren(self, children):
         return InputFilesNodes.fromValues(children, self)
+
+    def canDropChildren(self, model, parent, items, row, action):
+        if action == Qt.CopyAction:
+            return False
+
+        elif action == Qt.MoveAction:
+            for item in items:
+                if item not in self.children:
+                    return False
+
+        return True
+
+    def dropChildren(self, model, parent, items, row, action):
+        j = 0
+
+        for k, item in enumerate(items, row):
+            old_row = self.children.index(item)
+            model.moveRow(old_row, k - j, parent)
+
+            if old_row < row:
+                j += 1
+
+        return True
+
+    def canDropItems(self, model, parent, items, action):
+        return self.canDropChildren(model, parent, items, len(self.children), action)
+
+    def dropItems(self, model, parent, items, action):
+        return self.dropChildren(model, parent, items, len(self.children), action)
 
 
 class InputFilesNodes(ChildNodes):
@@ -401,7 +404,6 @@ class QInputTrackList(QTreeView):
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setInputFiles(None)
-        self.setDefaultDropAction(Qt.CopyAction)
 
     def setInputFiles(self, input_files):
         self.input_files = input_files
@@ -414,7 +416,7 @@ class QInputTrackList(QTreeView):
                 LanguageCol(input_files),
             ]
 
-            root = InputFilesNode(input_files)
+            root = InputFilesRoot(input_files)
             model = InputFileModel(root, cols)
             self.setModel(model)
             model.dataChanged.connect(self.contentsModified)
@@ -425,3 +427,66 @@ class QInputTrackList(QTreeView):
 
         else:
             self.setModel(QItemModel(Node(None), []))
+
+    def dragMoveEvent(self, event):
+        ret = super().dragMoveEvent(event)
+
+        if event.source() is self:
+            event.setDropAction(Qt.MoveAction)
+
+        else:
+            event.setDropAction(Qt.CopyAction)
+
+    def addFile(self, row_id=-1):
+        if row_id < 0:
+            row_id = self.model().rowCount(QModelIndex())
+
+        allExts = []
+        filters = []
+
+        for reader in readers.values():
+            extensions = [f"*{ext}" for ext in reader.extensions]
+            filters.append(f"{reader.fmtname} ({' '.join(extensions)})")
+            allExts.extend(extensions)
+
+        filters.insert(0, f"All supported files ({' '.join(allExts)})")
+
+        fileNames, _ = QFileDialog.getOpenFileNames(self, "Open File(s)",
+                                                  None, ";;".join(filters))
+
+        if fileNames:
+            newfiles = []
+
+            for fileName in fileNames:
+                progress = MediaLoad(fileName)
+
+                if progress.exec_():
+                    newfiles.append(progress.input_file)
+
+                else:
+                    return False
+
+            self.model().insertRows(row_id, newfiles, QModelIndex())
+
+
+class QInputFiles(QWidget):
+    contentsModified = pyqtSignal()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        self.inputFileList = QInputTrackList(self)
+        layout.addWidget(self.inputFileList)
+        self.inputFileList.contentsModified.connect(self.contentsModified)
+
+        btnlayout = QHBoxLayout()
+        layout.addLayout(btnlayout)
+
+        self.addBtn = QPushButton("Add input file(s)...", self)
+        self.addBtn.clicked.connect(self.inputFileList.addFile)
+
+        btnlayout.addWidget(self.addBtn)
+
+    def setInputFiles(self, input_files):
+        self.inputFileList.setInputFiles(input_files)

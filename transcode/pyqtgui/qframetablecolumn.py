@@ -70,7 +70,7 @@ class ZoneCol(BaseColumn):
         return "%s" % K
 
     def checkstate(self, index, obj):
-        return index.row() in self.filter.zone_indices
+        return 2 if index.row() in self.filter.zone_indices else 0
 
     def setcheckstate(self, index, obj, data):
         if index == 0:

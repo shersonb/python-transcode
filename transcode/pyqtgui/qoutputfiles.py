@@ -1,7 +1,8 @@
 from PyQt5.QtCore import Qt, QModelIndex, pyqtSignal, QFileInfo
 from PyQt5.QtGui import QFont, QBrush
 from PyQt5.QtWidgets import (QTreeView, QAbstractItemView, QWidget, QVBoxLayout,
-                             QMenu, QAction, QMessageBox, QFileIconProvider)
+                             QMenu, QAction, QMessageBox, QFileIconProvider, QToolButton,
+                             QWidgetAction, QLabel, QHBoxLayout)
 
 from .qitemmodel import QItemModel, Node
 from transcode.containers import writers
@@ -10,35 +11,39 @@ from functools import partial
 icons = QFileIconProvider()
 
 
-class OutputFilesModel(QItemModel):
-    def dropItems(self, items, action, row, column, parent):
-        node = self.getNode(parent)
-
-        if row == -1:
-            row = self.rowCount(parent)
-
-        j = 0
-
-        if action == Qt.MoveAction:
-            for k, item in enumerate(items):
-                old_row = node.children.index(item)
-                self.moveRow(old_row, row + k - j, parent, parent)
-
-                if old_row < row:
-                    j += 1
-
-        return True
-
-    def canDropItems(self, items, action, row, column, parent):
-        if parent.isValid():
+class OutputFilesRoot(Node):
+    def canDropChildren(self, model, parent, items, row, action):
+        if action == Qt.CopyAction:
             return False
 
-        for item in items:
-            if item not in self.root.children:
-                return False
+        elif action == Qt.MoveAction:
+            for item in items:
+                if item not in self.children:
+                    return False
 
         return True
 
+    def dropChildren(self, model, parent, items, row, action):
+        j = 0
+
+        for k, item in enumerate(items, row):
+            old_row = self.children.index(item)
+            model.moveRow(old_row, k - j, parent)
+
+            if old_row < row:
+                j += 1
+
+        return True
+
+    def canDropItems(self, model, parent, items, action):
+        return self.canDropChildren(model, parent, items, len(self.children), action)
+
+    def dropItems(self, model, parent, items, action):
+        return self.dropChildren(model, parent, items, len(self.children), action)
+
+
+
+class OutputFilesModel(QItemModel):
     def supportedDropActions(self):
         return Qt.MoveAction
 
@@ -74,54 +79,21 @@ class OutputFileCol(object):
 
         for clsname, writer in sorted(writers.items()):
             item = QAction(f"{writer.fmtname} ({', '.join(writer.extensions)}) [{clsname[len('transcode.containers.'):]}]",
-                           table, triggered=partial(self.addFile, table=table, model=index.model(), cls=writer))
+                           table, triggered=partial(table.addFile, cls=writer))
             newAtBottomSubMenu.addAction(item)
 
             item = QAction(f"{writer.fmtname} ({', '.join(writer.extensions)}) [{clsname[len('transcode.containers.'):]}]",
-                           table, triggered=partial(self.addFile, table=table, model=index.model(), cls=writer, row_id=index.row()))
+                           table, triggered=partial(table.addFile, cls=writer, row_id=index.row()))
             insertSubMenu.addAction(item)
 
         delete = QAction("Delete selected...",
-                         table, triggered=partial(self.deleteFile, table=table, model=index.model()))
+                         table, triggered=partial(table.deleteSelectedFiles))
 
         if len(table.selectedIndexes()) == 0:
             delete.setDisabled(True)
 
         menu.addAction(delete)
         return menu
-
-    def deleteFile(self, table, model):
-        selected = {index.data(Qt.UserRole)
-                    for index in table.selectedIndexes()}
-
-        if len(selected) == 1:
-            answer = QMessageBox.question(table, "Confirm delete output file",
-                                          "Do you wish to delete the selected output file?", QMessageBox.Yes | QMessageBox.No)
-
-        elif len(selected) > 1:
-            answer = QMessageBox.question(table, "Confirm delete output files",
-                                          "Do you wish to delete the selected output files?", QMessageBox.Yes | QMessageBox.No)
-
-        if answer == QMessageBox.Yes:
-
-            for tag in selected.copy():
-                index = model.findIndex(tag)
-
-                if index.isValid():
-                    model.removeRow(index.row(), index.parent())
-
-    def addFile(self, table, model, cls, row_id=-1):
-        if model is None:
-            model = table.model()
-
-        if row_id == -1:
-            row_id = model.rowCount(QModelIndex())
-
-        ext = cls.extensions[0]
-        filename = f"untitled{ext}"
-        output_file = cls(filename, tracks=[])
-        model.insertRow(row_id, output_file, QModelIndex())
-        table.setCurrentIndex(model.index(row_id, 0, QModelIndex()))
 
 
 class QOutputFileList(QTreeView):
@@ -151,7 +123,7 @@ class QOutputFileList(QTreeView):
                 OutputFileCol(output_files),
             ]
 
-            self.setModel(OutputFilesModel(Node(output_files), cols))
+            self.setModel(OutputFilesModel(OutputFilesRoot(output_files), cols))
             self.model().dataChanged.connect(self.contentsModified)
 
             for k, col in enumerate(cols):
@@ -174,14 +146,69 @@ class QOutputFileList(QTreeView):
         if isinstance(menu, QMenu):
             menu.exec_(self.mapToGlobal(event.pos()))
 
+    def deleteSelectedFiles(self):
+        model = self.model()
+        selected = {index.data(Qt.UserRole)
+                    for index in self.selectedIndexes()}
+
+        if len(selected) == 1:
+            answer = QMessageBox.question(self, "Confirm delete output file",
+                                          "Do you wish to delete the selected output file?", QMessageBox.Yes | QMessageBox.No)
+
+        elif len(selected) > 1:
+            answer = QMessageBox.question(self, "Confirm delete output files",
+                                          "Do you wish to delete the selected output files?", QMessageBox.Yes | QMessageBox.No)
+
+        if answer == QMessageBox.Yes:
+
+            for tag in selected.copy():
+                index = model.findIndex(tag)
+
+                if index.isValid():
+                    model.removeRow(index.row(), index.parent())
+
+    def addFile(self, cls, row_id=-1):
+        model = self.model()
+
+        if row_id == -1:
+            row_id = model.rowCount(QModelIndex())
+
+        ext = cls.extensions[0]
+        filename = f"untitled{ext}"
+        output_file = cls(filename, tracks=[])
+        model.insertRow(row_id, output_file, QModelIndex())
+        self.setCurrentIndex(model.index(row_id, 0, QModelIndex()))
+
 
 class QOutputFiles(QWidget):
     contentsModified = pyqtSignal()
 
-    def __init__(self, output_files=None, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         layout = QVBoxLayout()
         self.setLayout(layout)
-        self.outputFileList = QOutputFileList(output_files, self)
+        self.outputFileList = QOutputFileList(self)
         layout.addWidget(self.outputFileList)
         self.outputFileList.contentsModified.connect(self.contentsModified)
+
+        btnlayout = QHBoxLayout()
+        layout.addLayout(btnlayout)
+
+        self.addBtn = QToolButton(self)
+        self.addBtn.setText("Add output file")
+        self.addBtn.setPopupMode(QToolButton.MenuButtonPopup)
+        self.addBtn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.addBtn.clicked.connect(self.addBtn.showMenu)
+
+        addMenu = QMenu(self.addBtn)
+        self.addBtn.setMenu(addMenu)
+
+        for clsname, writer in sorted(writers.items()):
+            item = QAction(f"{writer.fmtname} ({', '.join(writer.extensions)}) [{clsname[len('transcode.containers.'):]}]",
+                           self, triggered=partial(self.outputFileList.addFile, cls=writer))
+            addMenu.addAction(item)
+
+        btnlayout.addWidget(self.addBtn)
+
+    def setOutputFiles(self, output_files):
+        self.outputFileList.setOutputFiles(output_files)

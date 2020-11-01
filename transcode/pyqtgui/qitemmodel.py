@@ -753,6 +753,10 @@ class QIntegerModel(QAbstractItemModel):
         if index.isValid():
             row_index = index.row()
             col_index = index.column()
+
+            if col_index >= len(self.columns):
+                return Qt.ItemIsDropEnabled
+
             col_obj = self.columns[col_index]
 
             if hasattr(col_obj, "flags"):

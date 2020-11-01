@@ -1,7 +1,7 @@
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 from PyQt5.QtCore import QTime, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import (QAction, QDialog, QVBoxLayout, QHBoxLayout, QScrollArea,
-                             QPushButton, QLabel, QWidget, QGridLayout, QComboBox)
+                             QPushButton, QLabel, QWidget, QGridLayout, QComboBox, QMessageBox)
 
 from itertools import islice
 from more_itertools import peekable
@@ -113,7 +113,6 @@ class ZoneDlg(QFilterConfig):
             self.slider.setPtsTimeArray(None)
 
         else:
-            print("*", source.pts_time)
             self.slider.setPtsTimeArray(source.pts_time)
             self.loadFrame(self.slider.slider.value(),
                            self.slider.currentTime.time())
@@ -376,6 +375,21 @@ class ZoneDlg(QFilterConfig):
     @pyqtSlot()
     def toggleZone(self):
         n = self.slider.slider.value()
+        newzone = (self._mode == 0 and n > self.shadowzone.src_start) or \
+            (self._mode == 1 and n > self.shadowzone.prev_start) or \
+            (self._mode == 2 and n > self.shadowzone.dest_start)
+
+        if newzone and self.zonemodified:
+            answer = self.askApplyZone()
+
+            if answer == QMessageBox.Yes:
+                self.applyZone()
+
+            elif answer == QMessageBox.Cancel:
+                return
+
+        elif not newzone and self.askRemoveZone() == QMessageBox.No:
+            return
 
         if self._mode == 0:
             if n > self.shadowzone.src_start:
@@ -430,10 +444,28 @@ class ZoneDlg(QFilterConfig):
 
     @pyqtSlot()
     def prevZone(self):
+        if self.zonemodified:
+            answer = self.askApplyZone()
+
+            if answer == QMessageBox.Yes:
+                self.applyZone()
+
+            elif answer == QMessageBox.Cancel:
+                return
+
         self.setZone(self.zone.prev)
 
     @pyqtSlot()
     def nextZone(self):
+        if self.zonemodified:
+            answer = self.askApplyZone()
+
+            if answer == QMessageBox.Yes:
+                self.applyZone()
+
+            elif answer == QMessageBox.Cancel:
+                return
+
         self.setZone(self.zone.next)
 
     @pyqtSlot(int, QTime)
@@ -472,7 +504,6 @@ class ZoneDlg(QFilterConfig):
         im = frame.to_rgb().to_image()
         pixmap = im.toqpixmap()
         self.imageView.setFrame(pixmap)
-        #self.imageView.resize(pixmap.width(), pixmap.height())
 
         self.toggleZoneBtn.setEnabled(n > 0)
 
@@ -487,6 +518,7 @@ class ZoneDlg(QFilterConfig):
     def applyZone(self):
         self.zone.__setstate__(self.shadowzone.__getstate__())
         self.zoneNotModified()
+        self.isModified()
 
     @pyqtSlot()
     def resetZone(self):
@@ -503,7 +535,8 @@ class ZoneDlg(QFilterConfig):
         if hasattr(self, "resetZoneBtn") and self.resetZoneBtn is not None:
             self.resetZoneBtn.setDisabled(False)
 
-        self.isModified()
+        if self.filter is not self.shadow:
+            self.isModified()
 
     def zoneNotModified(self):
         self.zonemodified = False
@@ -515,5 +548,37 @@ class ZoneDlg(QFilterConfig):
             self.resetZoneBtn.setDisabled(True)
 
     def apply(self):
-        self.applyZone()
+        if self.zonemodified:
+            answer = self.askApplyZone()
+
+            if answer == QMessageBox.Yes:
+                self.applyZone()
+
+            elif answer == QMessageBox.Cancel:
+                return
+
         super().apply()
+
+    def closeEvent(self, event):
+        if self.zonemodified and not self.modified:
+            answer = self.askApplyZone()
+
+            if answer == QMessageBox.Yes:
+                self.applyZone()
+
+            elif answer == QMessageBox.Cancel:
+                event.ignore()
+                return
+
+        super().closeEvent(event)
+
+    def askApplyZone(self):
+        return QMessageBox.question(self, "Apply zone settings?",
+                                    "Do you wish to apply zone settings?",
+                                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+
+    def askRemoveZone(self):
+        return QMessageBox.question(self, "Remove?",
+                                    "Are you sure you wish to remove zone?",
+                                    QMessageBox.Yes | QMessageBox.No)
+

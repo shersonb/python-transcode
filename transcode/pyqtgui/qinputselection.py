@@ -1,4 +1,4 @@
-from .qinputtracklist import InputFilesNode, FileTrackCol, LanguageCol, InputFmtCol
+from .qinputtracklist import InputFilesRoot, FileTrackCol, LanguageCol, InputFmtCol
 from .qfilterlistmodel import FiltersRoot
 from .qfilterlistcols import FilterNameCol, SourceCol, FormatCol
 from .qitemmodel import Node, ChildNodes, QItemModel
@@ -22,7 +22,7 @@ class InputSelectionChildren(ChildNodes):
             return Node(value)
 
         elif isinstance(value, InputFileList):
-            return InputFilesNode(value)
+            return InputFilesRoot(value)
 
         elif isinstance(value, FilterList):
             return FiltersRoot(value)

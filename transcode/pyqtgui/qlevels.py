@@ -14,10 +14,6 @@ from .qframetablecolumn import ZoneCol
 from .qzones import ZoneDlg, BaseShadowZone
 
 
-class ShadowZone(BaseShadowZone, Zone):
-    pass
-
-
 class Histogram(QLabel):
     def __init__(self, histogram=None, min=0, max=256, minclip=0, maxclip=255, color=(0, 0, 0), *args, **kwargs):
         super(Histogram, self).__init__(*args, **kwargs)
@@ -407,6 +403,7 @@ class QLevels(ZoneDlg):
     def analyzeZone(self):
         dlg = ZoneAnalysis(self.shadowzone, self)
         dlg.exec_()
+        self.zoneModified()
 
         if self.shadowzone.histogram is not None:
             self.rchan.setHistogram(self.shadowzone.histogram[0])
@@ -571,7 +568,7 @@ class QLevels(ZoneDlg):
     def widgetValuesChanged(self):
         self.updateColors()
         self.updateZoneValues()
-        self.isModified()
+        self.zoneModified()
 
     def apply(self):
         self.updateZoneValues()
@@ -650,7 +647,7 @@ class LevelsCol(ZoneCol):
         dlg = QLevels(table)
         dlg.setFilter(self.filter, True)
         dlg.setZone(zone)
-        dlg.contentsModified.connect(table.contentsModified)
+        dlg.settingsApplied.connect(table.contentsModified)
         dlg.slider.slider.setValue(
             self.filter.cumulativeIndexMap[index.data(Qt.UserRole)])
 

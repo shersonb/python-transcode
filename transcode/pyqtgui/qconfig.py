@@ -1,8 +1,8 @@
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal
 from PyQt5.QtGui import QFont, QIcon
-from .qinputtracklist import QInputTrackList
+from .qinputtracklist import QInputTrackList, QInputFiles
 # TODO: Filters
-from .qoutputfiles import QOutputFileList
+from .qoutputfiles import QOutputFileList, QOutputFiles
 from .qoutputconfig import QOutputConfig
 
 from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow,
@@ -39,18 +39,18 @@ class QConfig(QWidget):
 
         inputLabelLayout = QHBoxLayout()
 
-        inputTrackListLabel = QLabel("Input Files", inputWidget)
-        inputTrackListLabel.setFont(
+        inputFilesLabel = QLabel("Input Files", inputWidget)
+        inputFilesLabel.setFont(
             QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
-        inputLabelLayout.addWidget(inputTrackListLabel)
+        inputLabelLayout.addWidget(inputFilesLabel)
 
         inputLabelLayout.addStretch()
         inputLayout.addLayout(inputLabelLayout)
 
-        self.inputTrackList = QInputTrackList(inputWidget)
-        self.inputTrackList.contentsModified.connect(self.contentsModified)
+        self.inputFiles = QInputFiles(inputWidget)
+        self.inputFiles.inputFileList.contentsModified.connect(self.contentsModified)
 
-        inputLayout.addWidget(self.inputTrackList)
+        inputLayout.addWidget(self.inputFiles)
 
         splitter.addWidget(inputWidget)
 
@@ -72,8 +72,8 @@ class QConfig(QWidget):
         outputFilesLabelLayout.addStretch()
         outputFilesLayout.addLayout(outputFilesLabelLayout)
 
-        self.outputFiles = QOutputFileList(outputFilesWidget)
-        self.outputFiles.contentsModified.connect(self.contentsModified)
+        self.outputFiles = QOutputFiles(outputFilesWidget)
+        self.outputFiles.outputFileList.contentsModified.connect(self.contentsModified)
 
         outputFilesLayout.addWidget(self.outputFiles)
 
@@ -112,22 +112,22 @@ class QConfig(QWidget):
         self.config = config
 
         if config is not None:
-            self.inputTrackList.setInputFiles(config.input_files)
+            self.inputFiles.setInputFiles(config.input_files)
 
             # TODO: Filters
 
             self.outputFiles.setOutputFiles(config.output_files)
             self.outputConfig.setOutputFile(None)
-            self.outputFiles.selectionModel().currentRowChanged.connect(self.selectOutputFile)
+            self.outputFiles.outputFileList.selectionModel().currentRowChanged.connect(self.selectOutputFile)
 
-            if self.outputFiles.model().rowCount():
-                self.outputFiles.setCurrentIndex(
-                    self.outputFiles.model().index(0, 0))
+            if self.outputFiles.outputFileList.model().rowCount():
+                self.outputFiles.outputFileList.setCurrentIndex(
+                    self.outputFiles.outputFileList.model().index(0, 0))
 
         # else:
-            # self.inputTrackList.setInputFiles(None)
+            # self.inputFiles.setInputFiles(None)
             # self.outputFiles.setOutputFiles(None)
-            # self.inputTrackList.setInputFiles(None)
+            # self.inputFiles.setInputFiles(None)
 
 
 class QConfigWindow(QMainWindow):
@@ -391,6 +391,8 @@ def main():
     if args.file:
         t = threading.Thread(target=win.loadFile, args=(args.file,), kwargs={})
         t.start()
+        #t = QThread.create(win.loadFile, (args.file,))
+        #t.run()
 
     app.exec_()
     return win.config
