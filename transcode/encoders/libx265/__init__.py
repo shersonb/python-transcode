@@ -45,7 +45,7 @@ x265boolparams = {"lossless", "scenecut-aware-qp", "strict-cbr", "const-vbv", "c
                   "vui-hrd-info", "opt-qp-pps", "opt-ref-list-length-pps", "idr-recovery-sei",
                   "multi-pass-opt-rps", "opt-cu-delta-qp", "single-sei", "lowpass-dct", "ssim",
                   "psnr", "asm", "wpp", "pmode", "pme", "copy-pic", "frame-dup", "field",
-                  "allow-non-conformance", "uhd_bd", "limit-modes", "rect", "amp", "tskip",
+                  "allow-non-conformance", "uhd-bd", "limit-modes", "rect", "amp", "tskip",
                   "early-skip", "splitrd-skip", "fast-intra", "b-intra", "cu-lossless", "tskip-fast",
                   "rd-refine", "dynamic-refine", "rdoq-level", "ssim-rd", "temporal-mvp",
                   "weightp", "weightb", "analyze-src-pics", "hme", "strong-intra-smoothing",

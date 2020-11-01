@@ -144,24 +144,24 @@ class FloatOption(QWidget):
 
 class BoolOption(QCheckBox):
     def __init__(self, encoder, optname, attrname, *args, **kwargs):
-        super(BoolOption, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.encoder = encoder
         self.setText(optname)
         self.attrname = attrname
-        self.setTristate(True)
+        self.setTristate(kwargs.get("tristate", True))
 
         currentvalue = getattr(encoder, attrname)
 
         if currentvalue is not None:
             self.setCheckState(2 if currentvalue else 0)
 
-        else:
+        elif self.isTristate():
             self.setCheckState(1)
 
         self.stateChanged.connect(self.setOpt)
 
     def setOpt(self, state):
-        if state == 0:
+        if state == 0 and self.isTristate():
             setattr(self.encoder, self.attrname, False)
 
         elif state == 2:
@@ -410,12 +410,55 @@ class SliceDecisionTab(QWidget):
                                      "beyond –min-keyint are already being coded as keyframes.")
         layout.addWidget(self.goplookahead)
 
+        self.lookaheadslices = IntOption(
+            encoder, "Lookahead Slices", "lookahead-slices", -1, 16, 1, self)
+        self.lookaheadslices.spinbox.valueChanged.connect(self.optionchanged.emit)
+        self.lookaheadslices.setToolTip("--lookahead-slices <0..16>\n\n"
+                                     "Use multiple worker threads to measure the estimated cost of each frame within the\n"
+                                     "lookahead. The frame is divided into the specified number of slices, and one-thread\n"
+                                     "is launched per slice. When --b-adapt is 2, most frame cost estimates will be\n"
+                                     "performed in batch mode (many cost estimates at the same time) and lookahead-slices\n"
+                                     "is ignored for batched estimates; it may still be used for single cost estimations.\n"
+                                     "The higher this parameter, the less accurate the frame costs will be (since context\n"
+                                     "is lost across slice boundaries) which will result in less accurate B-frame and\n"
+                                     "scene-cut decisions. The effect on performance can be significant especially on systems\n"
+                                     "with many threads.\n\n"
+                                     "The encoder may internally lower the number of slices or disable slicing to ensure each\n"
+                                     "slice codes at least 10 16x16 rows of lowres blocks to minimize the impact on quality.\n"
+                                     "For example, for 720p and 1080p videos, the number of slices is capped to 4 and 6,\n"
+                                     "respectively. For resolutions lesser than 720p, slicing is auto-disabled.\n\n"
+                                     "If slices are used in lookahead, they are logged in the list of tools as lslices\n\n"
+                                     "Values: 0 - disabled. 1 is the same as 0. Max 16. Default: 8 for ultrafast, superfast,\n"
+                                     "faster, fast, medium\n\n"
+                                     "4 for slow, slower disabled for veryslow, slower")
+        layout.addWidget(self.lookaheadslices)
+
+        self.badapt = Choices(encoder, "B-frame adapt", "b-adapt",
+                              [("None", 0), ("Fast", 1), ("Full (Trellis)", 2)], self)
+        self.badapt.selection.currentIndexChanged.connect(
+            self.optionchanged.emit)
+        self.badapt.setToolTip("--b-adapt <integer>\n\n"
+                                     "Set the level of effort in determining B frame placement.\n\n"
+                                     "With b-adapt 0, the GOP structure is fixed based on the values of --keyint and\n"
+                                     "--bframes.\n\n"
+                                     "With b-adapt 1 a light lookahead is used to choose B frame placement.\n\n"
+                                     "With b-adapt 2 (trellis) a viterbi B path selection is performed\n\n"
+                                     "Values: 0:none; 1:fast; 2:full(trellis) default")
+        layout.addWidget(self.badapt)
+
+        self.bframes = IntOption(
+            encoder, "Maximum consecutive B frames", "bframes", -1, 16, 1, self)
+        self.bframes.spinbox.valueChanged.connect(self.optionchanged.emit)
+        self.bframes.setToolTip("--bframes, -b <0..16>\n\n"
+                                     "Maximum number of consecutive b-frames. Use --bframes 0 to force all P/I\n\n"
+                                     "low-latency encodes. Default 4. This parameter has a quadratic effect on the\n\n"
+                                     "amount of memory allocated and the amount of work performed by the full\n\n"
+                                     "trellis version of --b-adapt lookahead.")
+        layout.addWidget(self.bframes)
+
         """
         TODO:
-        --lookahead-slices
         --lookahead-threads
-        --b-adaptation
-        --bframes
         --bframe-bias
         --b-pyramid
         --force-flush
@@ -674,6 +717,86 @@ class QualityRateControlTab(QWidget):
         self.optionchanged.emit()
 
 
+class ProfileLevelTierTab(QWidget):
+    optionchanged = pyqtSignal()
+
+    def __init__(self, encoder, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.encoder = encoder
+
+        layout = QVBoxLayout()
+        layout.setSpacing(4)
+        self.setLayout(layout)
+
+        self.levelidc = Choices(encoder, "Level IDC", "level-idc",
+                              [("1", 1), ("2", 2), ("2.1", 2.1), ("3", 3), ("3.1", 3.1),
+                               ("4", 4), ("4.1", 4.1), ("5", 5), ("5.1", 5.1),
+                               ("6", 6), ("6.1", 6.1), ("6.2", 6.2), ("8.5", 8.5)], self)
+        self.levelidc.selection.currentIndexChanged.connect(
+            self.optionchanged.emit)
+        self.levelidc.setToolTip("--level-idc <integer|float>\n\n"
+                                     "Minimum decoder requirement level. Defaults to 0, which implies auto-detection by\n"
+                                     "the encoder. If specified, the encoder will attempt to bring the encode specifications\n"
+                                     "within that specified level. If the encoder is unable to reach the level it issues a\n"
+                                     "warning and aborts the encode. If the requested requirement level is higher than the\n"
+                                     "actual level, the actual requirement level is signaled.\n\n"
+                                     "Beware, specifying a decoder level will force the encoder to enable VBV for constant\n"
+                                     "rate factor encodes, which may introduce non-determinism.\n\n"
+                                     "The value is specified as a float or as an integer with the level times 10, for example\n"
+                                     "level 5.1 is specified as “5.1” or “51”, and level 5.0 is specified as “5.0” or “50”.")
+        layout.addWidget(self.levelidc)
+
+        self.hightier = BoolOption(encoder, "High-tier", "high-tier", self)
+        self.hightier.stateChanged.connect(self.optionchanged.emit)
+        self.hightier.setToolTip("--high-tier, --no-high-tier\n\n"
+                                "If --level-idc has been specified, –high-tier allows the support of high tier at that\n"
+                                "level. The encoder will first attempt to encode at the specified level, main tier first,\n"
+                                "turning on high tier only if necessary and available at that level. If your requested level\n"
+                                "does not support a High tier, high tier will not be supported. If –no-high-tier has been\n"
+                                "specified, then the encoder will attempt to encode only at the main tier.\n\n"
+                                "Default: enabled")
+        layout.addWidget(self.hightier)
+
+        self.refs = IntOption(
+            encoder, "Max L0 References", "ref", 0, 16, 1, self)
+        self.refs.spinbox.valueChanged.connect(self.optionchanged.emit)
+        self.refs.setToolTip("--ref <1..16>\n\n"
+                                     "Max number of L0 references to be allowed. This number has a linear multiplier effect\n"
+                                     "on the amount of work performed in motion search but will generally have a beneficial\n"
+                                     "effect on compression and distortion.\n\n"
+                                     "Note that x265 allows up to 16 L0 references but the HEVC specification only allows a\n"
+                                     "maximum of 8 total reference frames. So if you have B frames enabled only 7 L0 refs are\n"
+                                     "valid and if you have --b-pyramid enabled (which is enabled by default in all presets),\n"
+                                     "then only 6 L0 refs are the maximum allowed by the HEVC specification. If x265 detects\n"
+                                     "that the total reference count is greater than 8, it will issue a warning that the\n"
+                                     "resulting stream is non-compliant and it signals the stream as profile NONE and level\n"
+                                     "NONE and will abort the encode unless --allow-non-conformance it specified. Compliant\n"
+                                     "HEVC decoders may refuse to decode such streams.\n\n"
+                                     "Default 3")
+        layout.addWidget(self.refs)
+
+        self.nonconformance = BoolOption(encoder, "Allow non-conformance", "allow-non-conformance", self)
+        self.nonconformance.stateChanged.connect(self.optionchanged.emit)
+        self.nonconformance.setToolTip("--allow-non-conformance, --no-allow-non-conformance\n\n"
+                                "Allow libx265 to generate a bitstream with profile and level NONE. By default, it will\n"
+                                "abort any encode which does not meet strict level compliance. The two most likely causes\n"
+                                "for non-conformance are --ctu being too small, --ref being too high, or the bitrate or\n"
+                                "resolution being out of specification.\n\n"
+                                "Default: disabled")
+        layout.addWidget(self.nonconformance)
+
+        self.uhdbd = BoolOption(encoder, "Enable Ultra HD Blu-ray format support", "uhd-bd", self, tristate=False)
+        self.uhdbd.stateChanged.connect(self.optionchanged.emit)
+        self.uhdbd.setToolTip("--uhd-bd\n\n"
+                                "Enable Ultra HD Blu-ray format support. If specified with incompatible encoding options,\n"
+                                "the encoder will attempt to modify/set the right encode specifications. If the encoder\n"
+                                "is unable to do so, this option will be turned OFF. Highly experimental.\n\n"
+                                "Default: disabled")
+        layout.addWidget(self.uhdbd)
+
+        layout.addStretch()
+
+
 class x265ConfigDlg(QDialog):
     settingsApplied = pyqtSignal()
 
@@ -697,6 +820,10 @@ class x265ConfigDlg(QDialog):
         self.performance.optionchanged.connect(self.isModified)
         self.tabs.addTab(self.performance, "Performance")
 
+        self.leveltier = ProfileLevelTierTab(encoder, self.tabs)
+        self.leveltier.optionchanged.connect(self.isModified)
+        self.tabs.addTab(self.leveltier, "Level/Tier")
+
         self.modedec = ModeDecisionAnalysisTab(encoder, self.tabs)
         self.modedec.optionchanged.connect(self.isModified)
         self.tabs.addTab(self.modedec, "Mode Decision/Analysis")
@@ -708,237 +835,6 @@ class x265ConfigDlg(QDialog):
         self.optionsLabel = QLabel("libx265 options: ", self)
         self.optionsLabel.setWordWrap(True)
         layout.addWidget(self.optionsLabel)
-
-        #self.pltTab = QWidget(self.tabs)
-        #self.tabs.addTab(self.pltTab, "Profile/Level/Tier")
-        #pltLayout = QVBoxLayout()
-        # self.pltTab.setLayout(pltLayout)
-
-        #self.rateCtlTab = QWidget(self.tabs)
-        #self.tabs.addTab(self.rateCtlTab, "Quality/Rate Control")
-        #rateCtlLayout = QVBoxLayout()
-        # self.rateCtlTab.setLayout(rateCtlLayout)
-
-        #self.sliceDecisionTab = QWidget(self.tabs)
-        #self.tabs.addTab(self.sliceDecisionTab, "Slice Decision")
-        #sliceDecisionLayout = QVBoxLayout()
-        # self.sliceDecisionTab.setLayout(sliceDecisionLayout)
-
-        #self.presetSelection = QComboBox()
-        # self.presetSelection.addItem("ultrafast")
-        # self.presetSelection.addItem("superfast")
-        # self.presetSelection.addItem("veryfast")
-        # self.presetSelection.addItem("faster")
-        # self.presetSelection.addItem("fast")
-        # self.presetSelection.addItem("medium")
-        # self.presetSelection.addItem("slow")
-        # self.presetSelection.addItem("slower")
-        # self.presetSelection.addItem("veryslow")
-        # self.presetSelection.addItem("placebo")
-
-        # for index in range(self.presetSelection.count()):
-        # if self.presetSelection.itemText(index) == self.config.preset:
-        # break
-        # else:
-        #index = 5
-        # self.presetSelection.setCurrentIndex(index)
-
-        # self.presetSelection.currentIndexChanged.connect(self.onPresetChange)
-
-        #hlayout = QHBoxLayout()
-        # hlayout.addWidget(QLabel("Preset"))
-        # hlayout.addStretch()
-        # hlayout.addWidget(self.presetSelection)
-        # presetsLayout.addLayout(hlayout)
-
-        #self.tuneSelection = QComboBox()
-        # self.tuneSelection.addItem("None")
-        # self.tuneSelection.addItem("psnr")
-        # self.tuneSelection.addItem("ssim")
-        # self.tuneSelection.addItem("grain")
-        # self.tuneSelection.addItem("zerolatency")
-        # self.tuneSelection.addItem("fastdecode")
-
-        # for index in range(1, self.presetSelection.count()):
-        # if self.tuneSelection.itemText(index) == self.config.tune:
-        # break
-        # else:
-        #index = 0
-        # self.tuneSelection.setCurrentIndex(index)
-
-        # self.tuneSelection.currentIndexChanged.connect(self.onTuneChange)
-
-        #hlayout = QHBoxLayout()
-        # hlayout.addWidget(QLabel("Tune"))
-        # hlayout.addStretch()
-        # hlayout.addWidget(self.tuneSelection)
-        # presetsLayout.addLayout(hlayout)
-
-        #self.profileSelection = QComboBox()
-        # self.profileSelection.addItem("main")
-        # self.profileSelection.addItem("main10")
-        # self.profileSelection.addItem("mainstillpicture")
-
-        # for index in range(1, self.presetSelection.count()):
-        # if self.profileSelection.itemText(index) == self.config.profile:
-        # break
-        # else:
-        #index = 0
-        # self.profileSelection.setCurrentIndex(index)
-
-        # self.profileSelection.currentIndexChanged.connect(self.onProfileChange)
-
-        ##gridlayout.addWidget(QLabel("Profile:"), 2, 0)
-        ##gridlayout.addWidget(self.profileSelection, 2, 1)
-
-        #hlayout = QHBoxLayout()
-        # hlayout.addWidget(QLabel("Profile"))
-        # hlayout.addStretch()
-        # hlayout.addWidget(self.profileSelection)
-        # pltLayout.addLayout(hlayout)
-
-        #self.aqModeSelection = QComboBox()
-        # self.aqModeSelection.setMaximumWidth(128)
-        # self.aqModeSelection.addItem("None")
-        #self.aqModeSelection.addItem("uniform AQ")
-        #self.aqModeSelection.addItem("auto variance")
-        #self.aqModeSelection.addItem("auto variance with bias to dark scenes")
-        #self.aqModeSelection.addItem("auto variance with edge information")
-
-        # self.aqModeSelection.setCurrentIndex(self.config.aqmode)
-
-        # self.aqModeSelection.currentIndexChanged.connect(self.onAQModeChange)
-
-        #hlayout = QHBoxLayout()
-        #label = QLabel("Adaptive Quantization Mode")
-        # hlayout.addWidget(label)
-        # hlayout.addStretch()
-        # hlayout.addWidget(self.aqModeSelection)
-        #label.setToolTip("--aq-mode (Mode for Adaptive Quantization)")
-        #self.aqModeSelection.setToolTip("--aq-mode (Mode for Adaptive Quantization)")
-        # rateCtlLayout.addLayout(hlayout)
-
-        #self.hevcAqMotionCheckBox = QCheckBox()
-        #self.hevcAqMotionCheckBox.setText("HEVC Adaptive Quantization")
-        #self.hevcAqMotionCheckBox.setToolTip("--hevc-aq (Mode for HEVC Adaptive Quantization.)")
-        # self.hevcAqMotionCheckBox.setDisabled(True)
-        # self.hevcAqMotionCheckBox.setChecked(bool(self.config.aqmotion))
-        # self.hevcAqMotionCheckBox.stateChanged.connect(self.onAQMotionChange)
-
-        #hlayout = QHBoxLayout()
-        # hlayout.addWidget(self.hevcAqMotionCheckBox)
-        # hlayout.addStretch()
-        # rateCtlLayout.addLayout(hlayout)
-
-        #self.minKeyIntSpinBox = QSpinBox()
-        # self.minKeyIntSpinBox.setMinimum(0)
-        # self.minKeyIntSpinBox.setValue(self.config.minkeyint)
-        #self.minKeyIntSpinBox.setMaximum(self.config.keyint - 1)
-        # self.minKeyIntSpinBox.setSingleStep(1)
-        # self.minKeyIntSpinBox.valueChanged.connect(self.onMinKeyIntChange)
-
-        ##gridlayout.addWidget(QLabel("AQ Mode:"), 3, 0)
-        ##gridlayout.addWidget(self.aqModeSelection, 3, 1)
-        #hlayout = QHBoxLayout()
-        #hlayout.addWidget(QLabel("Minimum Keyframe Interval"))
-        # hlayout.addStretch()
-        # hlayout.addWidget(self.minKeyIntSpinBox)
-        # sliceDecisionLayout.addLayout(hlayout)
-
-        #self.keyIntSpinBox = QSpinBox()
-        #self.keyIntSpinBox.setMinimum(self.config.minkeyint + 1)
-        # self.keyIntSpinBox.setMaximum(16384)
-        # self.keyIntSpinBox.setValue(self.config.keyint)
-        # self.keyIntSpinBox.setSingleStep(1)
-        # self.keyIntSpinBox.valueChanged.connect(self.onKeyIntChange)
-
-        ##gridlayout.addWidget(QLabel("AQ Mode:"), 3, 0)
-        ##gridlayout.addWidget(self.aqModeSelection, 3, 1)
-        #hlayout = QHBoxLayout()
-        #hlayout.addWidget(QLabel("Maximum Keyframe Interval"))
-        # hlayout.addStretch()
-        # hlayout.addWidget(self.keyIntSpinBox)
-        # sliceDecisionLayout.addLayout(hlayout)
-
-        #self.aqStrengthSpinBox = QDoubleSpinBox()
-        # self.aqStrengthSpinBox.setMaximumWidth(128)
-        # self.aqStrengthSpinBox.setMaximum(3)
-        # self.aqStrengthSpinBox.setMinimum(0)
-        # self.aqStrengthSpinBox.setDecimals(2)
-        # self.aqStrengthSpinBox.setSingleStep(0.1)
-
-        # self.aqStrengthSpinBox.setValue(self.config.aqstrength)
-
-        # self.aqStrengthSpinBox.valueChanged.connect(self.onAQStrengthChange)
-
-        ##gridlayout.addWidget(QLabel("AQ Strength:"), 4, 0)
-        ##gridlayout.addWidget(self.aqStrengthSpinBox, 4, 1)
-        #hlayout = QHBoxLayout()
-        #label = QLabel("AQ Strength")
-        # hlayout.addWidget(label)
-        # hlayout.addStretch()
-        # hlayout.addWidget(self.aqStrengthSpinBox)
-        # label.setToolTip("--aq-strength")
-        # self.aqStrengthSpinBox.setToolTip("--aq-strength")
-        # rateCtlLayout.addLayout(hlayout)
-
-        #self.aqMotionCheckBox = QCheckBox()
-        #self.aqMotionCheckBox.setText("AQ Motion")
-        #self.aqMotionCheckBox.setToolTip("--aq-motion (Block level QP adaptation based on the relative motion between the block and the frame.)")
-        # self.aqMotionCheckBox.setChecked(bool(self.config.aqmotion))
-        # self.aqMotionCheckBox.stateChanged.connect(self.onAQMotionChange)
-
-        #hlayout = QHBoxLayout()
-        # hlayout.addWidget(self.aqMotionCheckBox)
-        # hlayout.addStretch()
-        # rateCtlLayout.addLayout(hlayout)
-
-        #self.qgSizeSelection = QComboBox()
-        # self.qgSizeSelection.setMaximumWidth(128)
-        # self.qgSizeSelection.addItem("8")
-        # self.qgSizeSelection.addItem("16")
-        # self.qgSizeSelection.addItem("32")
-        # self.qgSizeSelection.addItem("64")
-
-        # if self.config.qgsize not in [8, 16, 32, 64]:
-        #self.config.qgsize = 32
-        #self.qgSizeSelection.setCurrentIndex([8, 16, 32, 64].index(self.config.qgsize))
-
-        # self.qgSizeSelection.currentIndexChanged.connect(self.onQGSizeChange)
-
-        ##gridlayout.addWidget(QLabel("Preset:"), 0, 0)
-        ##gridlayout.addWidget(self.presetSelection, 0, 1)
-
-        #hlayout = QHBoxLayout()
-        #label = QLabel("QG Size")
-        #label.setToolTip("--qg-size (Specifies the size of the quantization group (64, 32, 16, 8))")
-        # hlayout.addWidget(label)
-        # hlayout.addStretch()
-        #self.qgSizeSelection.setToolTip("--qg-size (Specifies the size of the quantization group (64, 32, 16, 8))")
-        # hlayout.addWidget(self.qgSizeSelection)
-        # rateCtlLayout.addLayout(hlayout)
-
-        #hlayout = QHBoxLayout()
-        #hlayout.addWidget(QLabel("Level IDC"))
-        # hlayout.addStretch()
-        #self.levelidc = QComboBox(self.pltTab)
-        # self.levelidc.setDisabled(True)
-        # hlayout.addWidget(self.levelidc)
-        # pltLayout.addLayout(hlayout)
-
-        #self.hightier = QCheckBox("High Tier", self.pltTab)
-        # self.hightier.setDisabled(True)
-        # pltLayout.addWidget(self.hightier)
-
-        #self.uhdbd = QCheckBox("Enable UHD Bluray compatibility support", self.pltTab)
-        # self.uhdbd.setDisabled(True)
-        # pltLayout.addWidget(self.uhdbd)
-
-        #self.allownonconformance = QCheckBox("Allow Non-conformance", self.pltTab)
-        # self.allownonconformance.setDisabled(True)
-        # pltLayout.addWidget(self.allownonconformance)
-
-        # pltLayout.addStretch()
 
         self.okayBtn = QPushButton("&OK")
         self.okayBtn.clicked.connect(self.applyAndClose)
@@ -953,108 +849,108 @@ class x265ConfigDlg(QDialog):
         self.setLayout(layout)
         self.isModified(False)
 
-    def onKeyIntChange(self, value):
-        self.config.keyint = int(value)
-        self.minKeyIntSpinBox.setMaximum(value - 1)
-        self.isModified()
+    #def onKeyIntChange(self, value):
+        #self.config.keyint = int(value)
+        #self.minKeyIntSpinBox.setMaximum(value - 1)
+        #self.isModified()
 
-    def onMinKeyIntChange(self, value):
-        self.config.minkeyint = int(value)
-        self.keyIntSpinBox.setMinimum(value + 1)
-        self.isModified()
+    #def onMinKeyIntChange(self, value):
+        #self.config.minkeyint = int(value)
+        #self.keyIntSpinBox.setMinimum(value + 1)
+        #self.isModified()
 
-    def onAQMotionChange(self, value):
-        self.config.aqmotion = bool(value)
-        self.isModified()
+    #def onAQMotionChange(self, value):
+        #self.config.aqmotion = bool(value)
+        #self.isModified()
 
-    def onAQModeChange(self, value):
-        self.config.aqmode = value
-        self.isModified()
+    #def onAQModeChange(self, value):
+        #self.config.aqmode = value
+        #self.isModified()
 
-    def onAQStrengthChange(self, value):
-        self.config.aqstrength = value
-        self.isModified()
+    #def onAQStrengthChange(self, value):
+        #self.config.aqstrength = value
+        #self.isModified()
 
-    def onPresetChange(self, index):
-        self.config.preset = self.presetSelection.itemText(index)
-        self.isModified()
+    #def onPresetChange(self, index):
+        #self.config.preset = self.presetSelection.itemText(index)
+        #self.isModified()
 
-    def onProfileChange(self, index):
-        self.config.profile = self.profileSelection.itemText(index)
-        self.isModified()
+    #def onProfileChange(self, index):
+        #self.config.profile = self.profileSelection.itemText(index)
+        #self.isModified()
 
-    def onTuneChange(self, index):
-        self.config.tune = self.tuneSelection.itemText(
-            index) if index > 0 else None
-        self.isModified()
+    #def onTuneChange(self, index):
+        #self.config.tune = self.tuneSelection.itemText(
+            #index) if index > 0 else None
+        #self.isModified()
 
-    def onRateControlModeChange(self, index):
-        if index == 0:
-            self.config.bitrate = self.bitrateSpinBox.value()
-            self.config.crf = None
-            self.config.qp = None
-            self.config.targetsize = None
-            self.crfSpinBox.setHidden(True)
-            self.qpSpinBox.setHidden(True)
-            self.targetSizeSpinBox.setHidden(True)
-            self.bitrateSpinBox.setHidden(False)
-        elif index == 1:
-            self.config.bitrate = None
-            self.config.crf = self.crfSpinBox.value()
-            self.config.qp = None
-            self.config.targetsize = None
-            self.bitrateSpinBox.setHidden(True)
-            self.qpSpinBox.setHidden(True)
-            self.targetSizeSpinBox.setHidden(True)
-            self.crfSpinBox.setHidden(False)
-        elif index == 2:
-            self.config.bitrate = None
-            self.config.crf = None
-            self.config.qp = self.qpSpinBox.value()
-            self.config.targetsize = None
-            self.bitrateSpinBox.setHidden(True)
-            self.crfSpinBox.setHidden(True)
-            self.targetSizeSpinBox.setHidden(True)
-            self.qpSpinBox.setHidden(False)
-        elif index == 3:
-            self.config.bitrate = None
-            self.config.crf = None
-            self.config.qp = None
-            self.config.targetsize = self.targetSizeSpinBox.value()*1024**2
-            self.bitrateSpinBox.setHidden(True)
-            self.crfSpinBox.setHidden(True)
-            self.qpSpinBox.setHidden(True)
-            self.targetSizeSpinBox.setHidden(False)
-        self.isModified()
+    #def onRateControlModeChange(self, index):
+        #if index == 0:
+            #self.config.bitrate = self.bitrateSpinBox.value()
+            #self.config.crf = None
+            #self.config.qp = None
+            #self.config.targetsize = None
+            #self.crfSpinBox.setHidden(True)
+            #self.qpSpinBox.setHidden(True)
+            #self.targetSizeSpinBox.setHidden(True)
+            #self.bitrateSpinBox.setHidden(False)
+        #elif index == 1:
+            #self.config.bitrate = None
+            #self.config.crf = self.crfSpinBox.value()
+            #self.config.qp = None
+            #self.config.targetsize = None
+            #self.bitrateSpinBox.setHidden(True)
+            #self.qpSpinBox.setHidden(True)
+            #self.targetSizeSpinBox.setHidden(True)
+            #self.crfSpinBox.setHidden(False)
+        #elif index == 2:
+            #self.config.bitrate = None
+            #self.config.crf = None
+            #self.config.qp = self.qpSpinBox.value()
+            #self.config.targetsize = None
+            #self.bitrateSpinBox.setHidden(True)
+            #self.crfSpinBox.setHidden(True)
+            #self.targetSizeSpinBox.setHidden(True)
+            #self.qpSpinBox.setHidden(False)
+        #elif index == 3:
+            #self.config.bitrate = None
+            #self.config.crf = None
+            #self.config.qp = None
+            #self.config.targetsize = self.targetSizeSpinBox.value()*1024**2
+            #self.bitrateSpinBox.setHidden(True)
+            #self.crfSpinBox.setHidden(True)
+            #self.qpSpinBox.setHidden(True)
+            #self.targetSizeSpinBox.setHidden(False)
+        #self.isModified()
 
-    def onQGSizeChange(self, value):
-        self.config.qgsize = [8, 16, 32, 64][value]
-        self.isModified()
+    #def onQGSizeChange(self, value):
+        #self.config.qgsize = [8, 16, 32, 64][value]
+        #self.isModified()
 
-    def setBitrate(self, value):
-        self.config.bitrate = value
-        self.isModified()
+    #def setBitrate(self, value):
+        #self.config.bitrate = value
+        #self.isModified()
 
-    def setTargetSize(self, value):
-        self.config.targetsize = value*1024**2
-        self.isModified()
+    #def setTargetSize(self, value):
+        #self.config.targetsize = value*1024**2
+        #self.isModified()
 
-    def setCRF(self, value):
-        self.config.crf = value
-        self.isModified()
+    #def setCRF(self, value):
+        #self.config.crf = value
+        #self.isModified()
 
-    def setQP(self, value):
-        self.config.qp = value
-        self.isModified()
+    #def setQP(self, value):
+        #self.config.qp = value
+        #self.isModified()
 
-    def setFrameRate(self, fpstext):
-        if regex.match(r"^\d+/\d+$", fpstext):
-            self.config.fps = QQ(fpstext)
-        elif regex.match(r"^\d+$", fpstext):
-            self.config.fps = int(fpstext)
-        elif regex.match(r"^\d+\.\d?|\.\d+$", fpstext):
-            self.config.fps = float(fpstext)
-        self.isModified()
+    #def setFrameRate(self, fpstext):
+        #if regex.match(r"^\d+/\d+$", fpstext):
+            #self.config.fps = QQ(fpstext)
+        #elif regex.match(r"^\d+$", fpstext):
+            #self.config.fps = int(fpstext)
+        #elif regex.match(r"^\d+\.\d?|\.\d+$", fpstext):
+            #self.config.fps = float(fpstext)
+        #self.isModified()
 
     def applyAndClose(self):
         self.settingsApplied.emit()
