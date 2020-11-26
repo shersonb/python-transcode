@@ -1,10 +1,11 @@
-from .video.base import BaseVideoFilter
-from .audio.base import BaseAudioFilter
-from .base import BaseFilter
+from ..video.base import BaseVideoFilter
+from ..audio.base import BaseAudioFilter
+from ..base import BaseFilter
 import numpy
 from itertools import count
-from ..util import cached
+from ...util import cached
 from fractions import Fraction as QQ
+from copy import deepcopy
 
 
 class Concatenate(BaseVideoFilter, BaseAudioFilter):
@@ -339,11 +340,18 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
         self.time_base = state.get("time_base", QQ(1, 10**9))
         super().__setstate__(state)
 
+    def __deepcopy__(self, memo):
+        cls, args, state, segments = self.__reduce__()
+        new = cls()
+        new.__setstate__(deepcopy(state, memo))
+        new.extend(segments)
+        return new
+
     @property
     def source(self):
         raise AttributeError
 
-    @property
-    def QtDlgClass(self):
-        from transcode.pyqtgui.qconcatenate import QConcatenate
+    @staticmethod
+    def QtDlgClass():
+        from .qconcatenate import QConcatenate
         return QConcatenate

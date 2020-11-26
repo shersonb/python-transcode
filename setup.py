@@ -14,6 +14,7 @@ setup(
         'transcode.filters',
         'transcode.filters.audio',
         'transcode.filters.video',
+        'transcode.filters.concatenate',
         'transcode.containers',
         'transcode.containers.matroska',
         'transcode.containers.matroska.pyqtgui',

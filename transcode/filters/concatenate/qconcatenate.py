@@ -1,15 +1,16 @@
-from .qinputtracklist import FileTrackCol, LanguageCol, InputFmtCol
-from .qfilterlist import FilterNameCol, SourceCol, FormatCol
-from .qinputselection import InputSelectionRoot, ColumnUnion
-from .qitemmodel import Node, ChildNodes, NoChildren, QItemModel
-from .qfilterconfig import QFilterConfig
-from PyQt5.QtWidgets import QVBoxLayout, QTreeView, QLabel, QSplitter, QWidget, QMessageBox
+from transcode.pyqtgui.qinputtracklist import FileTrackCol, LanguageCol, InputFmtCol
+from transcode.pyqtgui.qfilterlist import FilterNameCol, SourceCol, FormatCol
+from transcode.pyqtgui.qinputselection import InputSelectionRoot, ColumnUnion
+from transcode.pyqtgui.qitemmodel import Node, ChildNodes, NoChildren, QItemModel
+from transcode.pyqtgui.qfilterconfig import QFilterConfig
+from PyQt5.QtWidgets import QVBoxLayout, QTreeView, QLabel, QSplitter, QWidget, QMessageBox, QMenu, QAction
 from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal
 from transcode.containers.basereader import Track
-from transcode.filters.concatenate import Concatenate
-from transcode.filters.base import BaseFilter, FilterChain
+from . import Concatenate
+from ..base import BaseFilter, FilterChain
 from copy import copy
+from functools import partial
 
 
 class SegmentsRoot(Node):
@@ -96,16 +97,45 @@ class BaseColumn(object):
         self.available_filters = available_filters
         self.filter = filter
 
+    def contextmenu(self, index, obj):
+        return partial(self.createContextMenu, obj=obj, index=index)
+
+    def createContextMenu(self, table, index, obj):
+        menu = QMenu(table)
+
+        editfilter = QAction(f"Configure filter...", table,
+                             triggered=partial(self.configureFilter, obj, table))
+
+        editfilter.setEnabled(obj.hasQtDlg())
+
+        menu.addAction(editfilter)
+
+        return menu
+
+    def configureFilter(self, filter, parent=None):
+        dlg = filter.QtDlg(parent)
+        dlg.setSources(self.input_files, self.available_filters)
+
+        if hasattr(parent, "contentsModified") and isinstance(parent.contentsModified, pyqtBoundSignal):
+            dlg.settingsApplied.connect(parent.contentsModified)
+
+        dlg.exec_()
+
 
 class NameCol(BaseColumn):
     width = 256
     headerdisplay = "Segment"
 
     def display(self, index, obj):
+        segment_index = self.filter.segments.index(obj)
+        
         if isinstance(obj, Track) and obj.container in self.input_files:
-            return f"{self.filter.segments.index(obj)}: input:{self.input_files.index(obj.container)}:{obj.track_index}"
+            container_index = self.input_files.index(obj.container)
+            return f"{segment_index}: input:{container_index}:{obj.track_index}"
 
-        return f"{self.filter.segments.index(obj)}: filter:{self.available_filters.index(obj)}"
+        if obj in self.available_filters:
+            filter_index = self.available_filters.index(obj)
+            return f"{segment_index}: filter:{filter_index}"
 
 
 class DurationCol(BaseColumn):
@@ -235,6 +265,7 @@ class QConcatenate(QFilterConfig):
         self.segmentsLabel.setFont(
             QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
         self.segmentsList = QSegmentTree(self)
+        self.segmentsList.contentsModified.connect(self.settingsApplied)
 
         vlayout2.addWidget(self.segmentsLabel)
         vlayout2.addWidget(self.segmentsList)
@@ -304,13 +335,14 @@ class QConcatenate(QFilterConfig):
 
         self.segmentsList.expandAll()
 
-    def reset(self):
-        self.shadow = copy(self.filter)
+    def reset(self, nocopy=False):
+        if not nocopy:
+            self.shadow = self.filter.copy()
 
-        if isinstance(self.filter.parent, FilterChain):
-            self.shadow.parent = self.filter.parent
-            self.shadow.prev = self.filter.prev
+        else:
+            self.shadow = self.filter
 
+        self._resetSourceControls()
         self._resetControls()
 
         self.notModified()
