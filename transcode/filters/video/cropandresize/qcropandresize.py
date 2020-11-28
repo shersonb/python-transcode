@@ -10,14 +10,14 @@ from fractions import Fraction as QQ
 import regex
 from PIL import Image
 
-from transcode.filters.video.cropandresize import Crop, Resize, CropScenes
+from . import Crop, Resize, CropScenes
 from transcode.filters.video.scenes import Scenes
 from transcode.filters.filterchain import FilterChain
-from .qzones import ZoneDlg
-from .qframetablecolumn import ZoneCol
-from .qimageview import QImageView
-from .qfilterconfig import QFilterConfig
-from .qframeselect import QFrameSelect
+from transcode.pyqtgui.qzones import ZoneDlg
+from transcode.pyqtgui.qframetablecolumn import ZoneCol
+from transcode.pyqtgui.qimageview import QImageView
+from transcode.pyqtgui.qfilterconfig import QFilterConfig
+from transcode.pyqtgui.qframeselect import QFrameSelect
 
 
 class QCrop(QWidget):
@@ -189,7 +189,7 @@ class QResize(QWidget):
 
         sarLabel = QLabel("SAR:", self)
 
-        self.sar = QLineEdit()
+        self.sar = QLineEdit(self)
         self.sar.setText("1")
         self.sar.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.sar.setValidator(validator)

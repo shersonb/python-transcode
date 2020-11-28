@@ -1,7 +1,7 @@
-from . import zoned
-from .base import BaseVideoFilter
-from ...util import cached, numpify
-from ...avarrays import toNDArray, toVFrame
+from .. import zoned
+from ..base import BaseVideoFilter
+from transcode.util import cached, numpify
+from transcode.avarrays import toNDArray, toVFrame
 from itertools import count, islice
 import numpy
 from av.video import VideoFrame
@@ -98,20 +98,8 @@ class Crop(BaseVideoFilter):
 
     @staticmethod
     def QtDlgClass():
-        from transcode.pyqtgui.qcropandresize import CropDlg
+        from .qcropandresize import CropDlg
         return CropDlg
-
-    def _setQtDlgValues(self, dlg):
-        dlg.cropTop.setValue(self.croptop)
-        dlg.cropBottom.setValue(self.cropbottom)
-        dlg.cropLeft.setValue(self.cropleft)
-        dlg.cropRight.setValue(self.cropright)
-
-    def _applyQtDlgValues(self, dlg):
-        self.croptop = dlg.cropTop.value()
-        self.cropbottom = dlg.cropBottom.value()
-        self.cropleft = dlg.cropLeft.value()
-        self.cropright = dlg.cropRight.value()
 
 
 class Resize(BaseVideoFilter):
@@ -192,7 +180,7 @@ class Resize(BaseVideoFilter):
 
     @staticmethod
     def QtDlgClass():
-        from transcode.pyqtgui.qcropandresize import ResizeDlg
+        from .qcropandresize import ResizeDlg
         return ResizeDlg
 
 
@@ -389,7 +377,7 @@ class CropScenes(zoned.ZonedFilter):
 
     @staticmethod
     def QtDlgClass():
-        from transcode.pyqtgui.qcropandresize import CropZoneDlg
+        from .qcropandresize import CropZoneDlg
         return CropZoneDlg
 
     @property
@@ -443,5 +431,5 @@ class CropScenes(zoned.ZonedFilter):
             yield newframe
 
     def QtTableColumns(self):
-        from transcode.pyqtgui.qcropandresize import CropResizeCol
+        from .qcropandresize import CropResizeCol
         return [CropResizeCol(self)]

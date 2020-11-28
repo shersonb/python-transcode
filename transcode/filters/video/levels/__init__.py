@@ -1,6 +1,6 @@
 #!/usr/bin/python
-from . import zoned
-from ...util import cached, numpify
+from .. import zoned
+from transcode.util import cached, numpify
 import numpy
 import itertools
 from av.video import VideoFrame
@@ -486,9 +486,9 @@ class Levels(zoned.ZonedFilter):
 
     @staticmethod
     def QtDlgClass():
-        from transcode.pyqtgui.qlevels import QLevels
+        from .qlevels import QLevels
         return QLevels
 
     def QtTableColumns(self):
-        from transcode.pyqtgui.qlevels import LevelsCol
+        from .qlevels import LevelsCol
         return [LevelsCol(self)]

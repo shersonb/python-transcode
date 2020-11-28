@@ -1,63 +1,73 @@
 from PyQt5.QtGui import (QPainter, QPalette, QColor, QBrush, QPen, QPolygon,
-                         QRegExpValidator)
+                         QRegExpValidator, QPainterPath)
 from PyQt5.QtCore import Qt, QPoint, QRect, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import (QAction, QProgressDialog, QVBoxLayout, QHBoxLayout,
                              QPushButton, QCheckBox, QLabel, QWidget, QFrame,
                              QSizePolicy, QDoubleSpinBox)
 
 from functools import partial
-from numpy import sqrt, log, arange, int0, maximum, meshgrid, exp, moveaxis, uint8, float64
+from numpy import sqrt, log, arange, int0, maximum, meshgrid, exp, moveaxis, uint8, float64, ndarray
 import threading
 
-from transcode.filters.video.levels import Levels, Zone
-from .qframetablecolumn import ZoneCol
-from .qzones import ZoneDlg, BaseShadowZone
+from . import Levels, Zone
+from transcode.pyqtgui.qframetablecolumn import ZoneCol
+from transcode.pyqtgui.qzones import ZoneDlg, BaseShadowZone
+import sys
+import traceback
 
 
 class Histogram(QLabel):
-    def __init__(self, histogram=None, min=0, max=256, minclip=0, maxclip=255, color=(0, 0, 0), *args, **kwargs):
-        super(Histogram, self).__init__(*args, **kwargs)
+    def __init__(self, histogram=None, min=0, max=256, gamma=1, minclip=0, maxclip=255, color=(0, 0, 0), *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._histogram = histogram
         self.min = min
         self.max = max
+        self.gamma = gamma
         self.minclip = minclip
         self.maxclip = maxclip
         self.color = color
 
     def setHistogram(self, histogram):
         self._histogram = histogram
-        self.repaint()
+        self.update()
 
     def setMinimum(self, x):
         self.min = x
-        self.repaint()
+        self.update()
 
     def setMaximum(self, x):
         self.max = x
-        self.repaint()
+        self.update()
+
+    def setGamma(self, x):
+        self.gamma = x
+        self.update()
 
     def setClipMinimum(self, x):
         self.minclip = x
-        self.repaint()
+        self.update()
 
     def setClipMaximum(self, x):
         self.maxclip = x
-        self.repaint()
+        self.update()
 
     def paintEvent(self, event):
         w, h = self.width(), self.height()
 
         painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
         blackpen = QPen(Qt.black, 1)
         nopen = QPen()
         nopen.setStyle(Qt.NoPen)
         redpen = QPen(Qt.red, 1)
         greypen = QPen(Qt.gray, 1)
         painter.setPen(blackpen)
+        nofill = QBrush()
         bfill = QBrush(QColor(0, 0, 0))
         wfill = QBrush(QColor(255, 255, 255))
-        painter.fillRect(self.rect(), wfill)
+
         if self._histogram is not None:
+            painter.fillRect(self.rect(), wfill)
             rect = QRect(0, 0, max(0, self.minclip - self.min)
                          * w/(self.max - self.min), h)
             painter.fillRect(rect, bfill)
@@ -69,14 +79,40 @@ class Histogram(QLabel):
             fill = QBrush(QColor(*self.color))
 
             poly = QPolygon()
+            path = QPainterPath()
+            pathstarted = False
+
             H = log(self._histogram/self._histogram.sum())/log(2)
             H = maximum(H, -25)
-            #print(H, H.max())
+
+            m = self.minclip/255
+            M = self.maxclip/255
+
             for j, k in enumerate(H):
                 x = j*w/(len(self._histogram) - 1)
                 y = min(h*(k + 4)/(-25 + 4), h)
                 poly.append(QPoint(x, y))
-                #print(f"({x:.2f}, {y:.2f})")
+
+                u = j/len(self._histogram)
+
+                if isinstance(m, ndarray) or isinstance(M, ndarray) or isinstance(self.gamma, ndarray):
+                    continue
+
+                if m <= u <= M:
+                    v = 1 - (1 - (u - m)/(M - m))**self.gamma
+
+                    if u < M or self.gamma >= 1:
+                        dvdu = self.gamma*(1 - (u - m)/(M - m))**(self.gamma - 1)/(M - m)
+
+                    else:
+                        dvdu = 1
+
+                    if pathstarted:
+                        path.lineTo(v*w, y - log(dvdu)/log(2)/(-25+4))
+
+                    else:
+                        path.moveTo(v*w, y - log(dvdu)/log(2)/(-25+4))
+                        pathstarted = True
 
             poly.append(QPoint(w, h))
             poly.append(QPoint(0, h))
@@ -84,6 +120,9 @@ class Histogram(QLabel):
             painter.setPen(nopen)
             painter.setBrush(fill)
             painter.drawPolygon(poly)
+            painter.setPen(greypen)
+            painter.setBrush(nofill)
+            painter.drawPath(path)
 
 
 class ColorPreview(QWidget):
@@ -93,7 +132,7 @@ class ColorPreview(QWidget):
 
     def setColor(self, color):
         self.color = color
-        self.repaint()
+        self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -116,7 +155,7 @@ class ChannelEditor(QWidget):
         self.color = color
 
         #self.histogram = QLabel(self)
-        self.histogram = Histogram(None, 0, 255, 0, 255, color, self)
+        self.histogram = Histogram(None, 0, 255, 1, 0, 255, color, self)
         layout.addWidget(self.histogram)
         self.histogram.setMinimumWidth(256)
         self.setMaximumWidth(512)
@@ -133,7 +172,6 @@ class ChannelEditor(QWidget):
 
         self.minSpinBox = QDoubleSpinBox(self)
         spinboxlayout.addWidget(self.minSpinBox)
-        self.minSpinBox.setSingleStep(0.25)
         self.minSpinBox.setDecimals(2)
         self.minSpinBox.setMinimum(0)
         self.minSpinBox.setMaximum(253)
@@ -204,6 +242,8 @@ class QLevels(ZoneDlg):
         return Levels()
 
     def _createControls(self):
+        self.setWindowTitle("Configure Levels Zones")
+
         self.rchan = ChannelEditor((128, 0, 0), self)
         self.gchan = ChannelEditor((0, 128, 0), self)
         self.bchan = ChannelEditor((0, 0, 128), self)
@@ -283,6 +323,17 @@ class QLevels(ZoneDlg):
         self.suggBtn = QPushButton("&Suggestion", self)
         self.suggBtn.clicked.connect(self.useAutoGamma)  # 162523
 
+        inpLabel = QLabel("Input", self)
+        outLabel = QLabel("Output", self)
+
+        self.redAvgIntensIn = QLabel("Avg Red Intensity: —", self)
+        self.greenAvgIntensIn = QLabel("Avg Green Intensity: —", self)
+        self.blueAvgIntensIn = QLabel("Avg Blue Intensity: —", self)
+
+        self.redAvgIntensOut = QLabel("Avg Red Intensity: —", self)
+        self.greenAvgIntensOut = QLabel("Avg Green Intensity: —", self)
+        self.blueAvgIntensOut = QLabel("Avg Blue Intensity: —", self)
+
         sublayout = QHBoxLayout()
         sublayout.addStretch()
         sublayout.addWidget(self.prevColor)
@@ -298,6 +349,32 @@ class QLevels(ZoneDlg):
         sublayout.addWidget(self.gammaLabel)
         sublayout.addWidget(self.gammaSpinBox)
         sublayout.addWidget(self.suggBtn)
+        sublayout.addStretch()
+
+        layout.addLayout(sublayout)
+
+        sublayout = QHBoxLayout()
+        sublayout.addStretch()
+        sublayout.addWidget(inpLabel)
+        sublayout.addStretch()
+        sublayout.addWidget(self.redAvgIntensIn)
+        sublayout.addStretch()
+        sublayout.addWidget(self.greenAvgIntensIn)
+        sublayout.addStretch()
+        sublayout.addWidget(self.blueAvgIntensIn)
+        sublayout.addStretch()
+
+        layout.addLayout(sublayout)
+
+        sublayout = QHBoxLayout()
+        sublayout.addStretch()
+        sublayout.addWidget(outLabel)
+        sublayout.addStretch()
+        sublayout.addWidget(self.redAvgIntensOut)
+        sublayout.addStretch()
+        sublayout.addWidget(self.greenAvgIntensOut)
+        sublayout.addStretch()
+        sublayout.addWidget(self.blueAvgIntensOut)
         sublayout.addStretch()
 
         layout.addLayout(sublayout)
@@ -325,7 +402,13 @@ class QLevels(ZoneDlg):
 
     def loadFrame(self, n, t):
         super().loadFrame(n, t)
-        self.updateColors()
+
+        try:
+            self.updateColors()
+
+        except:
+            for line in traceback.format_exception(*sys.exc_info()):
+                print(line, file=sys.stderr, end="")
 
     def generatePreview(self, n):
         self.currentFrame = next(
@@ -476,6 +559,7 @@ class QLevels(ZoneDlg):
             self.rchan.minSpinBox.blockSignals(True)
             self.rchan.minSpinBox.setValue(zone.rmin)
             self.rchan.histogram.setClipMinimum(zone.rmin)
+            self.rchan.histogram.setGamma(zone.rgamma*zone.gamma)
             self.rchan.minSpinBox.blockSignals(False)
 
             self.rchan.maxSpinBox.blockSignals(True)
@@ -495,6 +579,7 @@ class QLevels(ZoneDlg):
             self.gchan.maxSpinBox.blockSignals(True)
             self.gchan.maxSpinBox.setValue(zone.gmax)
             self.gchan.histogram.setClipMaximum(zone.gmax)
+            self.gchan.histogram.setGamma(zone.ggamma*zone.gamma)
             self.gchan.maxSpinBox.blockSignals(False)
 
             self.gchan.gammaSpinBox.blockSignals(True)
@@ -509,6 +594,7 @@ class QLevels(ZoneDlg):
             self.bchan.maxSpinBox.blockSignals(True)
             self.bchan.maxSpinBox.setValue(zone.bmax)
             self.bchan.histogram.setClipMaximum(zone.bmax)
+            self.bchan.histogram.setGamma(zone.bgamma*zone.gamma)
             self.bchan.maxSpinBox.blockSignals(False)
 
             self.bchan.gammaSpinBox.blockSignals(True)
@@ -519,20 +605,70 @@ class QLevels(ZoneDlg):
             self.gammaSpinBox.setValue(zone.gamma)
             self.gammaSpinBox.blockSignals(False)
 
-            if zone.histogram is not None:
-                self.rchan.setHistogram(zone.histogram[0])
-                self.gchan.setHistogram(zone.histogram[1])
-                self.bchan.setHistogram(zone.histogram[2])
-                self.suggBtn.setEnabled(True)
-                gamma = self.autogamma()
-                self.suggBtn.setText(f"Suggestion: {gamma:.2f}")
+        self.updateStats()
+
+    def updateStats(self):
+        if self.shadowzone.histogram is not None:
+            R, G, B = self.shadowzone.histogram
+            self.rchan.setHistogram(R)
+            self.gchan.setHistogram(G)
+            self.bchan.setHistogram(B)
+
+            self.suggBtn.setEnabled(True)
+            gamma = self.autogamma()
+            self.suggBtn.setText(f"Suggestion: {gamma:.2f}")
+
+            if not self.shadowzone.transition:
+                N = arange(0, 256, 0.25)
+                I = -log(1 - N/256)/log(2)
+
+                rmin = self.shadowzone.rmin
+                rmax = self.shadowzone.rmax
+                Nr = (N.clip(min=rmin, max=rmax - 0.25) - rmin)/(rmax - rmin)
+                Ir = -self.shadowzone.gamma*self.shadowzone.rgamma*log(1 - Nr)/log(2)
+
+                gmin = self.shadowzone.gmin
+                gmax = self.shadowzone.gmax
+                Ng = (N.clip(min=gmin, max=gmax - 0.25) - gmin)/(gmax - gmin)
+                Ig = -self.shadowzone.gamma*self.shadowzone.ggamma*log(1 - Ng)/log(2)
+
+                bmin = self.shadowzone.bmin
+                bmax = self.shadowzone.bmax
+                Nb = (N.clip(min=bmin, max=bmax - 0.25) - bmin)/(bmax - bmin)
+                Ib = -self.shadowzone.gamma*self.shadowzone.bgamma*log(1 - Nb)/log(2)
+
+                self.redAvgIntensIn.setText(f"Avg Red Intensity: {(I*R).sum()/R.sum():.2f}")
+                self.greenAvgIntensIn.setText(f"Avg Green Intensity: {(I*G).sum()/G.sum():.2f}")
+                self.blueAvgIntensIn.setText(f"Avg Blue Intensity: {(I*B).sum()/B.sum():.2f}")
+
+                self.redAvgIntensOut.setText(f"Avg Red Intensity: {(Ir*R).sum()/R.sum():.2f}")
+                self.greenAvgIntensOut.setText(f"Avg Green Intensity: {(Ig*G).sum()/G.sum():.2f}")
+                self.blueAvgIntensOut.setText(f"Avg Blue Intensity: {(Ib*B).sum()/B.sum():.2f}")
 
             else:
-                self.rchan.setHistogram(None)
-                self.gchan.setHistogram(None)
-                self.bchan.setHistogram(None)
-                self.suggBtn.setEnabled(False)
-                self.suggBtn.setText("No Suggestion")
+                self.redAvgIntensOut.setText(f"Avg Red Intensity: —")
+                self.greenAvgIntensOut.setText(f"Avg Green Intensity: —")
+                self.blueAvgIntensOut.setText(f"Avg Blue Intensity: —")
+
+                self.redAvgIntensIn.setText(f"Avg Red Intensity: —")
+                self.greenAvgIntensIn.setText(f"Avg Green Intensity: —")
+                self.blueAvgIntensIn.setText(f"Avg Blue Intensity: —")
+
+        else:
+            self.rchan.setHistogram(None)
+            self.gchan.setHistogram(None)
+            self.bchan.setHistogram(None)
+
+            self.suggBtn.setEnabled(False)
+            self.suggBtn.setText("No Suggestion")
+
+            self.redAvgIntensOut.setText("Avg Red Intensity: —")
+            self.greenAvgIntensOut.setText("Avg Green Intensity: —")
+            self.blueAvgIntensOut.setText("Avg Blue Intensity: —")
+
+            self.redAvgIntensIn.setText("Avg Red Intensity: —")
+            self.greenAvgIntensIn.setText("Avg Green Intensity: —")
+            self.blueAvgIntensIn.setText("Avg Blue Intensity: —")
 
     def updateZoneValues(self):
         self.shadowzone.transition = bool(self.transitionCheckBox.checkState())
@@ -552,16 +688,7 @@ class QLevels(ZoneDlg):
 
             self.shadowzone.gamma = self.gammaSpinBox.value()
 
-            if self.shadowzone.histogram is not None:
-                self.rchan.setHistogram(self.shadowzone.histogram[0])
-                self.gchan.setHistogram(self.shadowzone.histogram[1])
-                self.bchan.setHistogram(self.shadowzone.histogram[2])
-
-                self.suggBtn.setEnabled(True)
-                gamma = self.autogamma()
-                self.suggBtn.setText(f"Suggestion: {gamma:.2f}")
-
-        # self.settingsApplied.emit()
+        self.updateStats()
         self.loadFrame(self.slider.slider.value(),
                        self.slider.currentTime.time())
 
@@ -569,6 +696,11 @@ class QLevels(ZoneDlg):
         self.updateColors()
         self.updateZoneValues()
         self.zoneModified()
+
+        zone = self.shadowzone
+        self.rchan.histogram.setGamma(zone.rgamma*zone.gamma)
+        self.gchan.histogram.setGamma(zone.ggamma*zone.gamma)
+        self.bchan.histogram.setGamma(zone.bgamma*zone.gamma)
 
     def apply(self):
         self.updateZoneValues()
@@ -586,6 +718,7 @@ class ZoneAnalysis(QProgressDialog):
         self.setAutoClose(True)
         self.setAutoReset(False)
         self.setWindowTitle("Analyzing Zone...")
+        self.setMinimumWidth(320)
         self.setLabel(QLabel("Analyzing Zone..."))
 
         self.cancelevent = threading.Event()
@@ -637,10 +770,42 @@ class LevelsCol(ZoneCol):
     def createContextMenu(self, table, index, obj):
         menu = ZoneCol.createContextMenu(self, table, index, obj)
         menu.addSeparator()
+
+        configure = QAction("Analyze selected zone(s)...", table, triggered=partial(
+            self.analyzeZones, table=table))
+
+        menu.addAction(configure)
+
         configure = QAction("Configure zone...", table, triggered=partial(
             self.createDlg, table=table, index=index))
+
         menu.addAction(configure)
         return menu
+
+    def analyzeZones(self, table):
+        sm = table.selectionModel()
+        selected = {table.model().data(idx, Qt.UserRole)
+                    for idx in sm.selectedIndexes()}
+
+        zones = []
+
+        for k in sorted(selected):
+            if table.isRowHidden(k):
+                continue
+
+            J, zone = self.filter.zoneAt(k)
+
+            if (J, zone) not in zones:
+                zones.append((J, zone))
+
+        for k, (J, zone) in enumerate(zones):
+            dlg = ZoneAnalysis(zone, table)
+            dlg.setWindowTitle(f"Analyzing Zone {J} ({k+1} of {len(zones)} selected)...")
+
+            if not dlg.exec_():
+                break
+
+        table.contentsModified.emit()
 
     def createDlg(self, table, index):
         J, zone = self.filter.zoneAt(index.data(Qt.UserRole))
@@ -648,6 +813,7 @@ class LevelsCol(ZoneCol):
         dlg.setFilter(self.filter, True)
         dlg.setZone(zone)
         dlg.settingsApplied.connect(table.contentsModified)
+        dlg.zoneChanged.connect(partial(self.scrollTableToZone, table))
         dlg.slider.slider.setValue(
             self.filter.cumulativeIndexMap[index.data(Qt.UserRole)])
 
