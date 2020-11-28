@@ -6,6 +6,8 @@ from ...util import h
 from fractions import Fraction as QQ
 import ebml
 from collections import OrderedDict
+from ..basereader import BaseReader
+from .attachments import AttachmentRef
 
 codecs = dict(
     hevc="V_MPEGH/ISO/HEVC",
@@ -582,3 +584,13 @@ class MatroskaWriter(basewriter.BaseWriter):
         dlg.setOutputFile(self)
 
         return dlg.exec_()
+
+    def removeDependency(self, dependency):
+        super().removeDependency(dependency)
+
+        if self.attachments and isinstance(dependency, BaseReader):
+            for attachment in list(self.attachments):
+                if isinstance(attachment.source, AttachmentRef):
+                    if attachment.source.source is dependency:
+                        self.attachments.remove(attachment)
+ 

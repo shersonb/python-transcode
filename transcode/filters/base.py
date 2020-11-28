@@ -1,5 +1,5 @@
 from ..util import cached, search, llist
-from ..containers.basereader import Track
+from ..containers.basereader import BaseReader, Track
 import threading
 import numpy
 from collections import OrderedDict
@@ -401,6 +401,13 @@ class BaseFilter(object):
         dlg = self.QtDlgClass()(parent)
         dlg.setFilter(self)
         return dlg
+
+    def removeDependency(self, dependency):
+        if isinstance(dependency, BaseReader) and self.source in dependency.tracks:
+            self.source = None
+
+        elif isinstance(dependency, BaseFilter) and self.source is dependency:
+            self.source = None
 
 
 class FilterChain(llist, BaseFilter):

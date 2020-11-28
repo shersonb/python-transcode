@@ -12,6 +12,9 @@ from ebml.ndarray import EBMLNDArray
 import abc
 from fractions import Fraction as QQ
 from copy import deepcopy
+from .basereader import BaseReader
+from .basereader import Track as InputTrack
+from ..filters.base import BaseFilter
 
 
 class TrackStats(EBMLNDArray):
@@ -160,6 +163,7 @@ class Track(abc.ABC):
 
         if value is not None:
             value.prev = self.source
+            value.source = self.source
 
     @property
     def source(self):
@@ -168,8 +172,10 @@ class Track(abc.ABC):
     @source.setter
     def source(self, value):
         self._source = value
+
         try:
             self._filters.prev = value
+            self._filters.source = value
 
         except AttributeError:
             pass
@@ -527,6 +533,12 @@ class Track(abc.ABC):
 
         return dep
 
+    def removeDependency(self, dependency):
+        if isinstance(dependency, BaseReader) and self.source in dependency.tracks:
+            self.source = None
+
+        elif isinstance(dependency, BaseFilter) and self.source is dependency:
+            self.source = None
 
 class BaseWriter(abc.ABC):
     """
@@ -1107,4 +1119,8 @@ class BaseWriter(abc.ABC):
 
     @property
     def dependencies(self):
-        return {track.dependencies for track in self.tracks}
+        return set().union(*[track.dependencies for track in self.tracks])
+
+    def removeDependency(self, dependency):
+        for track in self.tracks:
+            track.removeDependency(dependency)

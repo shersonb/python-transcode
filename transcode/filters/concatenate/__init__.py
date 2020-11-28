@@ -355,3 +355,13 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
     def QtDlgClass():
         from .qconcatenate import QConcatenate
         return QConcatenate
+
+    def removeDependency(self, dependency):
+        for source in list(self.sources):
+            if isinstance(dependency, BaseReader) and source in dependency.tracks:
+                self.sources.remove(source)
+
+            elif isinstance(dependency, BaseFilter) and self.source is dependency:
+                self.sources.remove(source)
+
+        self.reset_cache()
