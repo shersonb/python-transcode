@@ -1,5 +1,5 @@
 from PyQt5.QtCore import Qt, QModelIndex, pyqtSignal, QFileInfo
-from PyQt5.QtGui import QFont, QBrush
+from PyQt5.QtGui import QFont, QBrush, QColor, QPainter
 from PyQt5.QtWidgets import (QTreeView, QAbstractItemView, QWidget, QVBoxLayout,
                              QMenu, QAction, QMessageBox, QFileIconProvider, QToolButton,
                              QWidgetAction, QLabel, QHBoxLayout)
@@ -186,6 +186,7 @@ class QOutputFiles(QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
         self.outputFileList = QOutputFileList(self)
         layout.addWidget(self.outputFileList)
@@ -212,3 +213,9 @@ class QOutputFiles(QWidget):
 
     def setOutputFiles(self, output_files):
         self.outputFileList.setOutputFiles(output_files)
+
+    #def paintEvent(self, event):
+        #painter = QPainter(self)
+        #rect = self.rect()
+        #painter.fillRect(rect, QColor(64, 255, 64))
+

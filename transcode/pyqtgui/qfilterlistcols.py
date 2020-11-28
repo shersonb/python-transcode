@@ -1,4 +1,4 @@
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtBoundSignal
 from PyQt5.QtGui import QIcon, QBrush, QFont
 from PyQt5.QtWidgets import QMenu, QAction
 from functools import partial
@@ -37,15 +37,22 @@ class BaseFilterCol(object):
         input_files = self.filters.config.input_files
 
         editfilter = QAction(f"Configure filter...", table,
-                             triggered=partial(obj.QtDlg, inputFiles=input_files,
-                                               availableFilters=self.filters))
+                             triggered=partial(self.configureFilter, obj, table))
 
-        if not hasattr(obj, "QtDlgClass") or obj.QtDlgClass is None:
-            editfilter.setEnabled(False)
+        editfilter.setEnabled(obj.hasQtDlg())
 
         menu.addAction(editfilter)
 
         return menu
+
+    def configureFilter(self, filter, parent=None):
+        dlg = filter.QtDlg(parent)
+        dlg.setSources(self.filters.config.input_files, self.filters)
+
+        if hasattr(parent, "contentsModified") and isinstance(parent.contentsModified, pyqtBoundSignal):
+            dlg.settingsApplied.connect(parent.contentsModified)
+
+        dlg.exec_()
 
 
 class FilterNameCol(BaseFilterCol):

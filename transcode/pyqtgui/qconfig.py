@@ -1,7 +1,8 @@
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal
 from PyQt5.QtGui import QFont, QIcon
 from .qinputtracklist import QInputTrackList, QInputFiles
-# TODO: Filters
+from .qfilterlist import QFilterList
+from .qavailablefilters import QAvailableFilters
 from .qoutputfiles import QOutputFileList, QOutputFiles
 from .qoutputconfig import QOutputConfig
 
@@ -12,6 +13,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow,
 import threading
 from transcode.config import Config
 from transcode.config.ebml import ConfigElement
+from transcode.filters import filters
 import os
 import sys
 import types
@@ -53,6 +55,40 @@ class QConfig(QWidget):
         inputLayout.addWidget(self.inputFiles)
 
         splitter.addWidget(inputWidget)
+
+        # ---
+
+        filtersWidget = QWidget(splitter)
+
+        filtersLayout = QVBoxLayout()
+        filtersLayout.setContentsMargins(0, 8, 0, 0)
+        filtersWidget.setLayout(filtersLayout)
+
+        filtersLabelLayout = QHBoxLayout()
+
+        filtersFilesLabel = QLabel("Filter Chains", filtersWidget)
+        filtersFilesLabel.setFont(
+            QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
+        filtersLabelLayout.addWidget(filtersFilesLabel)
+
+        filtersLabelLayout.addStretch()
+        filtersLayout.addLayout(filtersLabelLayout)
+
+        subsplitter = QSplitter(Qt.Horizontal, filtersWidget)
+
+        self.availableFilters = QAvailableFilters(subsplitter)
+        self.availableFilters.setAvailableFilters(filters.values())
+        self.currentFilters = QFilterList(subsplitter)
+        self.currentFilters.contentsModified.connect(self.contentsModified)
+
+        subsplitter.addWidget(self.availableFilters)
+        subsplitter.addWidget(self.currentFilters)
+
+        filtersLayout.addWidget(subsplitter)
+
+        splitter.addWidget(filtersWidget)
+
+        # ---
 
         subsplitter = QSplitter(Qt.Horizontal, splitter)
 
@@ -113,9 +149,7 @@ class QConfig(QWidget):
 
         if config is not None:
             self.inputFiles.setInputFiles(config.input_files)
-
-            # TODO: Filters
-
+            self.currentFilters.setFilters(config.filter_chains)
             self.outputFiles.setOutputFiles(config.output_files)
             self.outputConfig.setOutputFile(None)
             self.outputFiles.outputFileList.selectionModel().currentRowChanged.connect(self.selectOutputFile)
@@ -344,7 +378,7 @@ class QConfigWindow(QMainWindow):
         return answer
 
     def handleException(self, cls, exc, tb):
-        print(traceback.format_exception(cls, exc, tb), file=sys.stderr)
+        print("\n".join(traceback.format_exception(cls, exc, tb)), file=sys.stderr)
         excmsg = QMessageBox(self)
         excmsg.setWindowTitle("Error")
         excmsg.setText("An exception was encountered\n\n%s" %

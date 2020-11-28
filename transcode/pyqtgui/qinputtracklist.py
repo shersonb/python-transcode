@@ -475,6 +475,7 @@ class QInputFiles(QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
         self.inputFileList = QInputTrackList(self)
         layout.addWidget(self.inputFileList)

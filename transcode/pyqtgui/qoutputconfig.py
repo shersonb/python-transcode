@@ -2,7 +2,7 @@ from .qoutputtracklist import OutputTrackList
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
                              QLineEdit, QFileDialog, QDialog, QCheckBox, QDoubleSpinBox)
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QPainter, QColor
 import os
 
 
@@ -169,6 +169,7 @@ class QOutputConfig(QWidget):
             self.fileEdit.blockSignals(False)
 
             self.targetSizeCheckBox.blockSignals(True)
+            self.targetSizeCheckBox.setTristate(False)
             self.targetSizeCheckBox.setCheckState(
                 2 if output_file.targetsize is not None else 0)
             self.targetSizeCheckBox.blockSignals(False)
@@ -203,6 +204,7 @@ class QOutputConfig(QWidget):
             self.browseBtn.setEnabled(False)
 
             self.targetSizeCheckBox.blockSignals(True)
+            self.targetSizeCheckBox.setTristate(True)
             self.targetSizeCheckBox.setCheckState(1)
             self.targetSizeCheckBox.blockSignals(False)
             self.targetSizeSpinBox.setHidden(True)
@@ -210,6 +212,11 @@ class QOutputConfig(QWidget):
     def configureContainer(self):
         if self.output_file.QtDlgExec(self):
             self.contentsModified.emit()
+
+    #def paintEvent(self, event):
+        #painter = QPainter(self)
+        #rect = self.rect()
+        #painter.fillRect(rect, QColor(64, 255, 64))
 
 
 class QOutputConfigDlg(QDialog):

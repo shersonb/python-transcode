@@ -65,6 +65,24 @@ class ZoneCol(BaseColumn):
         self.filter = filter
         self.zonestring = zonestring
 
+    def scrollTableToZone(self, table, zone):
+        filtermodel = table.model()
+        currentIndex = table.currentIndex()
+        datamodel = filtermodel.sourceModel()
+        col = filtermodel.mapToSource(currentIndex).column()
+        newIndex = datamodel.index(zone.src_start, col)
+
+        if isinstance(filtermodel.filterFunc(), set):
+            self.setFilter(
+                table, filtermodel.filterFunc().union({zone.src_start}))
+
+        elif filtermodel.filterFunc() is not None:
+            self.setFilter(table, None)
+
+        newFilterIndex = filtermodel.mapFromSource(newIndex)
+        table.setCurrentIndex(newFilterIndex)
+        table.scrollTo(newFilterIndex, QAbstractItemView.PositionAtCenter)
+
     def display(self, index, obj):
         K, zone = self.filter.zoneAt(index.row())
         return "%s" % K
@@ -140,7 +158,40 @@ class ZoneCol(BaseColumn):
                           triggered=partial(self.showAll, table=table))
         menu.addAction(showall)
 
+        menu.addSeparator()
+
+        checkallselected = QAction("&Check all selected", table,
+                                   triggered=partial(self.checkSelected, table=table, check=True))
+        uncheckallselected = QAction("&Uncheck all selected", table,
+                                     triggered=partial(self.checkSelected, table=table, check=False))
+
+        menu.addAction(checkallselected)
+        menu.addAction(uncheckallselected)
+
         return menu
+
+    def checkSelected(self, table, check=True):
+        sm = table.selectionModel()
+        selected = {table.model().data(idx, Qt.UserRole)
+                    for idx in sm.selectedIndexes()}
+
+        if check:
+            for k in selected:
+                if table.isRowHidden(k):
+                    continue
+
+                if k not in self.filter.zone_indices:
+                    self.filter.insertZoneAt(k)
+
+        else:
+            for k in selected:
+                if table.isRowHidden(k):
+                    continue
+
+                if k in self.filter.zone_indices:
+                    self.filter.removeZoneAt(k)
+
+        table.contentsModified.emit()
 
     def setFilter(self, table, filter=None):
         selected = table.model().mapToSource(table.currentIndex())

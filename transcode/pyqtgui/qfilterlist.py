@@ -15,8 +15,8 @@ class EditableSourceCol(SourceCol):
         return InputDelegate(self.filters.config.input_files, self.filters, parent)
 
 
-class QFilterTree(QTreeView):
-    contentsChanged = pyqtSignal()
+class QFilterList(QTreeView):
+    contentsModified = pyqtSignal()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -42,6 +42,10 @@ class QFilterTree(QTreeView):
             ]
 
             self.setModel(FilterListModel(FiltersRoot(filters), cols))
+            self.model().dataChanged.connect(self.contentsModified)
+            self.model().rowsMoved.connect(self.contentsModified)
+            self.model().rowsInserted.connect(self.contentsModified)
+            self.model().rowsRemoved.connect(self.contentsModified)
 
             for k, col in enumerate(cols):
                 if hasattr(col, "width"):
@@ -62,3 +66,5 @@ class QFilterTree(QTreeView):
 
         if isinstance(menu, QMenu):
             menu.exec_(self.mapToGlobal(event.pos()))
+
+

@@ -1,5 +1,6 @@
 from PyQt5.QtCore import Qt
 from .qitemmodel import QItemModel, Node, ChildNodes, NoChildren
+from transcode.filters.base import BaseFilter
 
 
 class FiltersRoot(Node):
@@ -13,13 +14,14 @@ class FiltersRoot(Node):
                     return False
 
         elif action == Qt.CopyAction:
-            return False
+            for item in items:
+                if not isinstance(item.value, type) or \
+                        not issubclass(item.value, BaseFilter):
+                    return False
 
         return True
 
     def dropChildren(self, model, index, items, row, action):
-        model = index.model()
-
         if action == Qt.MoveAction:
             j = 0
 
@@ -31,9 +33,29 @@ class FiltersRoot(Node):
                     j += 1
 
         elif action == Qt.CopyAction:
-            return False
+            for k, item in enumerate(items, row):
+                if item.value.hasQtDlg():
+                    dlg = item.value.QtInitialize()
+                    dlg.setSources(self.value.config.input_files, self.value)
+
+                    if dlg.exec_():
+                        filter = dlg.filter
+
+                    else:
+                        filter = None
+
+                else:
+                    filter = item.value()
+
+                model.insertRow(k, filter, index)
 
         return True
+
+    def canDropItems(self, model, parent, items, action):
+        return self.canDropChildren(model, parent, items, len(self.children), action)
+
+    def dropItems(self, model, parent, items, action):
+        return self.dropChildren(model, parent, items, len(self.children), action)
 
 
 class Filters(ChildNodes):

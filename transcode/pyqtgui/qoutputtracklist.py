@@ -586,6 +586,9 @@ class OutputTrackList(QTreeView):
             root = OutputFileNode(output_file)
             self.setModel(OutputTrackModel(root, cols))
             self.model().dataChanged.connect(self.contentsModified)
+            self.model().rowsMoved.connect(self.contentsModified)
+            self.model().rowsInserted.connect(self.contentsModified)
+            self.model().rowsRemoved.connect(self.contentsModified)
             self.setAcceptDrops(True)
             self.viewport().setAcceptDrops(True)
 

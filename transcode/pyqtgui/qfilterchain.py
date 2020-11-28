@@ -13,42 +13,7 @@ from .qframeselect import QFrameSelect
 import sys
 import traceback
 from fractions import Fraction as QQ
-
-
-class AvailableFiltersModel(QItemModel):
-    def canDragItems(self, *args):
-        return True
-
-    def supportedDragActions(self):
-        return Qt.CopyAction
-
-
-class AvailableFiltersCol(object):
-    font = QFont("DejaVu Serif", 8)
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
-    textalign = Qt.AlignLeft
-
-    def display(self, index, obj):
-        return obj.__str__(None)
-
-    def tooltip(self, index, obj):
-        mod = ".".join(obj.__module__.split(".")[2:])
-
-        if obj.__doc__:
-            return f"{mod}.{obj.__name__}\n\n{obj.__doc__}"
-
-        return f"{mod}.{obj.__name__}"
-
-
-class AvailableFiltersListView(QTreeView):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setDragEnabled(True)
-        self.setDragDropMode(QTreeView.DragOnly)
-        self.setIndentation(0)
-        self.setHeaderHidden(True)
-        root = Node(sorted(filters.values(), key=lambda cls: cls.__name__))
-        self.setModel(AvailableFiltersModel(root, [AvailableFiltersCol()]))
+from .qavailablefilters import QAvailableFilters
 
 
 class CurrentFiltersModel(QItemModel):
@@ -248,28 +213,15 @@ class CurrentFiltersListView(QTreeView):
                 excmsg.exec_()
 
 
-class QAvailableFilters(QWidget):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        layout = QVBoxLayout()
-        self.setLayout(layout)
-
-        label = QLabel("Available Filters", self)
-        label.setFont(QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
-        layout.addWidget(label)
-
-        self.listView = AvailableFiltersListView(self)
-        layout.addWidget(self.listView)
-
-
 class QCurrentFilters(QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
         label = QLabel("Current Filters", self)
-        label.setFont(QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
+        label.setFont(QFont("DejaVu Serif", 14, QFont.Bold, italic=True))
         layout.addWidget(label)
 
         self.listView = CurrentFiltersListView(self)
@@ -507,6 +459,7 @@ class QFilterChain(QFilterConfig):
         return FilterChain()
 
     def _createControls(self, *args, **kwargs):
+        self.setWindowTitle("Configure Filter Chain")
         self.sourceWidget = QWidget(self)
         self.sourceSelection = self.createSourceControl(self.sourceWidget)
         self.sourceSelection.currentDataChanged.connect(self.setFilterSource)
@@ -518,6 +471,7 @@ class QFilterChain(QFilterConfig):
         self.sourceWidget.setLayout(srclayout)
 
         self.availableFilters = QAvailableFilters(self)
+        self.availableFilters.setAvailableFilters(filters.values())
         self.availableFilters.setMaximumWidth(240)
 
         self.currentFilters = QCurrentFilters(self)
