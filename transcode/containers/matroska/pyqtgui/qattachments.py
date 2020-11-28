@@ -132,15 +132,15 @@ class AvailableAttachmentMimeTypeCol(AvailableAttachmentsBaseColumn):
 
 class AvailableAttachmentUIDCol(AvailableAttachmentsBaseColumn):
     headerdisplay = "UID"
-    width = 192
+    width = 96
 
     def display(self, index, obj):
         if isinstance(obj, InputAttachedFile):
-            c, d = divmod(obj.fileUID, 16**8)
-            b, c = divmod(c, 16**8)
-            a, b = divmod(b, 16**8)
+            c, d = divmod(obj.fileUID, 16**4)
+            b, c = divmod(c, 16**4)
+            a, b = divmod(b, 16**4)
 
-            return f"{a:08x} {b:08x} {c:08x} {d:08x}"
+            return f"{a:04x} {b:04x} {c:04x} {d:04x}"
 
         return ""
 
@@ -310,10 +310,10 @@ class AttachmentModel(QItemModel):
         newfiles = []
 
         for url in urls:
-            UID = random.randint(1, 2**128 - 1)
+            UID = random.randint(1, 2**64 - 1)
 
             while UID in existingUIDs:
-                UID = random.randint(1, 2**128 - 1)
+                UID = random.randint(1, 2**64 - 1)
 
             relPath = os.path.relpath(url.path(), workingdir)
 
@@ -528,11 +528,11 @@ class UIDCol(BaseColumn):
         # return f"0x{int(self.editdata(index, obj)):032x}"
 
     def display(self, index, obj):
-        c, d = divmod(self.editdata(index, obj), 16**8)
-        b, c = divmod(c, 16**8)
-        a, b = divmod(b, 16**8)
+        c, d = divmod(self.editdata(index, obj), 16**4)
+        b, c = divmod(c, 16**4)
+        a, b = divmod(b, 16**4)
 
-        return f"{a:08x} {b:08x} {c:08x} {d:08x}"
+        return f"{a:04x} {b:04x} {c:04x} {d:04x}"
 
     def itemDelegate(self, parent):
         return UIDDelegate(parent)
@@ -653,10 +653,10 @@ class QAttachmentTree(QTreeView):
         newfiles = []
 
         for fileName in fileNames:
-            UID = random.randint(1, 2**128 - 1)
+            UID = random.randint(1, 2**64 - 1)
 
             while UID in existingUIDs:
-                UID = random.randint(1, 2**128 - 1)
+                UID = random.randint(1, 2**64 - 1)
 
             relPath = os.path.relpath(fileName, workingdir)
 
@@ -684,7 +684,7 @@ class QAttachmentTree(QTreeView):
                 source = AttachmentRef(input_file, UID)
 
                 while UID in existingUIDs:
-                    UID = random.randint(1, 2**128 - 1)
+                    UID = random.randint(1, 2**64 - 1)
 
                 newfiles.append(AttachedFile(UID, source=source,
                                              fileName=attachment.fileName, mimeType=attachment.mimeType,

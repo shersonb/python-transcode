@@ -131,18 +131,18 @@ class AvailableUIDCol(AvailableEditionEntriesBaseColumn):
 
     def display(self, index, obj):
         if isinstance(obj, InputEditionEntry):
-            c, d = divmod(obj.editionUID, 16**8)
-            b, c = divmod(c, 16**8)
-            a, b = divmod(b, 16**8)
+            c, d = divmod(obj.editionUID, 16**4)
+            b, c = divmod(c, 16**4)
+            a, b = divmod(b, 16**4)
 
-            return f"{a:08x} {b:08x} {c:08x} {d:08x}"
+            return f"{a:04x} {b:04x} {c:04x} {d:04x}"
 
         elif isinstance(obj, InputChapterAtom):
-            c, d = divmod(obj.chapterUID, 16**8)
-            b, c = divmod(c, 16**8)
-            a, b = divmod(b, 16**8)
+            c, d = divmod(obj.chapterUID, 16**4)
+            b, c = divmod(c, 16**4)
+            a, b = divmod(b, 16**4)
 
-            return f"{a:08x} {b:08x} {c:08x} {d:08x}"
+            return f"{a:04x} {b:04x} {c:04x} {d:04x}"
 
         return ""
 
@@ -749,7 +749,7 @@ class EndCol(BaseColumn):
 
 
 class UIDCol(BaseColumn):
-    width = 256
+    width = 128
     headerdisplay = "UID"
 
     def __init__(self, tags, editions):
@@ -763,11 +763,11 @@ class UIDCol(BaseColumn):
 
     def display(self, index, obj):
         if isinstance(obj, (ChapterAtom, EditionEntry)):
-            c, d = divmod(self.editdata(index, obj), 16**8)
-            b, c = divmod(c, 16**8)
-            a, b = divmod(b, 16**8)
+            c, d = divmod(self.editdata(index, obj), 16**4)
+            b, c = divmod(c, 16**4)
+            a, b = divmod(b, 16**4)
 
-            return f"{a:08x} {b:08x} {c:08x} {d:08x}"
+            return f"{a:04x} {b:04x} {c:04x} {d:04x}"
 
         return ""
 
@@ -1155,6 +1155,14 @@ class QFrameSelect(QWidget):
             else:
                 pts = t.msecsSinceStartOfDay()/1000
                 n = self.source.frameIndexFromPtsTime(pts, dir="-")
+
+            self.slider.blockSignals(True)
+            self.slider.setValue(n)
+            self.slider.blockSignals(False)
+
+            self.currentIndex.blockSignals(True)
+            self.currentIndex.setValue(n)
+            self.currentIndex.blockSignals(False)
 
             self._frameChange(n)
 

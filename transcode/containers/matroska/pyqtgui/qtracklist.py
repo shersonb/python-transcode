@@ -94,7 +94,7 @@ class CompressionDelegate(QItemDelegate):
 
 
 class TrackUIDCol(BaseOutputTrackCol):
-    width = 256
+    width = 128
     headerdisplay = "Track UID"
     flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
 
@@ -106,10 +106,10 @@ class TrackUIDCol(BaseOutputTrackCol):
 
         if data is None:
             otherUIDs = {track.trackUID for track in self.output_file.tracks}
-            data = random.randint(1, 2**128 - 1)
+            data = random.randint(1, 2**64 - 1)
 
             while data in otherUIDs:
-                data = random.randint(1, 2**128 - 1)
+                data = random.randint(1, 2**64 - 1)
 
             self.seteditdata(index, track, data)
 
@@ -119,11 +119,11 @@ class TrackUIDCol(BaseOutputTrackCol):
         # return f"0x{self.editdata(index, track):032x}"
 
     def display(self, index, obj):
-        c, d = divmod(self.editdata(index, obj), 16**8)
-        b, c = divmod(c, 16**8)
-        a, b = divmod(b, 16**8)
+        c, d = divmod(self.editdata(index, obj), 16**4)
+        b, c = divmod(c, 16**4)
+        a, b = divmod(b, 16**4)
 
-        return f"{a:08x} {b:08x} {c:08x} {d:08x}"
+        return f"{a:04x} {b:04x} {c:04x} {d:04x}"
 
     tooltip = display
 
