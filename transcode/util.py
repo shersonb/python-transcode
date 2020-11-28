@@ -91,7 +91,7 @@ class Packet(object):
     @property
     def size(self):
         return len(self.data)
-
+    
     def __repr__(self):
         return f"Packet(pts={self.pts}, duration={self.duration}, size={self.size}, keyframe={self.keyframe}, track_index={self.track_index})"
 
@@ -193,10 +193,11 @@ class llist(collections.UserList):
             self[k].prev = self[k - 1]
             self[k - 1].next = self[k]
 
-        else:
+        elif len(self) > k:
             self[k].prev = None
 
-        self[k].parent = self
+        if len(self) > k:
+            self[k].parent = self
 
         for item1, item2 in zip(self[k:-1], self[k+1:]):
             item1.next = item2
