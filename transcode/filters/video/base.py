@@ -1,5 +1,5 @@
 from ...util import cached, search
-from ..base import BaseFilter, notifyIterate
+from ..base import BaseFilter, notifyIterate, FilterChain
 import numpy
 from itertools import count
 
@@ -52,7 +52,7 @@ class BaseVideoFilter(BaseFilter):
 
     @property
     def prev(self):
-        if self.parent is not None:
+        if isinstance(self.parent, FilterChain):
             return self._prev or self.parent.prev
 
         return self._prev or self._source
@@ -211,7 +211,7 @@ class BaseVideoFilter(BaseFilter):
         else:
             prev_end = None
 
-        iterable = self.prev.iterFrames(prev_start, prev_end)
+        iterable = self.prev.iterFrames(prev_start, prev_end, whence="framenumber")
 
         for frame in self.processFrames(iterable):
             k = self.frameIndexFromPts(frame.pts)
