@@ -1,15 +1,15 @@
-import os
-import importlib
-
-_path = os.path.split(__file__)[0]
 
 filters = {}
 
 
 def scan():
-    filters.clear()
+    import os
+    import importlib
     from transcode.filters.video.base import BaseVideoFilter
     from transcode.filters.video.zoned import ZonedFilter
+
+    _path = os.path.split(__file__)[0]
+    filters.clear()
 
     for _module in os.listdir(_path):
         if _module[0] in "_." or _module in ("base.py", "zoned.py", "filterchain.py"):
