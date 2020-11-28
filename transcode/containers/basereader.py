@@ -245,6 +245,7 @@ class Track(object):
 
                     framesdelivered += 1
                     frame.pts = pts1
+                    frame.time_base = self.time_base
 
                     yield frame
 
@@ -309,6 +310,7 @@ class Track(object):
             frame = VideoFrame.from_ndarray(A, fmt)
             frame.pts = pts
             frame.pict_type = pict_type
+            frame.time_base = self.time_base
             yield frame
 
             i += 1
@@ -363,6 +365,7 @@ class Track(object):
                         (pts - self.pts[0])/self.defaultDuration + 0.5)*self.defaultDuration + 0.5) + self.pts[0]
 
                 frame.pts = pts
+                frame.time_base = self.time_base
 
                 if self.type == "video":
                     frame.pict_type = 0
