@@ -82,7 +82,7 @@ class FilterElement(ebml.serialization.Object):
             self.source = ebml.serialization.Ref(refs[id(source)])
 
         if "name" in state:
-            self.name = state.pop("source")
+            self.name = state.pop("name")
 
         if isinstance(state, dict):
             self.options = ebml.serialization.StateDict.fromObj(
