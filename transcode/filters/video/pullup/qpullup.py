@@ -8,9 +8,9 @@ from fractions import Fraction as QQ
 import regex
 from functools import partial
 
-from .qzones import ZoneDlg, BaseShadowZone
-from transcode.filters.video.pullup import Zone
-from .qframetablecolumn import ZoneCol
+from . import Zone
+from transcode.pyqtgui.qzones import ZoneDlg, BaseShadowZone
+from transcode.pyqtgui.qframetablecolumn import ZoneCol
 
 
 class PatternValidator(QValidator):

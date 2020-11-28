@@ -6,12 +6,12 @@ from PyQt5.QtWidgets import (QLabel, QSpinBox, QVBoxLayout, QHBoxLayout, QWidget
 import numpy
 from numpy import sqrt, concatenate
 
-from transcode.filters.slice import Slice
+from . import Slice
 from transcode.util import search
-from .slider import Slider
-from .qimageview import QImageView
-from .qfilterconfig import QFilterConfig
-from .qtimeselect import QTimeSelect
+from transcode.pyqtgui.slider import Slider
+from transcode.pyqtgui.qimageview import QImageView
+from transcode.pyqtgui.qfilterconfig import QFilterConfig
+from transcode.pyqtgui.qtimeselect import QTimeSelect
 
 
 class QTimeSlider(QWidget):
@@ -59,25 +59,31 @@ class QTimeSlider(QWidget):
 
         self.setPtsTimeArray(None)
 
-    def setMinimum(self, n=0):
+    def setMinimum(self, n=0, t=None):
         self.slider.setMinimum(n)
         self.spinBox.setMinimum(n)
 
-        self.timeSelect.setMinimum(self.pts_time[n])
+        if t is None:
+            t = self.pts_time[n]
+
+        self.timeSelect.setMinimum(t)
 
         m, s = divmod(self.pts_time[n], 60)
         h, m = divmod(int(m), 60)
 
         self.leftLabel.setText(f"{n} ({h}:{m:02d}:{s:012.9f})")
 
-    def setMaximum(self, n=None):
+    def setMaximum(self, n=None, t=None):
         if n is None:
             n = len(self.pts_time) - 1
 
         self.slider.setMaximum(n)
         self.spinBox.setMaximum(n)
 
-        self.timeSelect.setMaximum(self.pts_time[n])
+        if t is None:
+            t = self.pts_time[n]
+
+        self.timeSelect.setMaximum(t)
 
         m, s = divmod(self.pts_time[n], 60)
         h, m = divmod(int(m), 60)
@@ -148,7 +154,11 @@ class QTimeSlider(QWidget):
             self.timeSelectionChanged.emit(0, t)
             return
 
-        n = search(self.pts_time, t + 0.0005, dir="-")
+        if t + 0.0005 >= self.pts_time[0]:
+            n = search(self.pts_time, t + 0.0005, dir="-")
+
+        else:
+            n = 0
 
         if n != self.slider.value():
             self.slider.blockSignals(True)
@@ -159,7 +169,7 @@ class QTimeSlider(QWidget):
             self.spinBox.setValue(n)
             self.spinBox.blockSignals(False)
 
-            self.timeSelectionChanged.emit(n, t)
+        self.timeSelectionChanged.emit(n, t)
 
     # def _handleTimeEditFinished(self):
         #t = self.timeSelect.time()
@@ -220,14 +230,14 @@ class QSlice(QFilterConfig):
 
     @pyqtSlot(int, float)
     def setStart(self, n, t):
-        self.shadow.startpts = t or None
+        self.shadow.startpts = t
         self.updateStartImage()
         self.isModified()
 
     @pyqtSlot(int, float)
     def setEnd(self, n, t):
         if self.shadow.prev is not None:
-            if t >= self.shadow.prev.duration:
+            if abs(t - self.shadow.prev.duration) < 10**-9:
                 self.shadow.endpts = None
 
             else:
@@ -301,8 +311,19 @@ class QSlice(QFilterConfig):
         if self.shadow.prev is not None:
             pts_time = concatenate(
                 (self.shadow.prev.pts_time, [float(self.shadow.prev.duration)]))
+            self.startSlider.blockSignals(True)
             self.startSlider.setPtsTimeArray(pts_time)
+            self.startSlider.blockSignals(False)
+
+            self.endSlider.blockSignals(True)
             self.endSlider.setPtsTimeArray(pts_time)
+            self.endSlider.blockSignals(False)
+
+            if self.shadow.prev.type == "subtitle":
+                self.startSlider.timeSelect.setMinimum(0)
+                self.endSlider.timeSelect.setMinimum(0)
+                self.startSlider.timeSelect.setMaximum(24*3600)
+                self.endSlider.timeSelect.setMaximum(24*3600)
 
     def _resetControls(self):
         if self.shadow is not None:
@@ -318,8 +339,12 @@ class QSlice(QFilterConfig):
                 self.endSlider.timeSelect.setValue(self.shadow.endpts)
 
             elif self.shadow.prev is not None:
-                self.endSlider.timeSelect.setValue(
-                    float(self.shadow.prev.duration))
+                if self.shadow.prev.type in ("video", "audio"):
+                    self.endSlider.timeSelect.setValue(
+                        float(self.shadow.prev.duration))
+
+                else:
+                    self.endSlider.timeSelect.setValue(24*3600)
 
             self.endSlider.blockSignals(False)
 

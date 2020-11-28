@@ -14,10 +14,15 @@ setup(
         'transcode.filters',
         'transcode.filters.audio',
         'transcode.filters.video',
-        'transcode.filters.video.fps',
-        'transcode.filters.video.levels',
         'transcode.filters.video.cropandresize',
+        'transcode.filters.video.fps',
+        'transcode.filters.video.keyframes',
+        'transcode.filters.video.levels',
+        'transcode.filters.video.pullup',
+        'transcode.filters.video.scenes',
         'transcode.filters.concatenate',
+        'transcode.filters.crossfade',
+        'transcode.filters.slice',
         'transcode.containers',
         'transcode.containers.matroska',
         'transcode.containers.matroska.pyqtgui',
@@ -34,7 +39,7 @@ setup(
         'bin/qtranscode-config'
     ],
     install_requires=[
-        'ebml', 'matroska', 'titlecase', 'ass', 'av'
+        'ebml', 'matroska', 'titlecase', 'ass', 'av', 'parallel'
     ],
     license="MIT"
 )

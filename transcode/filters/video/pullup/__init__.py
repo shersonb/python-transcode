@@ -1,6 +1,6 @@
 #!/usr/bin/python
-from . import zoned
-from ...util import cached, numpify
+from .. import zoned
+from transcode.util import cached, numpify
 import numpy
 from fractions import Fraction as QQ
 import itertools
@@ -902,8 +902,8 @@ class ZonedPullup(zoned.ZonedFilter):
         super().reset_cache(start, end, reset_children)
 
     def QtTableColumns(self):
-        from transcode.pyqtgui.qpullup import (FrameRateCheckCol, FrameRateCol, TCPatternCol, TCPatternOffsetCol,
-                                               YBlendCheckCol, UVBlendCheckCol, FrameRateECol, FrameRateOCol)
+        from .qpullup import (FrameRateCheckCol, FrameRateCol, TCPatternCol, TCPatternOffsetCol,
+                            YBlendCheckCol, UVBlendCheckCol, FrameRateECol, FrameRateOCol)
         return [
             FrameRateCheckCol(self),
             FrameRateCol(self),
@@ -917,5 +917,5 @@ class ZonedPullup(zoned.ZonedFilter):
 
     @staticmethod
     def QtDlgClass():
-        from transcode.pyqtgui.qpullup import QPullup
-        return QPullup
+        from .qpullup import QPullup
+        #return QPullup

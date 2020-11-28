@@ -3,12 +3,12 @@ from PyQt5.QtCore import pyqtSlot, QTime
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import (QLabel, QVBoxLayout, QHBoxLayout, QWidget, QCheckBox)
 
-from transcode.filters.crossfade import CrossFade
-from transcode.filters.base import BaseFilter
+from . import CrossFade
+from ..base import BaseFilter
 
-from .qimageview import QImageView
-from .qfilterconfig import QFilterConfig
-from .qframeselect import QFrameSelect
+from transcode.pyqtgui.qimageview import QImageView
+from transcode.pyqtgui.qfilterconfig import QFilterConfig
+from transcode.pyqtgui.qframeselect import QFrameSelect
 
 
 class QCrossFade(QFilterConfig):
@@ -75,7 +75,9 @@ class QCrossFade(QFilterConfig):
         else:
             self.shadow.flags |= 1
 
-        self.setFrame(self.frameSelect.slider.value())
+        if self.shadow.prev is not None and self.shadow.prev.type == "video":
+            self.setFrame(self.frameSelect.slider.value())
+
         self.isModified()
 
     def setSource2Fade(self, value):
@@ -85,7 +87,9 @@ class QCrossFade(QFilterConfig):
         else:
             self.shadow.flags |= 2
 
-        self.setFrame(self.frameSelect.slider.value())
+        if self.shadow.prev is not None and self.shadow.prev.type == "video":
+            self.setFrame(self.frameSelect.slider.value())
+
         self.isModified()
 
     def setFrame(self, n):

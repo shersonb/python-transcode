@@ -8,12 +8,12 @@ from PyQt5.QtGui import QRegExpValidator
 from functools import partial
 from numpy import isnan, arange, array
 
-from .qzones import ZoneDlg
-from transcode.filters.video.base import BaseVideoFilter
-from transcode.filters.video.scenes import Scenes, AnalysisThread
-from transcode.filters.base import BaseFilter
+from ..base import BaseVideoFilter
+from . import Scenes, AnalysisThread
+from ...base import BaseFilter
 from transcode.containers.basewriter import Track
-from .qframetablecolumn import ZoneCol
+from transcode.pyqtgui.qzones import ZoneDlg
+from transcode.pyqtgui.qframetablecolumn import ZoneCol
 from more_itertools import windowed
 
 
@@ -69,36 +69,18 @@ class BaseSceneCol(ZoneCol, QObject):
         ZoneCol.__init__(self, filter, "scene")
         QObject.__init__(self, *args, **kwargs)
 
-    def scrollTableToZone(self, table, zone):
-        filtermodel = table.model()
-        currentIndex = table.currentIndex()
-        datamodel = filtermodel.sourceModel()
-        col = filtermodel.mapToSource(currentIndex).column()
-        newIndex = datamodel.index(zone.src_start, col)
-
-        if isinstance(filtermodel.filterFunc(), set):
-            self.setFilter(
-                table, filtermodel.filterFunc().union({zone.src_start}))
-
-        elif filtermodel.filterFunc() is not None:
-            self.setFilter(table, None)
-
-        newFilterIndex = filtermodel.mapFromSource(newIndex)
-        table.setCurrentIndex(newFilterIndex)
-        table.scrollTo(newFilterIndex, QAbstractItemView.PositionAtCenter)
-
     def createContextMenu(self, table, index, obj):
         menu = ZoneCol.createContextMenu(self, table, index, obj)
         menu.addSeparator()
 
-        checkallselected = QAction("&Check all selected", table,
-                                   triggered=partial(self.checkSelected, table=table, check=True))
-        uncheckallselected = QAction("&Uncheck all selected", table,
-                                     triggered=partial(self.checkSelected, table=table, check=False))
+        #checkallselected = QAction("&Check all selected", table,
+                                   #triggered=partial(self.checkSelected, table=table, check=True))
+        #uncheckallselected = QAction("&Uncheck all selected", table,
+                                     #triggered=partial(self.checkSelected, table=table, check=False))
 
-        menu.addAction(checkallselected)
-        menu.addAction(uncheckallselected)
-        menu.addSeparator()
+        #menu.addAction(checkallselected)
+        #menu.addAction(uncheckallselected)
+        #menu.addSeparator()
 
         idx = table.indexAt(QPoint(0, 0))
 
@@ -167,22 +149,22 @@ class BaseSceneCol(ZoneCol, QObject):
         dlg.slider.slider.setValue(self.filter.cumulativeIndexMap[index.row()])
         dlg.exec_()
 
-    def checkSelected(self, table, check=True):
-        sm = table.selectionModel()
-        selected = {table.model().data(idx, Qt.UserRole)
-                    for idx in sm.selectedIndexes()}
+    #def checkSelected(self, table, check=True):
+        #sm = table.selectionModel()
+        #selected = {table.model().data(idx, Qt.UserRole)
+                    #for idx in sm.selectedIndexes()}
 
-        for k in selected:
-            if table.isRowHidden(k):
-                continue
+        #for k in selected:
+            #if table.isRowHidden(k):
+                #continue
 
-            if check and k not in self.filter.zone_indices:
-                self.filter.insertZoneAt(k)
-            # and zone is self.filter[0]:
-            elif not check and k in self.filter.zone_indices:
-                self.filter.removeZoneAt(k)
+            #if check and k not in self.filter.zone_indices:
+                #self.filter.insertZoneAt(k)
+            ## and zone is self.filter[0]:
+            #elif not check and k in self.filter.zone_indices:
+                #self.filter.removeZoneAt(k)
 
-        table.contentsModified.emit()
+        #table.contentsModified.emit()
 
     def autoScenes(self, table):
         if len(self.filter) <= 1 or \

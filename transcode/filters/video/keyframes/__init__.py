@@ -1,6 +1,6 @@
 #!/usr/bin/python
-from .base import BaseVideoFilter
-from ...util import cached
+from ..base import BaseVideoFilter
+from transcode.util import cached
 import numpy
 import fractions
 import itertools
@@ -83,5 +83,5 @@ class KeyFrames(BaseVideoFilter, set):
         super().__setstate__(state)
 
     def QtTableColumns(self):
-        from transcode.pyqtgui.qkeyframes import KeyFrameCol
+        from .qkeyframes import KeyFrameCol
         return [KeyFrameCol(self)]

@@ -1,10 +1,10 @@
-from .video.base import BaseVideoFilter
-from .audio.base import BaseAudioFilter
-from .base import CacheResettingProperty
+from ..video.base import BaseVideoFilter
+from ..audio.base import BaseAudioFilter
+from ..base import CacheResettingProperty
 import numpy
 from itertools import count
-from ..util import cached
-from ..avarrays import toNDArray, toAFrame
+from transcode.util import cached
+from transcode.avarrays import toNDArray, toAFrame
 
 
 class Slice(BaseVideoFilter, BaseAudioFilter):
@@ -31,7 +31,11 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
             if self.type == "video":
                 return self.prev.frameIndexFromPts((self.endpts - 0.008)/self.prev.time_base, "+")
 
-            return self.prev.frameIndexFromPts(self.endpts/self.prev.time_base, "+")
+            try:
+                return self.prev.frameIndexFromPts(self.endpts/self.prev.time_base, "+")
+
+            except IndexError:
+                return self.prev.framecount
 
         return self.prev.framecount
 
@@ -85,36 +89,9 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
     def reverseIndexMap(self):
         return numpy.arange(self.prev_start, self.prev_end, dtype=numpy.int0)
 
-    # @property
-    # def prev(self):
-        # return self._prev
-
-    # @prev.setter
-    # def prev(self, value):
-        #self._prev = value
-
-        # if len(self) and self.start is not None:
-        #self.start.prev = value
-
-    # @property
-    # def prev(self):
-        # return self._prev
-
-    # @prev.setter
-    # def prev(self, value):
-        #self._prev = value
-        # self.reset_cache()
-
     @property
     def rate(self):
         return self.prev.rate
-
-    # def QTableColumns(self):
-        #cols = []
-        # for filt in self:
-        # if hasattr(filt, "QTableColumns") and callable(filt.QTableColumns):
-        # cols.extend(filt.QTableColumns())
-        # return cols
 
     def iterFrames(self, start=0, end=None, whence=None):
         if self.type == "video":
@@ -320,5 +297,5 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
 
     @staticmethod
     def QtDlgClass():
-        from transcode.pyqtgui.qslice import QSlice
+        from .qslice import QSlice
         return QSlice

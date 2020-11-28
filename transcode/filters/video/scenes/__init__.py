@@ -1,6 +1,6 @@
-from . import zoned
-from .base import BaseVideoFilter
-from ...util import cached, numpify
+from .. import zoned
+from ..base import BaseVideoFilter
+from transcode.util import cached, numpify
 from itertools import count
 import numpy
 from collections import OrderedDict
@@ -316,11 +316,11 @@ class Scenes(zoned.ZonedFilter):
 
     @staticmethod
     def QtDlgClass():
-        from transcode.pyqtgui.qscenes import QScenes
+        from .qscenes import QScenes
         return QScenes
 
     def QtTableColumns(self):
-        from transcode.pyqtgui.qscenes import SceneCol, ContentCol, DeltaHueCol, DeltaSatCol, DeltaLumCol
+        from .qscenes import SceneCol, ContentCol, DeltaHueCol, DeltaSatCol, DeltaLumCol
         col1 = SceneCol(self)
         col2 = ContentCol(self)
         col3 = DeltaHueCol(self)

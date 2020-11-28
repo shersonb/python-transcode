@@ -1,6 +1,6 @@
 #!/usr/bin/python3
-from .base import BaseVideoFilter
-from ...util import cached
+from ..base import BaseVideoFilter
+from transcode.util import cached
 import numpy
 from fractions import Fraction as QQ
 import itertools
@@ -155,5 +155,5 @@ class DropFrames(BaseVideoFilter, set):
         super().__setstate__(state)
 
     def QtTableColumns(self):
-        from transcode.pyqtgui.qdropframes import DropFrameCol
+        from .qdropframes import DropFrameCol
         return [DropFrameCol(self)]
