@@ -50,6 +50,12 @@ class SegmentsRoot(Node):
 
         return True
 
+    def canDropItems(self, model, parent, items, action):
+        return self.canDropChildren(model, parent, items, len(self.children), action)
+
+    def dropItems(self, model, parent, items, action):
+        return self.dropChildren(model, parent, items, len(self.children), action)
+
 
 class SegmentsList(ChildNodes):
     @staticmethod
@@ -133,7 +139,7 @@ class NameCol(BaseColumn):
             container_index = self.input_files.index(obj.container)
             return f"{segment_index}: input:{container_index}:{obj.track_index}"
 
-        if obj in self.available_filters:
+        if self.available_filters is not None and obj in self.available_filters:
             filter_index = self.available_filters.index(obj)
             return f"{segment_index}: filter:{filter_index}"
 
@@ -153,7 +159,7 @@ class StartCol(BaseColumn):
     headerdisplay = "Start Time"
 
     def display(self, index, obj):
-        k = self.filter.segments.index(obj)
+        k = index.row()
         t = sum(segment.duration for segment in self.filter.segments[:k])
         m, s = divmod(t, 60)
         h, m = divmod(int(m), 60)
@@ -165,7 +171,7 @@ class EndCol(BaseColumn):
     headerdisplay = "End Time"
 
     def display(self, index, obj):
-        k = self.filter.segments.index(obj)
+        k = index.row()
         t = sum(segment.duration for segment in self.filter.segments[:k+1])
         m, s = divmod(t, 60)
         h, m = divmod(int(m), 60)
@@ -180,6 +186,10 @@ class QSegmentTree(QTreeView):
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setSelectionMode(QTreeView.ExtendedSelection)
+        self.contentsModified.connect(self._handleContentsModified)
+
+    def _handleContentsModified(self):
+        self.model().root.value.reset_cache()
 
     def contextMenuEvent(self, event):
         selected = self.currentIndex()
@@ -346,6 +356,10 @@ class QConcatenate(QFilterConfig):
         self._resetControls()
 
         self.notModified()
+
+    def apply(self):
+        super().apply()
+        self.filter.reset_cache()
 
     def isValidSource(self, other):
         if isinstance(other, BaseFilter) and (self.filter in other.dependencies or self.filter is other):
