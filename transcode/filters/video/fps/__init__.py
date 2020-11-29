@@ -1,4 +1,5 @@
 from ..base import BaseVideoFilter
+from ...base import CacheResettingProperty
 from fractions import Fraction as QQ
 from numpy import arange
 from transcode.util import cached
@@ -8,6 +9,7 @@ class Fps(BaseVideoFilter):
     """Change Frame Rate."""
 
     allowedtypes = ("video",)
+    rate = CacheResettingProperty("rate")
 
     def __init__(self, rate=QQ(24000, 1001),
                  prev=None, next=None, parent=None):
@@ -27,15 +29,6 @@ class Fps(BaseVideoFilter):
         if self is None:
             return "Fps"
         return f"Fps({self.rate})"
-
-    @property
-    def rate(self):
-        return self._rate
-
-    @rate.setter
-    def rate(self, value):
-        self._rate = value
-        self.reset_cache()
 
     @cached
     def pts_time(self):

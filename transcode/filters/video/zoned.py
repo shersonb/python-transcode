@@ -188,12 +188,6 @@ class Zone(object):
             zone = zone.prev
 
         return ds
-        """Why not this?
-
-        return 0 if self.prev is None else self.prev.dest_end
-
-        Because we may exceed maximum recursion depth.
-        """
 
     @property
     def dest_end(self):
@@ -677,25 +671,6 @@ class ZonedFilter(llist, BaseVideoFilter):
         from transcode.pyqtgui.qzones import ZoneDlg
         return ZoneDlg
 
-    # def QtDlg(self, zone=None, offset=None, mode=None, parent=None):
-        # if zone is None:
-        #zone = self.start
+    def __repr__(self):
+        return f"<{self.__class__.__name__} filter ({len(self)} zones) at 0x{id(self):012x}>"
 
-        #dlg = self.QtDlgClass(zone, parent=parent)
-
-        # if mode is None:
-        #mode = dlg.modeBox.currentData()
-
-        # if offset is None:
-        # if mode == 0:
-        #offset = zone.src_start
-
-        # elif mode == 1:
-        #offset = zone.prev_start
-
-        # if mode == 2:
-        #offset = zone.dest_start
-
-        #index = dlg.modeBox.findData(mode)
-        # dlg.modeBox.setCurrentIndex(index)
-        # return dlg.exec_()

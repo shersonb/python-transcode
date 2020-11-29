@@ -223,9 +223,6 @@ class Scenes(zoned.ZonedFilter):
         self._fixpts = bool(value)
         self.reset_cache()
 
-    def __repr__(self):
-        return "<Scene list at %s>" % hex(id(self))
-
     def reset_cache(self, start=0, end=None, reset_children=True):
         del self.prev_pts_time
         del self.src_pts_time
@@ -266,9 +263,6 @@ class Scenes(zoned.ZonedFilter):
     def pts_time_diff(self):
         for zone in self:
             zone.reset_cache()
-
-    # def _calc_duration(self):
-        # return self.end.start_pts + self.end.duration
 
     def __next__(self):
         pass

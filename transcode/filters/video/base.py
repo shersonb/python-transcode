@@ -50,21 +50,21 @@ class BaseVideoFilter(BaseFilter):
         if self.prev:
             return self.prev.format
 
-    @property
-    def prev(self):
-        if isinstance(self.parent, FilterChain):
-            return self._prev or self.parent.prev
+    #@property
+    #def prev(self):
+        #if isinstance(self.parent, FilterChain):
+            #return self._prev or self.parent.prev
 
-        return self._prev or self._source
+        #return self._prev or self._source
 
-    @prev.setter
-    def prev(self, value):
-        if value is not None and value.type and value.type != "video":
-            raise ValueError(
-                f"Invalid media source for Video filter: {value.type}")
+    #@prev.setter
+    #def prev(self, value):
+        #if value is not None and value.type and value.type != "video":
+            #raise ValueError(
+                #f"Invalid media source for Video filter: {value.type}")
 
-        self._prev = value
-        self.reset_cache()
+        #self._prev = value
+        #self.reset_cache()
 
     def reset_cache(self, start=0, end=None):
         try:

@@ -8,12 +8,21 @@ from transcode.util import cached
 from transcode.avarrays import toNDArray, toAFrame, aconvert
 from av import VideoFrame
 from copy import deepcopy
+#from transcode.caching import ObjectWithCache, CachedProperty
+#from transcode.caching import CachedProperty as cached
 
 
 class CrossFade(BaseVideoFilter, BaseAudioFilter):
     allowedtypes = ("audio", "video")
 
+    def __new__(cls, *args, **kwargs):
+        self = super().__new__(cls)
+        self._source1 = None
+        self._source2 = None
+        return self
+
     def __init__(self, source1=None, source2=None, flags=0, **kwargs):
+
         self.source1 = source1
         self.source2 = source2
 
@@ -31,6 +40,40 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
         self._prev_start = None
         self._prev_end = None
         super().__init__(**kwargs)
+
+    @property
+    def source1(self):
+        return self._source1
+
+    @source1.setter
+    def source1(self, value):
+        oldsource = self._source1
+        self._source1 = value
+
+        if isinstance(value, BaseFilter):
+            value.addMonitor(self)
+            #self.subscribeTo(value)
+
+        if isinstance(oldsource, BaseFilter) and oldsource not in (self._prev, self._source):
+            oldsource.removeMonitor(self)
+            #self.unsubscribeFrom(oldsource)
+
+    @property
+    def source2(self):
+        return self._source2
+
+    @source2.setter
+    def source2(self, value):
+        oldsource = self._source2
+        self._source2 = value
+
+        if isinstance(value, BaseFilter):
+            value.addMonitor(self)
+            #self.subscribeTo(value)
+
+        if isinstance(oldsource, BaseFilter) and oldsource not in (self._prev, self._source):
+            oldsource.removeMonitor(self)
+            #self.unsubscribeFrom(oldsource)
 
     def __getstate__(self):
         state = OrderedDict()
@@ -108,6 +151,9 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
 
     @cached
     def duration(self):
+        if self.source1 is not None and self.source2 is not None:
+            return min(self.source1.duration, self.source2.duration)
+
         if self.source1 is not None:
             return self.source1.duration
 
@@ -338,3 +384,12 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
 
         elif isinstance(dependency, BaseFilter) and self.source2 is dependency:
             self.source2 = None
+
+    #def __del__(self):
+        #print(f"Deleting {self}")
+
+        #if isinstance(self.source1, BaseFilter):
+            #self.source1.removeMonitor(self)
+
+        #if isinstance(self.source2, BaseFilter):
+            #self.source2.removeMonitor(self)

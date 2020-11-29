@@ -1,5 +1,6 @@
 #!/usr/bin/python
 from .. import zoned
+from ...base import CacheResettingProperty
 from transcode.util import cached, numpify
 import numpy
 from fractions import Fraction as QQ
@@ -727,7 +728,10 @@ class Zone(zoned.Zone):
 class ZonedPullup(zoned.ZonedFilter):
     zoneclass = Zone
 
-    def __init__(self, zones=[], time_base=QQ(1, 1000), start_pts_time=0, prev=None, next=None, notify_input=None, notify_output=None):
+    time_base = CacheResettingProperty("time_base")
+    start_pts_time = CacheResettingProperty("start_pts_time")
+
+    def __init__(self, zones=[], time_base=QQ(1, 10**9), start_pts_time=0, prev=None, next=None, notify_input=None, notify_output=None):
         super().__init__(zones=zones, prev=prev, next=next,
                          notify_input=notify_input, notify_output=notify_output)
         self.time_base = time_base
@@ -749,24 +753,6 @@ class ZonedPullup(zoned.ZonedFilter):
         self.time_base = state.get("time_base", QQ(1, 1000))
         self.start_pts_time = state.get("start_pts_time", 0)
 
-    @property
-    def time_base(self):
-        return self._time_base
-
-    @time_base.setter
-    def time_base(self, value):
-        self._time_base = value
-        self.reset_cache()
-
-    @property
-    def start_pts_time(self):
-        return self._start_pts_time
-
-    @start_pts_time.setter
-    def start_pts_time(self, value):
-        self._start_pts_time = value
-        self.reset_cache()
-
     def __str__(self):
         if self is None:
             return "Variable Frame Rate/Detelecine"
@@ -775,15 +761,6 @@ class ZonedPullup(zoned.ZonedFilter):
             return "Variable Frame Rate/Detelecine (1 zone)"
 
         return "Variable Frame Rate/Detelecine (%d zones)" % len(self)
-
-    @property
-    def start_pts_time(self):
-        return self._start_pts_time
-
-    @start_pts_time.setter
-    def start_pts_time(self, value):
-        self._start_pts_time = value
-        self.reset_cache()
 
     def translate_fields(self, n):
         if isinstance(n, int):
@@ -918,4 +895,4 @@ class ZonedPullup(zoned.ZonedFilter):
     @staticmethod
     def QtDlgClass():
         from .qpullup import QPullup
-        #return QPullup
+        #return QPullup # Need to finish this...

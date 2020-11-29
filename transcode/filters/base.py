@@ -5,6 +5,7 @@ import numpy
 from collections import OrderedDict
 from itertools import count
 from copy import deepcopy
+import weakref
 
 
 def notifyIterate(iterator, func):
@@ -36,14 +37,20 @@ class BaseFilter(object):
     """
 
     from copy import deepcopy as copy
-    next = None
-    sourceCount = 1
-    prev = CacheResettingProperty("prev")
     allowedtypes = ("audio", "video")
 
     @property
     def __name__(self):
         return self.__class__.__name__
+
+    def __new__(cls, *args, **kwargs):
+        self = super().__new__(cls)
+        self._source = None
+        self._prev = None
+        self.next = None
+        self._parent = None
+        self._monitors = {}
+        return self
 
     def __init__(self, source=None, prev=None, next=None, parent=None,
                  name=None, notify_input=None, notify_output=None):
@@ -62,6 +69,18 @@ class BaseFilter(object):
         self.notify_output = notify_output
         self.lock = threading.RLock()
 
+    def addMonitor(self, mon):
+        self._monitors[id(mon)] = weakref.ref(mon)
+
+        if isinstance(mon, BaseFilter):
+            mon.reset_cache()
+
+    def removeMonitor(self, mon):
+        i = id(mon)
+
+        if i in self._monitors and self._monitors[i]() is mon:
+            del self._monitors[i]
+
     @property
     def source(self):
         if isinstance(self.parent, FilterChain):
@@ -75,8 +94,48 @@ class BaseFilter(object):
             raise ValueError(
                 f"'source' property is read-only for FilterChain members.")
 
+        oldsource = self._source
         self._source = value
-        self.reset_cache()
+
+        if isinstance(value, BaseFilter):
+            value.addMonitor(self)
+
+        if isinstance(oldsource, BaseFilter) and oldsource not in (self._prev, self._source):
+            oldsource.removeMonitor(self)
+
+    @property
+    def prev(self):
+        if self.parent is not None:
+            return self._prev or self._source or self.parent.prev
+
+        return self._prev or self._source
+
+    @prev.setter
+    def prev(self, value):
+        oldprev = self._prev
+        self._prev = value
+
+        if isinstance(value, BaseFilter):
+            value.addMonitor(self)
+
+        if isinstance(oldprev, BaseFilter) and oldprev not in (self._prev, self._source):
+            oldprev.removeMonitor(self)
+
+    def reset_cache(self, start=0, end=None):
+        try:
+            del self.duration
+
+        except AttributeError:
+            pass
+
+        for i, ref in list(self._monitors.items()):
+            mon = ref()
+
+            if mon is None: # Filter has been deallocated, removed from monitors.
+                del self._monitors[i]
+
+            elif isinstance(mon, BaseFilter):
+                mon.reset_cache(start, end)
 
     def isValidSource(self, source):
         if source.type not in self.allowedtypes:
@@ -106,9 +165,6 @@ class BaseFilter(object):
         except AttributeError:
             pass
 
-        # if self.prev is not None:
-            #state["prev"] = self.prev
-
         return state
 
     def __setstate__(self, state):
@@ -119,7 +175,6 @@ class BaseFilter(object):
             except AttributeError:
                 pass
 
-        #self.prev = state.get("prev")
         self.name = state.get("name")
 
     def __deepcopy__(self, memo):
@@ -225,35 +280,10 @@ class BaseFilter(object):
         if self.prev:
             return self.prev.defaultDuration
 
-    @property
-    def prev(self):
-        if self.parent is not None:
-            return self._prev or self._source or self.parent.prev
-
-        return self._prev or self._source
-
-    @prev.setter
-    def prev(self, value):
-        self._prev = value
-        self.reset_cache()
-
     @cached
     def duration(self):
         if self.prev is not None:
             return self.prev.duration
-
-    def reset_cache(self, start=0, end=None):
-        try:
-            del self.duration
-
-        except AttributeError:
-            pass
-
-        if self.next is not None:
-            self.next.reset_cache(start, end)
-
-        elif isinstance(self.parent, BaseFilter):
-            self.parent.reset_cache(start, end)
 
     @cached
     def framecount(self):
@@ -409,16 +439,76 @@ class BaseFilter(object):
         elif isinstance(dependency, BaseFilter) and self.source is dependency:
             self.source = None
 
+    def __repr__(self):
+        return f"<{self.__class__.__name__} filter at 0x{id(self):012x}>"
+
 
 class FilterChain(llist, BaseFilter):
     from copy import deepcopy as copy
 
     def __init__(self, filters=[], **kwargs):
-        self.parent = None
-        self._prev = self._source = None
-        self._source = None
         llist.__init__(self, filters.copy())
         BaseFilter.__init__(self, **kwargs)
+
+        if len(self):
+            self.end.addMonitor(self)
+
+    def _exchange_new_old(self, oldstart, newstart, oldend, newend):
+        if oldstart is not newstart and isinstance(self.prev, BaseFilter):
+            if oldstart is not None:
+                self.prev.removeMonitor(oldstart)
+
+            if newstart is not None:
+                self.prev.addMonitor(newstart)
+
+        if oldend is not newend:
+            if oldend is not None:
+                oldend.removeMonitor(self)
+
+            if newend is not None:
+                newend.addMonitor(self)
+
+    def _get_start_end(self):
+        start = self.start if len(self) else None
+        end = self.end if len(self) else None
+        return (start, end)
+
+    def __setitem__(self, index, value):
+        oldstart, oldend = self._get_start_end()
+        super().__setitem__(index, value)
+        newstart, newend = self._get_start_end()
+        self._exchange_new_old(oldstart, newstart, oldend, newend)
+
+    def __delitem__(self, index):
+        oldstart, oldend = self._get_start_end()
+        super().__delitem__(index)
+        newstart, newend = self._get_start_end()
+        self._exchange_new_old(oldstart, newstart, oldend, newend)
+
+
+    def append(self, value):
+        oldstart, oldend = self._get_start_end()
+        super().append(value)
+        newstart, newend = self._get_start_end()
+        self._exchange_new_old(oldstart, newstart, oldend, newend)
+
+    def insert(self, index, value):
+        oldstart, oldend = self._get_start_end()
+        super().insert(index, value)
+        newstart, newend = self._get_start_end()
+        self._exchange_new_old(oldstart, newstart, oldend, newend)
+
+    def extend(self, values):
+        oldstart, oldend = self._get_start_end()
+        super().extend(values)
+        newstart, newend = self._get_start_end()
+        self._exchange_new_old(oldstart, newstart, oldend, newend)
+
+    def clear(self):
+        oldstart, oldend = self._get_start_end()
+        super().clear()
+        self._exchange_new_old(oldstart, None, oldend, None)
+
 
     @property
     def source(self):
@@ -433,10 +523,16 @@ class FilterChain(llist, BaseFilter):
             raise ValueError(
                 f"'source' property is read-only for FilterChain members.")
 
+        oldsource = self._source
         self._source = value
 
-        if len(self):
-            self.start.reset_cache()
+        if isinstance(value, BaseFilter) and len(self):
+            value.addMonitor(self.start)
+
+        if isinstance(oldsource, BaseFilter) and \
+            oldsource not in (self._prev, self._source) and \
+                len(self):
+            oldsource.removeMonitor(self.start)
 
     def isValidSource(self, other):
         if not super().isValidSource(other):
@@ -497,7 +593,7 @@ class FilterChain(llist, BaseFilter):
         elif self.prev is not None:
             return self.prev.height
 
-    @property
+    @cached
     def pts_time(self):
         if self.end is not None:
             return self.end.pts_time
@@ -505,7 +601,7 @@ class FilterChain(llist, BaseFilter):
         elif self.prev is not None:
             return self.prev.pts_time
 
-    @property
+    @cached
     def pts(self):
         if self.end is not None:
             return self.end.pts
@@ -513,7 +609,7 @@ class FilterChain(llist, BaseFilter):
         elif self.prev is not None:
             return self.prev.pts
 
-    @property
+    @cached
     def duration(self):
         if self.end is not None:
             return self.end.duration
@@ -521,7 +617,7 @@ class FilterChain(llist, BaseFilter):
         elif self.prev is not None:
             return self.prev.duration
 
-    @property
+    @cached
     def durations(self):
         if self.end is not None:
             return self.end.durations
@@ -627,3 +723,6 @@ class FilterChain(llist, BaseFilter):
 
     def __reduce__(self):
         return type(self), (), self.__getstate__(), iter(self)
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} ({len(self)} filters) at 0x{id(self):012x}>"

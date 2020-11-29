@@ -5,6 +5,9 @@ import numpy
 from itertools import count
 from transcode.util import cached
 from transcode.avarrays import toNDArray, toAFrame
+#from transcode.caching import ObjectWithCache, CachedProperty, CacheInvalidatingProperty
+#from transcode.caching import CachedProperty as cached
+#from transcode.caching import CacheInvalidatingProperty as CacheResettingProperty
 
 
 class Slice(BaseVideoFilter, BaseAudioFilter):

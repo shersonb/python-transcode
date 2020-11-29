@@ -39,7 +39,7 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
     @cached
     def pts(self):
-        return numpy.int0(self.pts_time/self.time_base + 0.0001)
+        return numpy.int0(self.pts_time/float(self.time_base) + 0.0001)
 
     @cached
     def duration(self):
@@ -319,11 +319,52 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
     def append(self, segment):
         self.segments.append(segment)
 
+        if isinstance(segment, BaseFilter):
+            segment.addMonitor(self)
+
+    def insert(self, index, segment):
+        self.segments.insert(index, segment)
+
+        if isinstance(segment, BaseFilter):
+            segment.addMonitor(self)
+
     def extend(self, segments):
+        k = len(self)
         self.segments.extend(segments)
 
+        for segment in self[k:]:
+            if isinstance(segment, BaseFilter):
+                segment.addMonitor(self)
+
     def clear(self):
+        for segment in self.segments:
+            if isinstance(segment, BaseFilter):
+                segment.removeMonitor(self)
+                self.unsubscribeFrom(segment)
+
         self.segments.clear()
+
+    def __getitem__(self, index):
+        return self.segments[index]
+
+    def __len__(self):
+        return len(self.segments)
+
+    def __delitem__(self, index):
+        segment = self.segments.pop(index)
+
+        if isinstance(segment, BaseFilter) and segment not in self.segments:
+            segment.removeMonitor(self)
+
+    def __setitem__(self, index, value):
+        oldvalue = self.segments[index]
+        self.segments[index] = value
+
+        if isinstance(value, BaseFilter):
+            value.addMonitor(self)
+
+        if isinstance(oldvalue, BaseFilter) and oldvalue not in self.segments:
+            oldvalue.removeMonitor(self)
 
     def __reduce__(self):
         return type(self), (), self.__getstate__(), iter(self.segments)

@@ -63,19 +63,19 @@ class SegmentsList(ChildNodes):
         return SegmentNode(item)
 
     def _append(self, value):
-        self.parent.value.segments.append(node.value)
+        self.parent.value.append(node.value)
 
     def _insert(self, index, value):
-        self.parent.value.segments.insert(index, value)
+        self.parent.value.insert(index, value)
 
     def _extend(self, values):
-        self.parent.value.segments.extend(values)
+        self.parent.value.extend(values)
 
     def _delitem(self, index):
-        del self.parent.value.segments[index]
+        del self.parent.value[index]
 
     def _setitem(self, index, value):
-        self.parent.value.segments[index] = value
+        self.parent.value[index] = value
 
 
 class SegmentNode(NoChildren):
@@ -186,10 +186,10 @@ class QSegmentTree(QTreeView):
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setSelectionMode(QTreeView.ExtendedSelection)
-        self.contentsModified.connect(self._handleContentsModified)
+        #self.contentsModified.connect(self._handleContentsModified)
 
-    def _handleContentsModified(self):
-        self.model().root.value.reset_cache()
+    #def _handleContentsModified(self):
+        #self.model().root.value.reset_cache()
 
     def contextMenuEvent(self, event):
         selected = self.currentIndex()
@@ -357,9 +357,9 @@ class QConcatenate(QFilterConfig):
 
         self.notModified()
 
-    def apply(self):
-        super().apply()
-        self.filter.reset_cache()
+    #def apply(self):
+        #super().apply()
+        #self.filter.reset_cache()
 
     def isValidSource(self, other):
         if isinstance(other, BaseFilter) and (self.filter in other.dependencies or self.filter is other):

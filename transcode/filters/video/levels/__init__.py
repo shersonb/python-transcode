@@ -52,8 +52,11 @@ def analyzeFrame(frame, convkernel=K):
 
 
 class Zone(zoned.Zone):
-    #getinitkwargs = ["src_start", "rmin", "rmax", "gmin", "gmax", "bmin", "bmax", "gamma", "transition", "histogram"]
-    def __init__(self, src_start, rmin=0, rmax=255, gmin=0, gmax=255, bmin=0, bmax=255, gamma=1, rgamma=1, ggamma=1, bgamma=1, transition=False, histogram=None, prev=None, next=None, parent=None):
+    def __init__(self, src_start,
+                 rmin=0, rmax=255, rgamma=1,
+                 gmin=0, gmax=255, ggamma=1,
+                 bmin=0, bmax=255, bgamma=1,
+                 gamma=1, transition=False, histogram=None, prev=None, next=None, parent=None):
         super().__init__(src_start=src_start, prev=prev, next=next, parent=parent)
         self.rmin = rmin
         self.gmin = gmin

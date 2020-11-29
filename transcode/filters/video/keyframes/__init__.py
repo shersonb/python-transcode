@@ -24,7 +24,7 @@ class KeyFrames(BaseVideoFilter, set):
 
     @time_base.setter
     def time_base(self, value):
-        pass
+        self.reset_cache()
 
     def copy(self):
         return type(self)(self)
@@ -81,6 +81,9 @@ class KeyFrames(BaseVideoFilter, set):
         self.clear()
         self.update(state.get("keyframes", []))
         super().__setstate__(state)
+
+    def __hash__(self):
+        return BaseVideoFilter.__hash__(self)
 
     def QtTableColumns(self):
         from .qkeyframes import KeyFrameCol
