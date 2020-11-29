@@ -8,7 +8,6 @@ layouts = [None, "mono", "stereo", "3.0", "4.0", "5.0", "5.1"]
 class libfdk_aacEncoderContext(EncoderContext):
     def __init__(self, framesource, bitrate=640, rate=48000, layout="5.1",
                  notifyencode=None, logfile=None, **kwargs):
-        print(dict(bit_rate=int(bitrate*1000), rate=rate, layout=layout, **kwargs))
         super().__init__("libfdk_aac", framesource,
                          bit_rate=int(bitrate*1000), rate=rate, layout=layout, format="s16",
                          notifyencode=notifyencode, logfile=logfile, **kwargs)
@@ -66,8 +65,6 @@ class libfdk_aacConfig(EncoderConfig):
 
     def create(self, framesource, rate, time_base, layout, bitrate=None,
                notifyencode=None, logfile=None, **override):
-        print("A", dict(rate=rate, time_base=time_base, layout=layout, bitrate=bitrate, **override))
-        #override["format"] = self.format
         if "format" in override:
             del override["format"]
 
@@ -77,12 +74,8 @@ class libfdk_aacConfig(EncoderConfig):
         else:
             override.update(bitrate=self.bitrate)
 
-        print("B", override)
-
         return libfdk_aacEncoderContext(framesource, rate=rate, layout=layout, time_base=time_base, notifyencode=notifyencode, logfile=logfile,
                                      **override)
-        #return super().create(framesource, rate=rate, format=self.format, time_base=time_base,
-                              #notifyencode=notifyencode, logfile=logfile, **override)
 
     def __reduce__(self):
         return type(self), (), self.__getstate__()
