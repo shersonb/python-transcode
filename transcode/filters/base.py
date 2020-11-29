@@ -641,7 +641,7 @@ class FilterChain(llist, BaseFilter):
         if self.prev is not None:
             return self.prev.rate
 
-    @property
+    @cached
     def framecount(self):
         if self.end is not None:
             return self.end.framecount
@@ -678,6 +678,11 @@ class FilterChain(llist, BaseFilter):
     def reset_cache(self, start=0, end=None):
         del self.cumulativeIndexMap
         del self.cumulativeIndexReverseMap
+        del self.pts
+        del self.pts_time
+        del self.framecount
+        del self.durations
+        del self.duration
         super().reset_cache(start, end)
 
     def _processFrames(self, iterable, through=None):
