@@ -39,7 +39,7 @@ class BaseFilterCol(object):
         editfilter = QAction(f"Configure filter...", table,
                              triggered=partial(self.configureFilter, obj, table))
 
-        editfilter.setEnabled(obj.hasQtDlg())
+        editfilter.setEnabled(isinstance(obj, BaseFilter) and obj.hasQtDlg())
 
         menu.addAction(editfilter)
 
