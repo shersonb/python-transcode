@@ -14,9 +14,6 @@ from functools import partial
 
 
 class SegmentsRoot(Node):
-    def _iterChildren(self):
-        return self.value.segments
-
     def _wrapChildren(self, children):
         return SegmentsList.fromValues(children, self)
 
@@ -133,7 +130,7 @@ class NameCol(BaseColumn):
     headerdisplay = "Segment"
 
     def display(self, index, obj):
-        segment_index = self.filter.segments.index(obj)
+        segment_index = list(self.filter).index(obj)
         
         if isinstance(obj, Track) and obj.container in self.input_files:
             container_index = self.input_files.index(obj.container)
@@ -160,7 +157,7 @@ class StartCol(BaseColumn):
 
     def display(self, index, obj):
         k = index.row()
-        t = sum(segment.duration for segment in self.filter.segments[:k])
+        t = sum(segment.duration for segment in list(self.filter)[:k])
         m, s = divmod(t, 60)
         h, m = divmod(int(m), 60)
         return f"{h}:{m:02d}:{s:012.9f}"
@@ -172,7 +169,7 @@ class EndCol(BaseColumn):
 
     def display(self, index, obj):
         k = index.row()
-        t = sum(segment.duration for segment in self.filter.segments[:k+1])
+        t = sum(segment.duration for segment in list(self.filter)[:k+1])
         m, s = divmod(t, 60)
         h, m = divmod(int(m), 60)
         return f"{h}:{m:02d}:{s:012.9f}"
@@ -357,16 +354,12 @@ class QConcatenate(QFilterConfig):
 
         self.notModified()
 
-    #def apply(self):
-        #super().apply()
-        #self.filter.reset_cache()
-
     def isValidSource(self, other):
         if isinstance(other, BaseFilter) and (self.filter in other.dependencies or self.filter is other):
             return False
 
-        if len(self.shadow.segments):
-            first = self.shadow.segments[0]
+        if len(self.shadow):
+            first = self.shadow[0]
 
             if first.type != other.type:
                 return False

@@ -175,6 +175,9 @@ class QCrossFade(QFilterConfig):
         if self.shadow.source2 is None:
             return other.type in ("video", "audio")
 
+        if other.type is None:
+            return True
+
         elif self.shadow.source2.type == "video":
             return self.shadow.source2.framecount == other.framecount and \
                 self.shadow.source2.width == other.width and \
@@ -191,6 +194,9 @@ class QCrossFade(QFilterConfig):
 
         if isinstance(other, BaseFilter) and self.filter in other.dependencies:
             return False
+
+        if other.type is None:
+            return True
 
         if self.shadow.source1 is None:
             return other.type in ("video", "audio")
