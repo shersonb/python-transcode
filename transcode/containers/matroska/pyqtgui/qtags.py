@@ -4,9 +4,10 @@ from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractT
                           QVariant, QItemSelectionModel, QItemSelection, pyqtSignal, pyqtSlot, QMimeData)
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxLayout, QHBoxLayout,
-                             QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView, QHeaderView, QSpinBox, QFrame,
-                             QLineEdit, QComboBox, QCheckBox, QSpinBox, QDoubleSpinBox, QItemDelegate,
-                             QMenu, QAction, QScrollArea, QFileDialog)
+                             QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView,
+                             QHeaderView, QSpinBox, QFrame, QLineEdit, QComboBox, QCheckBox, QSpinBox,
+                             QDoubleSpinBox, QItemDelegate, QMenu, QAction, QScrollArea, QFileDialog,
+                             QToolButton)
 from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QRegExpValidator
 
 from transcode.pyqtgui.qitemmodel import QItemModel, Node, ChildNodes
@@ -18,6 +19,7 @@ from functools import partial
 from ..chapters import Editions, EditionEntry, ChapterAtom
 from ...basewriter import TrackList, Track
 from ..attachments import Attachments, AttachedFile
+from .qtargetselection import QTargetSelection
 import traceback
 import xml.dom.minidom
 
@@ -152,47 +154,47 @@ class TagItemCol(object):
 
     def checkstate(self, index, obj):
         if isinstance(obj, EditionEntry):
-            return 2 if obj.UID in self.targeteditions else 0
+            return 2 if obj in self.targeteditions else 0
 
         elif isinstance(obj, ChapterAtom):
-            return 2 if obj.UID in self.targetchapters else 0
+            return 2 if obj in self.targetchapters else 0
 
         elif isinstance(obj, Track):
-            return 2 if obj.trackUID in self.targettracks else 0
+            return 2 if obj in self.targettracks else 0
 
         elif isinstance(obj, AttachedFile):
-            return 2 if obj.UID in self.targetattachments else 0
+            return 2 if obj in self.targetattachments else 0
 
     def setcheckstate(self, index, obj, state):
         if state == 0:
             if isinstance(obj, EditionEntry):
-                self.targeteditions.remove(obj.UID)
+                self.targeteditions.remove(obj)
 
             elif isinstance(obj, ChapterAtom):
-                self.targetchapters.remove(obj.UID)
+                self.targetchapters.remove(obj)
 
             elif isinstance(obj, Track):
-                self.targettracks.remove(obj.trackUID)
+                self.targettracks.remove(obj)
 
             elif isinstance(obj, AttachedFile):
-                self.targetattachments.remove(obj.UID)
+                self.targetattachments.remove(obj)
 
         elif state == 2:
             if isinstance(obj, EditionEntry):
-                self.targeteditions.append(obj.UID)
-                self.targeteditions.sort()
+                self.targeteditions.append(obj)
+                #self.targeteditions.sort()
 
             elif isinstance(obj, ChapterAtom):
-                self.targetchapters.append(obj.UID)
-                self.targetchapters.sort()
+                self.targetchapters.append(obj)
+                #self.targetchapters.sort()
 
             elif isinstance(obj, Track):
-                self.targettracks.append(obj.trackUID)
-                self.targettracks.sort()
+                self.targettracks.append(obj)
+                #self.targettracks.sort()
 
             elif isinstance(obj, AttachedFile):
-                self.targetattachments.append(obj.UID)
-                self.targetattachments.sort()
+                self.targetattachments.append(obj)
+                #self.targetattachments.sort()
 
         return True
 
@@ -228,11 +230,6 @@ class TagItemCol(object):
             return Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
 
         return Qt.ItemIsEnabled
-
-
-class OutputFileNode(Node):
-    def _iterChildren(self):
-        return (self.value.tracks, self.value.chapters, self.value.attachments)
 
 
 TYPES = [
@@ -755,6 +752,42 @@ class TagNameDelegate(QItemDelegate):
                 index, editor.currentText().upper().replace(" ", "_"))
 
 
+class TagTargetDelegate(QItemDelegate):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setChoices([], [], [])
+
+    def setChoices(self, tracks, editions, attachments):
+        self._choices = (tracks, editions, attachments)
+
+    def createEditor(self, parent, option, index):
+        obj = index.data(Qt.UserRole)
+
+        if isinstance(obj, Tag):
+            widget = QTargetSelection(parent)
+            widget.setChoices(*self._choices)
+            return widget
+
+        return None
+
+    def setEditorData(self, editor, index):
+        (tracks, editions, chapters, attachments) = index.data(Qt.EditRole)
+
+        editions = editions.copy()
+        chapters = chapters.copy()
+        attachments = attachments.copy()
+        tracks = tracks.copy()
+
+        editor.setTargetSelection(tracks, editions, chapters, attachments)
+
+    def setModelData(self, editor, model, index):
+        obj = index.data(Qt.UserRole)
+        data = editor.targetSelection()
+
+        if isinstance(obj, Tag) and data:
+            model.setData(index, data, Qt.EditRole)
+
+
 class NameCol(BaseColumn):
     width = 256
     headerdisplay = "Tag"
@@ -864,6 +897,91 @@ class ValueCol(BaseColumn):
         return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
 
 
+class TargetsCol(BaseColumn):
+    headerdisplay = "Targets"
+
+    def __init__(self, tags, tracks, editions, attachments):
+        self.tags = tags
+        self.tracks = tracks
+        self.editions = editions
+        self.attachments = attachments
+
+    def editdata(self, index, obj):
+        if isinstance(obj, Tag):
+            obj.editions.clean()
+            obj.chapters.clean()
+            obj.tracks.clean()
+            obj.attachments.clean()
+
+            return (obj.tracks, obj.editions, obj.chapters, obj.attachments)
+
+    def seteditdata(self, index, obj, data):
+        if isinstance(obj, Tag):
+            tracks, editions, chapters, attachments = data
+
+            modified = (
+                set(x.UID for x in editions) != set(x.UID for x in obj.editions) or 
+                set(x.UID for x in chapters) != set(x.UID for x in obj.chapters) or 
+                set(x.trackUID for x in tracks) != set(x.trackUID for x in obj.tracks) or 
+                set(x.UID for x in attachments) != set(x.UID for x in obj.attachments)
+                )
+
+            if modified:
+                (obj.tracks, obj.editions, obj.chapters, obj.attachments) = data
+                return True
+
+    def display(self, index, obj):
+        if isinstance(obj, Tag):
+            obj.tracks.clean()
+            obj.editions.clean()
+            obj.chapters.clean()
+            obj.attachments.clean()
+
+            display = []
+
+            if len(obj.tracks) == 1:
+                display.append("1 track")
+
+            elif len(obj.tracks) > 1:
+                display.append(f"{len(obj.tracks)} tracks")
+
+            if len(obj.editions) == 1:
+                display.append("1 edition")
+
+            elif len(obj.editions) > 1:
+                display.append(f"{len(obj.editions)} editions")
+
+            if len(obj.chapters) == 1:
+                display.append("1 chapter")
+
+            elif len(obj.chapters) > 1:
+                display.append(f"{len(obj.chapters)} chapters")
+
+            if len(obj.attachments) == 1:
+                display.append("1 attachment")
+
+            elif len(obj.attachments) > 1:
+                display.append(f"{len(obj.attachments)} attachments")
+
+            if len(display) == 0:
+                return "No targets"
+
+            return ", ".join(display)
+
+        return ""
+
+    def flags(self, index, obj):
+        if isinstance(obj, SimpleTag):
+            return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+
+        return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+
+    def itemDelegate(self, parent):
+        delegate = TagTargetDelegate(parent)
+        delegate.setChoices(self.tracks, self.editions, self.attachments)
+        return delegate
+
+
 class QTagTree(QTreeView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -899,6 +1017,7 @@ class QTagTree(QTreeView):
                 NameCol(tags, tracks, editions, attachments),
                 LangCol(tags, tracks, editions, attachments),
                 ValueCol(tags, tracks, editions, attachments),
+                TargetsCol(tags, tracks, editions, attachments),
             ]
 
             root = TagsNode(tags)

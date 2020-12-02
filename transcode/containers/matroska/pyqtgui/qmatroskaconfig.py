@@ -8,6 +8,8 @@ from ..tags import Tags
 from ..chapters import Editions
 from ..attachments import Attachments
 
+from copy import deepcopy
+
 
 class QMatroskaConfig(QTabWidget):
     contentsModified = pyqtSignal()
@@ -88,15 +90,24 @@ class QMatroskaConfigDlg(QDialog):
             tracks = self.output_file.tracks
             input_files = self.output_file.config.input_files
 
-            self.tags = (self.output_file.tags or Tags()).copy()
+            memo = {id(track): track for track in tracks}
+
+            self.tags, self.attachments, self.editions = deepcopy((
+                    self.output_file.tags or Tags(),
+                    self.output_file.attachments or Attachments(),
+                    self.output_file.chapters or Editions(),
+                ), memo)
+
+            #self.tags = (self.output_file.tags or Tags()).copy()
             self.tags.parent = self.output_file
 
-            self.attachments = (
-                self.output_file.attachments or Attachments()).copy()
+            #self.attachments = (
+                #self.output_file.attachments or Attachments()).copy()
             self.attachments.parent = self.output_file
 
-            self.editions = (self.output_file.chapters or Editions()).copy()
+            #self.editions = (self.output_file.chapters or Editions()).copy()
             self.editions.parent = self.output_file
+
             self.setWindowTitle(
                 f"Matroska Options — {self.output_file.title} [{self.output_file.outputpathrel}]")
 
