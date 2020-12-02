@@ -75,11 +75,15 @@ class FilterElement(ebml.serialization.Object):
     def _saveState(self, state, environ, refs):
         if "prev" in state:
             prev = state.pop("prev")
-            self.source = ebml.serialization.Ref(refs[id(prev)])
+
+            if id(prev) in refs:
+                self.source = ebml.serialization.Ref(refs[id(prev)])
 
         if "source" in state:
             source = state.pop("source")
-            self.source = ebml.serialization.Ref(refs[id(source)])
+
+            if id(source) in refs:
+                self.source = ebml.serialization.Ref(refs[id(source)])
 
         if "name" in state:
             self.name = state.pop("name")

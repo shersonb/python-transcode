@@ -3,6 +3,8 @@ import numpy
 from fractions import Fraction as QQ
 import queue
 import threading
+import weakref
+from copy import deepcopy
 
 def search(array, value, dir="-"):
     """
@@ -95,6 +97,49 @@ class Packet(object):
     def __repr__(self):
         return f"Packet(pts={self.pts}, duration={self.duration}, size={self.size}, keyframe={self.keyframe}, track_index={self.track_index})"
 
+class WeakRefProperty(object):
+    def __init__(self, arg):
+        if isinstance(arg, str):
+            self.attrname = arg
+            self._attrname = f"_{arg}"
+            self.fget = None
+
+        elif callable(arg):
+            self.fget = arg
+            self.attrname = arg.__name__
+            self._attrname = f"_{arg.__name__}"
+
+        self.fset = None
+
+    def __get__(self, inst, cls):
+        if inst is None:
+            return self
+
+        ref = getattr(inst, self._attrname)
+
+        if isinstance(ref, weakref.ref):
+            ref = ref()
+
+        if callable(self.fget):
+            ref = self.fget(inst, ref)
+
+        return ref
+
+    def __set__(self, inst, value):
+        if callable(self.fset):
+            value = self.fset(inst, value)
+
+        try:
+            setattr(inst, self._attrname, weakref.ref(value))
+
+        except TypeError:
+            setattr(inst, self._attrname, value)
+
+    def setter(self, func):
+        new = deepcopy(self)
+        new.fset = func
+        return new
+
 class ChildList(collections.UserList):
     from copy import deepcopy as copy
 
@@ -102,16 +147,14 @@ class ChildList(collections.UserList):
         self.data = list(items)
         self.parent = parent
 
-    @property
-    def parent(self):
-        return self._parent
+    parent = WeakRefProperty("parent")
 
     @parent.setter
     def parent(self, value):
         for item in self:
             item.parent = value
 
-        self._parent = value
+        return value
 
     def append(self, item):
         item.parent = self.parent
@@ -384,4 +427,115 @@ class WorkaheadIterator(object):
 
         except queue.Empty:
             pass
+
+
+class WeakRefList(collections.UserList):
+    """Subclass of Python's 'list' storing only weak references."""
+
+    def __init__(self, items=[]):
+        self.data = list(map(self._toweakref, items))
+
+    @staticmethod
+    def _toweakref(obj):
+        try:
+            return weakref.ref(obj)
+
+        except TypeError:
+            return obj
+
+
+    @staticmethod
+    def _fromweakref(obj):
+        if isinstance(obj, weakref.ref):
+            return obj()
+
+        return obj
+
+
+    def __iter__(self):
+        return map(self._fromweakref, self.data)
+
+
+    def __reduce__(self):
+        state = self.__getstate__()
+
+        if state:
+            return self.__class__, (), state, iter(self)
+
+        return self.__class__, (), None, iter(self)
+
+    def __getstate__(self):
+        return
+
+    def append(self, item):
+        super().append(self._toweakref(item))
+
+    def extend(self, iterable):
+        super().extend(map(self._toweakref, iterable))
+
+    def insert(self, index, item):
+        super().insert(index, self._toweakref(item))
+
+    def __setitem__(self, index, item):
+        super().__setitem__(index, self._toweakref(item))
+
+    def __getitem__(self, index):
+        return self._fromweakref(super().__setitem__(index))
+
+    def pop(self, index):
+        return self._fromweakref(super().pop(index))
+
+    def __contains__(self, item):
+        for other in self:
+            if item == other:
+                return True
+
+        return False
+
+    def index(self, item):
+        for k, other in enumerate(self):
+            if item == other:
+                return k
+
+        raise ValueError(f"{item} not in list")
+
+    def remove(self, item):
+        for k, other in enumerate(self):
+            if item == other:
+                del self[k]
+                return
+
+        raise ValueError(f"WeakRefList.remove(x): x not in list")
+
+    def clean(self):
+        for ref in self.data.copy():
+            if isinstance(ref, weakref.ref) and ref() is None:
+                self.data.remove(ref)
+
+
+class ValidationException(BaseException):
+    def __init__(self, message, obj, prev=None):
+        self.message = message
+        self.obj = obj
+
+class SourceError(ValidationException):
+    pass
+
+class BrokenReference(ValidationException):
+    pass
+
+class IncompatibleSource(ValidationException):
+    pass
+
+class FileMissingError(ValidationException):
+    pass
+
+
+class FileAccessDeniedError(ValidationException):
+    pass
+
+
+class EncoderError(ValidationException):
+    pass
+
 

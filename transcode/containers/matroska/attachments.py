@@ -1,5 +1,5 @@
 import matroska.attachments
-import transcode.util
+from transcode.util import ChildList, WeakRefProperty, BrokenReference, FileMissingError, FileAccessDeniedError
 from collections import OrderedDict, UserList
 import pathlib
 import mimetypes
@@ -9,6 +9,8 @@ from copy import deepcopy
 
 class AttachmentRef(object):
     from copy import copy
+
+    source = WeakRefProperty("source")
 
     def __init__(self, source, UID):
         self.source = source
@@ -83,6 +85,8 @@ class AttachmentRef(object):
 
 class AttachedFile(object):
     from copy import deepcopy as copy
+
+    parent = WeakRefProperty("parent")
 
     def __init__(self, UID, source=None, fileName=None, mimeType=None, description=None, parent=None):
         self.UID = UID
@@ -217,8 +221,23 @@ class AttachedFile(object):
         if isinstance(self.source, pathlib.Path):
             return os.path.abspath(self.source)
 
+    def validate(self):
+        if isinstance(self.source, AttachmentRef):
+            if self.source.source is None:
+                return [BrokenReference(f"Broken Reference in attachment.", self)]
 
-class Attachments(transcode.util.ChildList):
+        elif not os.path.isfile(self.sourceabs):
+            return [FileMissingError(f"File '{self.source}' not found.", self)]
+
+        elif not os.access(self.sourceabs, os.R_OK):
+            return [FileAccessDeniedError(f"No read access to '{self.source}'.", self)]
+
+        return []
+
+class Attachments(ChildList):
     def prepare(self, logfile=None):
         print("--- Attachments ---", file=logfile)
         return matroska.attachments.Attachments([attachment.prepare(logfile) for attachment in self])
+
+    def validate(self):
+        return [exc for a in self for exc in a.validate()]

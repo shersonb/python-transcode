@@ -4,12 +4,11 @@ from ..base import BaseFilter
 import numpy
 from collections import OrderedDict
 from itertools import count
-from transcode.util import cached
+from transcode.util import (cached, WeakRefProperty, SourceError,
+                            IncompatibleSource)
 from transcode.avarrays import toNDArray, toAFrame, aconvert
 from av import VideoFrame
 from copy import deepcopy
-#from transcode.caching import ObjectWithCache, CachedProperty
-#from transcode.caching import CachedProperty as cached
 
 
 class CrossFade(BaseVideoFilter, BaseAudioFilter):
@@ -41,39 +40,32 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
         self._prev_end = None
         super().__init__(**kwargs)
 
-    @property
-    def source1(self):
-        return self._source1
+    source1 = WeakRefProperty("source1")
+    source2 = WeakRefProperty("source2")
 
     @source1.setter
     def source1(self, value):
-        oldsource = self._source1
-        self._source1 = value
+        oldsource = self.source1
 
         if isinstance(value, BaseFilter):
             value.addMonitor(self)
-            #self.subscribeTo(value)
 
-        if isinstance(oldsource, BaseFilter) and oldsource not in (self._prev, self._source):
+        if isinstance(oldsource, BaseFilter):
             oldsource.removeMonitor(self)
-            #self.unsubscribeFrom(oldsource)
 
-    @property
-    def source2(self):
-        return self._source2
+        return value
 
     @source2.setter
     def source2(self, value):
-        oldsource = self._source2
-        self._source2 = value
+        oldsource = self.source2
 
         if isinstance(value, BaseFilter):
             value.addMonitor(self)
-            #self.subscribeTo(value)
 
-        if isinstance(oldsource, BaseFilter) and oldsource not in (self._prev, self._source):
+        if isinstance(oldsource, BaseFilter):
             oldsource.removeMonitor(self)
-            #self.unsubscribeFrom(oldsource)
+
+        return value
 
     def __getstate__(self):
         state = OrderedDict()
@@ -385,11 +377,46 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
         elif isinstance(dependency, BaseFilter) and self.source2 is dependency:
             self.source2 = None
 
-    #def __del__(self):
-        #print(f"Deleting {self}")
+    def validate(self):
+        exceptions = []
 
-        #if isinstance(self.source1, BaseFilter):
-            #self.source1.removeMonitor(self)
+        if self.source1 is None:
+            exceptions.append(SourceError("Source 1 not specified.", self))
 
-        #if isinstance(self.source2, BaseFilter):
-            #self.source2.removeMonitor(self)
+        elif self.source1.type not in ("video", "audio"):
+            exceptions.append(SourceError(f"Unsupported type for source 1: '{self.source1.type}'.", self))
+
+        if self.source2 is None:
+            exceptions.append(SourceError("Source 2 not specified.", self))
+
+        elif self.source2.type not in ("video", "audio"):
+            exceptions.append(SourceError(f"Unsupported type for source 2: '{self.source2.type}'.", self))
+
+        if self.source1 is not None and self.source2 is not None:
+            if self.source1.type != self.source2.type:
+                exceptions.append(IncompatibleSource(f"Incompatible sources: '{self.source1.type}' and '{self.source2.type}'.", self))
+
+            elif self.source1.type == "video":
+                if (self.source1.width, self.source1.height) != (self.source2.width, self.source2.height):
+                    exceptions.append(IncompatibleSource(f"Sources have different resolutions: '{self.source1.width}×{self.source1.height}' and '{self.source2.width}×{self.source2.height}'.", self))
+
+                if self.source1.sar != self.source2.sar:
+                    exceptions.append(IncompatibleSource(f"Sources have different sample aspect ratios: '{self.source1.sar}' and '{self.source2.sar}'.", self))
+
+                if self.source1.framecount != self.source2.framecount:
+                    exceptions.append(IncompatibleSource(f"Sources have different sample frame counts: '{self.source1.framecount}' and '{self.source2.framecount}'.", self))
+
+                if abs(self.source1.pts_time - self.source2.pts_time).max() >= 10**-4:
+                    exceptions.append(IncompatibleSource(f"Sources have different mis-aligned presentation timestamps.", self))
+
+            elif self.source1.type == "audio":
+                if self.source1.rate != self.source2.rate:
+                    exceptions.append(IncompatibleSource(f"Sources have different sampling frequencies: '{self.source1.rate}' and '{self.source2.rate}'.", self))
+
+                if self.source1.layout != self.source2.layout:
+                    exceptions.append(IncompatibleSource(f"Sources have different layouts: '{self.source1.layout}' and '{self.source2.layout}'.", self))
+
+                if abs(self.source1.duration - self.source2.duration) >= 1/self.source1.rate:
+                    exceptions.append(IncompatibleSource(f"Sources have different sample durations: '{self.source1.duration}' and '{self.source2.duration}'.", self))
+
+        return exceptions

@@ -1,8 +1,11 @@
-from ...util import cached, search
+from ...util import cached, search, ValidationException
 from ..base import BaseFilter, notifyIterate, FilterChain
 import numpy
 from itertools import count
 
+
+class InvalidType(ValidationException):
+    pass
 
 class BaseVideoFilter(BaseFilter):
     allowedtypes = ("video",)
@@ -252,3 +255,11 @@ class BaseVideoFilter(BaseFilter):
 
     def QtTableColumns(self):
         return []
+
+    def validate(self):
+        exceptions = BaseFilter.validate(self)
+
+        if self.prev is not None and self.prev.type != "video":
+            return [InvalidType("Source is not video.", self)] + exceptions
+
+        return exceptions

@@ -1,4 +1,5 @@
-from ..util import search, h, WorkaheadIterator
+from ..util import (search, h, WorkaheadIterator, WeakRefProperty,
+                    SourceError, FileAccessDeniedError, EncoderError)
 import threading
 import time
 import os
@@ -15,6 +16,7 @@ from copy import deepcopy
 from .basereader import BaseReader
 from .basereader import Track as InputTrack
 from ..filters.base import BaseFilter
+from ..encoders import vencoders, sencoders, aencoders
 
 
 class TrackStats(EBMLNDArray):
@@ -22,6 +24,8 @@ class TrackStats(EBMLNDArray):
 
 
 class TrackList(UserList):
+    parent = WeakRefProperty("parent")
+
     def __init__(self, items=[], container=None):
         self.data = list(items)
         self.container = container
@@ -66,6 +70,8 @@ class TrackList(UserList):
 class Track(abc.ABC):
     """Base class for output tracks."""
     from copy import deepcopy as copy
+
+    parent = WeakRefProperty("parent")
 
     def __init__(self, source, encoder=None, filters=None, name=None, language=None, delay=0, container=None):
         self.source = source
@@ -163,22 +169,18 @@ class Track(abc.ABC):
 
         if value is not None:
             value.prev = self.source
-            value.source = self.source
 
-    @property
-    def source(self):
-        return self._source
+    source = WeakRefProperty("source")
 
     @source.setter
     def source(self, value):
-        self._source = value
-
         try:
-            self._filters.prev = value
-            self._filters.source = value
+            self.filters.prev = value
 
         except AttributeError:
             pass
+
+        return value
 
     @property
     def time_base(self):
@@ -302,42 +304,59 @@ class Track(abc.ABC):
 
     @property
     def type(self):
-        return self.source.type
+        source = self.source
+
+        if source is not None:
+            return source.type
 
     @property
     def width(self):
         if self.encoder and self.filters:
             return self.filters.width
 
-        return self.source.width
+        source = self.source
+
+        if source is not None:
+            return source.width
 
     @property
     def height(self):
         if self.encoder and self.filters:
             return self.filters.height
 
-        return self.source.height
+        source = self.source
+
+        if source is not None:
+            return source.height
 
     @property
     def rate(self):
         if self.encoder and self.filters:
             return self.filters.rate
 
-        return self.source.rate
+        source = self.source
+
+        if source is not None:
+            return source.rate
 
     @property
     def channels(self):
         if self.encoder and self.filters:
             return self.filters.channels
 
-        return self.source.channels
+        source = self.source
+
+        if source is not None:
+            return source.channels
 
     @property
     def layout(self):
+        source = self.source
+
         if self.encoder and self.filters and self.filters.layout:
             return self.filters.layout
 
-        elif self.source.layout:
+        elif source is not None and source.layout:
             return self.source.layout
 
         elif self.channels == 8:
@@ -357,14 +376,20 @@ class Track(abc.ABC):
         if self.encoder and self.filters:
             return self.filters.sar
 
-        return self.source.sar
+        source = self.source
+
+        if source is not None:
+            return source.sar
 
     @property
     def dar(self):
         if self.encoder and self.filters:
             return self.filters.dar
 
-        return self.source.dar
+        source = self.source
+
+        if source is not None:
+            return source.dar
 
     @property
     def defaultDuration(self):
@@ -385,15 +410,20 @@ class Track(abc.ABC):
             elif self.filters and self.filters.defaultDuration is not None:
                 return self.filters.defaultDuration*self.filters.time_base/self.time_base
 
-        if self.source.defaultDuration is not None:
-            return self.source.defaultDuration*self.source.time_base/self.time_base
+        source = self.source
+
+        if source is not None and source.defaultDuration is not None:
+            return source.defaultDuration*source.time_base/self.time_base
 
     @property
     def duration(self):
         if self.encoder and self.filters:
             return self.filters.duration
 
-        return self.source.duration
+        source = self.source
+
+        if source is not None:
+            return source.duration
 
     @property
     def bitdepth(self):
@@ -404,7 +434,10 @@ class Track(abc.ABC):
             elif self.filters and self.filters.bitdepth:
                 return self.filters.bitdepth
 
-        return self.source.bitdepth
+        source = self.source
+
+        if source is not None:
+            return source.bitdepth
 
     @property
     def format(self):
@@ -415,11 +448,15 @@ class Track(abc.ABC):
             elif self.filters and self.filters.format:
                 return self.filters.format
 
-        return self.source.format
+        source = self.source
+
+        if source is not None:
+            return source.format
 
     @property
     def avgfps(self):
-        return self.framecount/self.duration
+        if self.framecount is not None and self.duration:
+            return self.framecount/self.duration
 
     @property
     def track_index(self):
@@ -431,9 +468,14 @@ class Track(abc.ABC):
         if self.encoder:
             return self.encoder.codec
 
-        return self.source.codec
+        source = self.source
+
+        if source is not None:
+            return source.codec
 
     def _iterFrames(self, duration=None, logfile=None):
+        source = self.source
+
         if self.filters:
             if duration is not None:
                 frames = self.filters.iterFrames(
@@ -442,7 +484,7 @@ class Track(abc.ABC):
             else:
                 frames = self.filters.iterFrames()
 
-        else:
+        elif source is not None:
             if duration is not None:
                 frames = self.source.iterFrames(
                     end=int(duration/self.source.time_base), whence="pts")
@@ -485,7 +527,8 @@ class Track(abc.ABC):
 
     @property
     def framecount(self):
-        return len(self.pts)
+        if isinstance(self.pts, numpy.ndarray):
+            return len(self.pts)
 
     @property
     def durations(self):
@@ -539,6 +582,33 @@ class Track(abc.ABC):
 
         elif isinstance(dependency, BaseFilter) and self.source is dependency:
             self.source = None
+
+    def validate(self):
+        exceptions = []
+
+        if self.source is None:
+            exceptions.append(SourceError("No source provided.", self))
+
+        else:
+            if not hasattr(self.source, "iterPackets") and self.encoder is None:
+                exceptions.append(EncoderError("Encoder must be specified for source that does not have iterPackets method.", self))
+
+            if self.encoder is not None:
+                if self.encoder.codec in vencoders and self.source.type != "video":
+                    exceptions.append(EncoderError(f"Video encoder not compatible with {self.source.type} track.", self))
+
+                elif self.encoder.codec in aencoders and self.source.type != "audio":
+                    exceptions.append(EncoderError(f"Audio encoder not compatible with {self.source.type} track.", self))
+
+                elif self.encoder.codec in sencoders and self.source.type != "subtitle":
+                    exceptions.append(EncoderError(f"Subtitle encoder not compatible with {self.source.type} track.", self))
+
+        if self.filters is not None:
+            exceptions.extend(exc for f in self.filters for exc in f.validate())
+
+
+        return exceptions
+
 
 class BaseWriter(abc.ABC):
     """
@@ -611,6 +681,7 @@ class BaseWriter(abc.ABC):
     """
     from copy import deepcopy as copy
     trackclass = Track
+    config = WeakRefProperty("config")
 
     def __init__(self, outputpath, tracks=[], targetsize=None, config=None):
         self.config = config
@@ -1124,3 +1195,16 @@ class BaseWriter(abc.ABC):
     def removeDependency(self, dependency):
         for track in self.tracks:
             track.removeDependency(dependency)
+
+    def validate(self):
+        exceptions = []
+        dir, file = os.path.split(self.outputpathabs)
+
+        if not os.path.isfile(self.outputpathabs) and not os.access(dir, os.W_OK):
+            exceptions.append(FileAccessDeniedError(f"No write access to {self.outputpathrel}", self))
+
+        if os.path.isfile(self.outputpathabs) and not os.access(self.outputpath, os.W_OK):
+            exceptions.append(FileAccessDeniedError(f"No write access to {self.outputpathrel}", self))
+
+        exceptions.extend(exc for track in self.tracks for exc in track.validate())
+        return exceptions

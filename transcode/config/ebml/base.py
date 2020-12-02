@@ -1,7 +1,7 @@
 from ebml.base import EBMLInteger, EBMLString, EBMLData, EBMLMasterElement, EBMLProperty, EBMLFloat, EBMLList, EBMLElement, Void
 from ebml.ndarray import EBMLNDArray
 from ebml.serialization import Object, List
-from transcode.util import llist, ChildList
+from transcode.util import llist, ChildList, WeakRefList
 from ..obj import InputFileList, OutputFileList, FilterList
 import numpy
 import pathlib
@@ -48,3 +48,4 @@ Object.registerType(ChildList, List)
 Object.registerType(InputFileList, List)
 Object.registerType(OutputFileList, List)
 Object.registerType(FilterList, List)
+Object.registerType(WeakRefList, List)

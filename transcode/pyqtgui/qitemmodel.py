@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtCore import (Qt, QAbstractItemModel,
                           QModelIndex, QVariant, QMimeData)
-from transcode.util import cached, ChildList
+from transcode.util import cached, ChildList, WeakRefProperty
 
 import traceback
 import threading
@@ -75,26 +75,28 @@ class ChildNodes(ChildList):
 
 
 class Node(object):
+    parent = WeakRefProperty("parent")
+    value = WeakRefProperty("value")
+
     def __init__(self, value):
         self.parent = None
         self.value = value
 
-    @property
-    def value(self):
-        return self._value
-
     @value.setter
     def value(self, value):
         del self.children
-        self._value = value
+        parent = self.parent
 
-        if self.parent is not None:
-            self.parent.children._setitem(self.indexInParent, value)
+        if parent is not None:
+            parent.children._setitem(self.indexInParent, value)
+
+        return value
 
     @property
     def indexInParent(self):
-        if self.parent is not None:
-            return self.parent.index(self)
+        parent = self.parent
+        if parent is not None:
+            return parent.index(self)
 
     def _iterChildren(self):
         return iter(self.value)

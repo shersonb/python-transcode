@@ -1,4 +1,4 @@
-from ..util import cached, search, llist
+from ..util import cached, search, llist, WeakRefProperty, ValidationException, SourceError
 from ..containers.basereader import BaseReader, Track
 import threading
 import numpy
@@ -103,6 +103,29 @@ class BaseFilter(object):
         if isinstance(oldsource, BaseFilter) and oldsource not in (self._prev, self._source):
             oldsource.removeMonitor(self)
 
+    @WeakRefProperty
+    def source(self, value):
+        if isinstance(self.parent, FilterChain):
+            return self.parent.prev
+
+        return value
+
+    @source.setter
+    def source(self, value):
+        if isinstance(self.parent, FilterChain):
+            raise ValueError(
+                f"'source' property is read-only for FilterChain members.")
+
+        oldsource = self.source
+
+        if isinstance(value, BaseFilter):
+            value.addMonitor(self)
+
+        if isinstance(oldsource, BaseFilter) and oldsource not in (self._prev, self._source):
+            oldsource.removeMonitor(self)
+
+        return value
+
     @property
     def prev(self):
         if self.parent is not None:
@@ -120,6 +143,32 @@ class BaseFilter(object):
 
         if isinstance(oldprev, BaseFilter) and oldprev not in (self._prev, self._source):
             oldprev.removeMonitor(self)
+
+    @WeakRefProperty
+    def prev(self, value):
+        if isinstance(self._source, weakref.ref):
+            source = self._source()
+
+        else:
+            source = self._source
+
+        if self.parent is not None:
+            return value or source or self.parent.prev
+
+        return value or source
+
+    @prev.setter
+    def prev(self, value):
+        oldprev = self._prev
+        self._prev = value
+
+        if isinstance(value, BaseFilter):
+            value.addMonitor(self)
+
+        if isinstance(oldprev, BaseFilter) and oldprev not in (self._prev, self._source):
+            oldprev.removeMonitor(self)
+
+        return value
 
     def reset_cache(self, start=0, end=None):
         try:
@@ -159,8 +208,14 @@ class BaseFilter(object):
             state["name"] = self.name
 
         try:
-            if self._source is not None:
-                state["source"] = self._source
+            if isinstance(self._source, weakref.ref):
+                source = self._source()
+
+            else:
+                source = self._source
+
+            if source is not None:
+                state["source"] = self._source()
 
         except AttributeError:
             pass
@@ -442,6 +497,12 @@ class BaseFilter(object):
     def __repr__(self):
         return f"<{self.__class__.__name__} filter at 0x{id(self):012x}>"
 
+    def validate(self):
+        if self.prev is None:
+            return [SourceError("No source provided.", self)]
+
+        return []
+
 
 class FilterChain(llist, BaseFilter):
     from copy import deepcopy as copy
@@ -533,6 +594,37 @@ class FilterChain(llist, BaseFilter):
             oldsource not in (self._prev, self._source) and \
                 len(self):
             oldsource.removeMonitor(self.start)
+
+    @WeakRefProperty
+    def source(self, value):
+        if isinstance(self.parent, FilterChain):
+            return self.parent.prev
+
+        return value
+
+    @source.setter
+    def source(self, value):
+        if isinstance(self.parent, FilterChain):
+            raise ValueError(
+                f"'source' property is read-only for FilterChain members.")
+
+        oldsource = self.source
+
+        if isinstance(value, BaseFilter):
+            if len(self):
+                value.addMonitor(self.start)
+
+            else:
+                value.addMonitor(self)
+
+        if isinstance(oldsource, BaseFilter) and oldsource not in (self._prev, value):
+            if len(self):
+                oldsource.removeMonitor(self.start)
+
+            else:
+                oldsource.removeMonitor(self)
+
+        return value
 
     def isValidSource(self, other):
         if not super().isValidSource(other):

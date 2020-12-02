@@ -1,5 +1,5 @@
 import matroska.tags
-from transcode.util import ChildList, cached
+from transcode.util import ChildList, cached, WeakRefList
 from collections import OrderedDict, UserList
 import os
 from xml.dom.minidom import Document, Element, Text, DocumentType
@@ -213,10 +213,10 @@ class Tag(object):
 
         self.type = type
         self.simpletags = simpletags
-        self.tracks = list(tracks)
-        self.editions = list(editions)
-        self.chapters = list(chapters)
-        self.attachments = list(attachments)
+        self.tracks = WeakRefList(tracks)
+        self.editions = WeakRefList(editions)
+        self.chapters = WeakRefList(chapters)
+        self.attachments = WeakRefList(attachments)
 
     @property
     def simpletags(self):
@@ -241,6 +241,11 @@ class Tag(object):
         if self.simpletags is not None:
             state["simpletags"] = self.simpletags
 
+        self.tracks.clean()
+        self.editions.clean()
+        self.chapters.clean()
+        self.attachments.clean()
+
         if self.tracks:
             state["tracks"] = self.tracks
 
@@ -264,17 +269,22 @@ class Tag(object):
 
         self.type = state.get("type")
         self.simpletags = state.get("simpletags")
-        self.tracks = state.get("tracks", [])
-        self.editions = state.get("editions", [])
-        self.chapters = state.get("chapters", [])
-        self.attachments = state.get("attachments", [])
+        self.tracks = WeakRefList(state.get("tracks", []))
+        self.editions = WeakRefList(state.get("editions", []))
+        self.chapters = WeakRefList(state.get("chapters", []))
+        self.attachments = WeakRefList(state.get("attachments", []))
 
     def prepare(self, logfile=None):
         print(f"{self.type} ({self.typeValue}):", file=logfile)
 
+        self.tracks.clean()
+        self.editions.clean()
+        self.chapters.clean()
+        self.attachments.clean()
+
         if len(self.tracks):
             print(
-                f"    Target Tracks: {', '.join(str(item) for item in self.tracks)}", file=logfile)
+                f"    Target Tracks: {', '.join(str(item.trackUID) for item in self.tracks)}", file=logfile)
 
         if len(self.editions):
             print(
@@ -286,10 +296,14 @@ class Tag(object):
 
         if len(self.attachments):
             print(
-                f"    Target Attachments: {', '.join(str(item) for item in self.attachments)}", file=logfile)
+                f"    Target Attachments: {', '.join(str(item.UID) for item in self.attachments)}", file=logfile)
+
 
         targets = matroska.tags.Targets(self.typeValue, self.type,
-                                        self.tracks, self.editions, self.chapters, self.attachments)
+                                        [item.trackUID for item in self.tracks],
+                                        [item.UID for item in self.editions],
+                                        [item.UID for item in self.chapters],
+                                        [item.UID for item in self.attachments])
         simpletags = [simpletag.prepare(0, logfile)
                       for simpletag in self.simpletags]
 

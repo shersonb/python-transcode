@@ -594,3 +594,10 @@ class MatroskaWriter(basewriter.BaseWriter):
                     if attachment.source.source is dependency:
                         self.attachments.remove(attachment)
  
+    def validate(self):
+        exceptions = super().validate()
+
+        if self.attachments is not None:
+            exceptions.extend(self.attachments.validate())
+
+        return exceptions

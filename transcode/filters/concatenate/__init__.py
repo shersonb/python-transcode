@@ -3,10 +3,19 @@ from ..audio.base import BaseAudioFilter
 from ..base import BaseFilter
 import numpy
 from itertools import count
-from ...util import cached
+from more_itertools import windowed
+from ...util import cached, SourceError, IncompatibleSource, BrokenReference
 from fractions import Fraction as QQ
 from copy import deepcopy
+import weakref
 
+
+def tryweakref(obj):
+    try:
+        return weakref.ref(obj)
+
+    except:
+        obj
 
 class Concatenate(BaseVideoFilter, BaseAudioFilter):
     __name__ = "Concatenate"
@@ -14,16 +23,26 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
     sourceCount = "+"
 
     def __init__(self, segments=[], time_base=QQ(1, 10**9), **kwargs):
-        self.segments = list(segments)
+        self.segments = list(map(tryweakref, segments))
         self.time_base = time_base
         super().__init__(**kwargs)
 
+    def __iter__(self):
+        for item in self.segments:
+            if isinstance(item, weakref.ref):
+                yield item()
+
+            else:
+                yield item
+
     @property
     def dependencies(self):
-        dependencies = set(self.segments)
-        for source in self.segments:
+        dependencies = set(self)
+
+        for source in self:
             if isinstance(source, BaseFilter):
                 dependencies.update(source.dependencies)
+
         return dependencies
 
     @cached
@@ -31,7 +50,7 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
         L = []
         T = 0
 
-        for segment in self.segments:
+        for segment in self:
             L.append(segment.pts_time + T)
             T += segment.duration
 
@@ -43,79 +62,79 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
     @cached
     def duration(self):
-        return sum(segment.duration for segment in self.segments)
+        return sum(segment.duration for segment in self)
 
     @cached
     def durations(self):
-        return numpy.int0(numpy.concatenate([segment.durations*segment.time_base/self.time_base for segment in self.segments]) + 0.0001)
+        return numpy.int0(numpy.concatenate([segment.durations*segment.time_base/self.time_base for segment in self]) + 0.0001)
 
     @cached
     def sizes(self):
-        return numpy.concatenate([segment.sizes for segment in self.segments])
+        return numpy.concatenate([segment.sizes for segment in self])
 
     @cached
     def framecount(self):
-        return sum(segment.framecount for segment in self.segments)
+        return sum(segment.framecount for segment in self)
 
     @property
     def type(self):
-        if len(self.segments):
-            return self.segments[0].type
+        if len(self):
+            return self[0].type
 
     @property
     def codec(self):
-        if len(self.segments):
-            return self.segments[0].codec
+        if len(self):
+            return self[0].codec
 
     @property
     def extradata(self):
-        if len(self.segments):
-            return self.segments[0].extradata
+        if len(self):
+            return self[0].extradata
 
     @property
     def format(self):
-        if len(self.segments):
-            return self.segments[0].format
+        if len(self):
+            return self[0].format
 
     @property
     def bitdepth(self):
-        if len(self.segments):
-            return self.segments[0].bitdepth
+        if len(self):
+            return self[0].bitdepth
 
     @property
     def defaultDuration(self):
-        if len(self.segments):
-            return self.segments[0].defaultDuration
+        if len(self):
+            return self[0].defaultDuration
 
     @property
     def rate(self):
-        if len(self.segments):
-            return self.segments[0].rate
+        if len(self):
+            return self[0].rate
 
     @property
     def layout(self):
-        if len(self.segments):
-            return self.segments[0].layout
+        if len(self):
+            return self[0].layout
 
     @property
     def channels(self):
-        if len(self.segments):
-            return self.segments[0].channels
+        if len(self):
+            return self[0].channels
 
     @property
     def width(self):
-        if len(self.segments):
-            return self.segments[0].width
+        if len(self):
+            return self[0].width
 
     @property
     def height(self):
-        if len(self.segments):
-            return self.segments[0].height
+        if len(self):
+            return self[0].height
 
     @property
     def sar(self):
-        if len(self.segments):
-            return self.segments[0].sar
+        if len(self):
+            return self[0].sar
 
     @property
     def prev(self):
@@ -140,7 +159,7 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
         K = count(start)
         T = 0
 
-        for segment in self.segments:
+        for segment in self:
             if whence == "framenumber":
                 if start >= N + segment.framecount:
                     N += segment.framecount
@@ -230,7 +249,7 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
         K = count(start)
         T = 0
 
-        for segment in self.segments:
+        for segment in self:
             if whence == "packetnumber":
                 if start >= N + segment.framecount:
                     N += segment.framecount
@@ -317,35 +336,42 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
             T += segment.duration
 
     def append(self, segment):
-        self.segments.append(segment)
+        self.segments.append(tryweakref(segment))
 
         if isinstance(segment, BaseFilter):
             segment.addMonitor(self)
 
     def insert(self, index, segment):
-        self.segments.insert(index, segment)
+        self.segments.insert(index, tryweakref(segment))
 
         if isinstance(segment, BaseFilter):
             segment.addMonitor(self)
 
     def extend(self, segments):
         k = len(self)
-        self.segments.extend(segments)
+        self.segments.extend(map(tryweakref, segments))
 
-        for segment in self[k:]:
+        for segment in self.segments[k:]:
+            if isinstance(segment, weakref.ref):
+                segment = segment()
+
             if isinstance(segment, BaseFilter):
                 segment.addMonitor(self)
 
     def clear(self):
-        for segment in self.segments:
+        for segment in self:
             if isinstance(segment, BaseFilter):
                 segment.removeMonitor(self)
-                self.unsubscribeFrom(segment)
 
         self.segments.clear()
 
     def __getitem__(self, index):
-        return self.segments[index]
+        segment = self.segments[index]
+
+        if isinstance(segment, weakref.ref):
+            segment = segment()
+
+        return segment
 
     def __len__(self):
         return len(self.segments)
@@ -353,12 +379,15 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
     def __delitem__(self, index):
         segment = self.segments.pop(index)
 
+        if isinstance(segment, weakref.ref):
+            segment = segment()
+
         if isinstance(segment, BaseFilter) and segment not in self.segments:
             segment.removeMonitor(self)
 
     def __setitem__(self, index, value):
-        oldvalue = self.segments[index]
-        self.segments[index] = value
+        oldvalue = self[index]
+        self.segments[index] = tryweakref(value)
 
         if isinstance(value, BaseFilter):
             value.addMonitor(self)
@@ -367,7 +396,7 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
             oldvalue.removeMonitor(self)
 
     def __reduce__(self):
-        return type(self), (), self.__getstate__(), iter(self.segments)
+        return type(self), (), self.__getstate__(), iter(self)
 
     def __getstate__(self):
         state = super().__getstate__()
@@ -406,3 +435,33 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                 self.sources.remove(source)
 
         self.reset_cache()
+
+    def validate(self):
+        if len(self) == 0:
+            return [SourceError("No sources provided.", self)]
+
+        exceptions = []
+
+        for k, s in enumerate(self):
+            if s is None:
+                exceptions.append(BrokenReference(f"Broken reference at position {k}.", self))
+
+        for ((j, source1), (k, source2)) in windowed(filter(lambda X: X[1] is not None and X[1].prev is not None, enumerate(self)), 2):
+            if source1.type != source2.type:
+                exceptions.append(IncompatibleSource(f"Incompatible sources: '{source1.type}' and '{source2.type}'.", self))
+
+            elif source1.type == "video":
+                if (source1.width, source1.height) != (source2.width, source2.height):
+                    exceptions.append(IncompatibleSource(f"Sources have different resolutions: '{source1.width}×{source1.height}' ({j}) and '{source2.width}×{source2.height}' ({k}).", self))
+
+                if source1.sar != source2.sar:
+                    exceptions.append(IncompatibleSource(f"Sources have different sample aspect ratios: '{source1.sar}' ({j}) and '{source2.sar}' ({k}).", self))
+
+            elif source1.type == "audio":
+                if source1.rate != source2.rate:
+                    exceptions.append(IncompatibleSource(f"Sources have different sampling frequencies: '{source1.rate}' ({j}) and '{source2.rate}' ({k}).", self))
+
+                if source1.layout != source2.layout:
+                    exceptions.append(IncompatibleSource(f"Sources have different layouts: '{source1.layout}' ({j}) and '{source2.layout}' ({k}).", self))
+
+        return exceptions
