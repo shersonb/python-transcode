@@ -2,9 +2,9 @@ from .quidspinbox import UIDDelegate
 from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractTableModel, QModelIndex,
                           QVariant, QItemSelectionModel, QItemSelection, pyqtSignal, pyqtSlot, QMimeData,
                           QByteArray, QDataStream, QIODevice, QRegExp)
-from PyQt5 import QtCore
 from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxLayout, QHBoxLayout,
-                             QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView, QHeaderView, QSpinBox,
+                             QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView,
+                             QHeaderView, QSpinBox, QMenu, QAction,
                              QLineEdit, QFileDialog, QCheckBox, QDoubleSpinBox, QItemDelegate, QComboBox)
 from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QRegExpValidator
 from transcode.encoders import vencoders, aencoders, sencoders
@@ -115,9 +115,6 @@ class TrackUIDCol(BaseOutputTrackCol):
 
         return data
 
-    # def display(self, index, track):
-        # return f"0x{self.editdata(index, track):032x}"
-
     def display(self, index, obj):
         c, d = divmod(self.editdata(index, obj), 16**4)
         b, c = divmod(c, 16**4)
@@ -133,6 +130,28 @@ class TrackUIDCol(BaseOutputTrackCol):
     def itemDelegate(self, parent):
         return UIDDelegate(parent)
 
+    def contextmenu(self, index, obj):
+        return partial(self.createContextMenu, obj=obj, index=index)
+
+    def createContextMenu(self, table, index, obj):
+        menu = QMenu(table)
+        selectRandom = QAction(f"Select random UID", table,
+                             triggered=partial(self.selectRandomUID, obj, table.model()))
+
+        menu.addAction(selectRandom)
+        return menu
+
+    def selectRandomUID(self, obj, model):
+        UID = random.randint(1, 2**64 - 1)
+
+        existingUIDs = {track.trackUID for track in self.output_file.tracks if track is not obj}
+
+        while UID in existingUIDs:
+            UID = random.randint(1, 2**64 - 1)
+
+        obj.trackUID = UID
+        model.dataChanged.emit(QModelIndex(), QModelIndex())
+
 
 class DefaultTrackCol(BaseOutputTrackCol):
     display = ""
@@ -141,6 +160,18 @@ class DefaultTrackCol(BaseOutputTrackCol):
     flags = Qt.ItemIsSelectable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
 
     def checkstate(self, index, track):
+        if track.type is None:
+            if track.container.defaultvideo is track:
+                track.container.defaultvideo = None
+
+            if track.container.defaultaudio is track:
+                track.container.defaultaudio = None
+
+            if track.container.defaultsubtitle is track:
+                track.container.defaultsubtitle = None
+
+            return 0
+
         if getattr(track.container, f"default{track.type}") is track:
             return 2
 
@@ -151,10 +182,11 @@ class DefaultTrackCol(BaseOutputTrackCol):
 
         if state == 2:
             setattr(track.container, f"default{track.type}", None)
+            return True
 
         elif state == 0:
             setattr(track.container, f"default{track.type}", track)
-
+            return True
 
 class ForcedTrackCol(BaseOutputTrackCol):
     display = ""

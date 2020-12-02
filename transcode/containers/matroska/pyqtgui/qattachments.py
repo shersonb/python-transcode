@@ -537,6 +537,28 @@ class UIDCol(BaseColumn):
     def itemDelegate(self, parent):
         return UIDDelegate(parent)
 
+    def contextmenu(self, index, obj):
+        return partial(self.createContextMenu, obj=obj, index=index)
+
+    def createContextMenu(self, table, index, obj):
+        menu = super().createContextMenu(table, index, obj)
+        selectRandom = QAction(f"Select random UID", table,
+                             triggered=partial(self.selectRandomUID, obj, table.model()))
+
+        menu.addAction(selectRandom)
+        return menu
+
+    def selectRandomUID(self, obj, model):
+        UID = random.randint(1, 2**64 - 1)
+
+        existingUIDs = {attachment.UID for attachment in self.attachments if attachment is not obj}
+
+        while UID in existingUIDs:
+            UID = random.randint(1, 2**64 - 1)
+
+        obj.UID = UID
+        model.dataChanged.emit(QModelIndex(), QModelIndex())
+
 
 class DescriptionCol(BaseColumn):
     width = 256
