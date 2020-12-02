@@ -1,12 +1,14 @@
 from PyQt5.QtCore import (Qt, pyqtSignal, QFileInfo, QModelIndex)
 from PyQt5.QtWidgets import (QLabel, QMessageBox, QPushButton, QFileDialog, QWidget,
                              QTreeView, QProgressDialog, QFileIconProvider, QVBoxLayout,
-                             QHBoxLayout)
+                             QHBoxLayout, QMenu, QAction)
 from PyQt5.QtGui import (QFont, QIcon, QBrush)
 
 from .qitemmodel import QItemModel, Node, ChildNodes
+from .treeview import TreeView as QTreeView
 from transcode.containers.basereader import BaseReader, Track
 from transcode.containers import readers
+from functools import partial
 
 import sys
 import traceback
@@ -44,6 +46,23 @@ class BaseInputCol(object):
             return self.fontalt
 
         return self.fontmain
+
+    def contextmenu(self, index, obj):
+        return partial(self.createContextMenu, obj=obj, index=index)
+
+    def createContextMenu(self, table, index, obj):
+        print("A")
+        menu = QMenu(table)
+        delete = QAction("Delete selected...",
+                         table, triggered=partial(table.askDeleteSelected))
+
+        selected = table.selectedIndexes()
+
+        if len(selected) == 0 or any(not isinstance(index.data(Qt.UserRole), BaseReader) for index in selected):
+            delete.setDisabled(True)
+
+        menu.addAction(delete)
+        return menu
 
 
 class FileTrackCol(BaseInputCol):
@@ -419,7 +438,7 @@ class QInputTrackList(QTreeView):
             root = InputFilesRoot(input_files)
             model = InputFileModel(root, cols)
             self.setModel(model)
-            model.dataChanged.connect(self.contentsModified)
+            #model.dataChanged.connect(self.contentsModified)
 
             for k, col in enumerate(cols):
                 if hasattr(col, "width"):
@@ -428,14 +447,35 @@ class QInputTrackList(QTreeView):
         else:
             self.setModel(QItemModel(Node(None), []))
 
-    def dragMoveEvent(self, event):
-        ret = super().dragMoveEvent(event)
+    def askDeleteSelected(self):
+        model = self.model()
+        selected = {model.getNode(index)
+                    for index in self.selectedIndexes()}
 
-        if event.source() is self:
-            event.setDropAction(Qt.MoveAction)
+        if len(selected) == 1:
+            answer = QMessageBox.question(self, "Confirm delete input file",
+                                          "Do you wish to delete the selected input file?", QMessageBox.Yes | QMessageBox.No)
 
-        else:
-            event.setDropAction(Qt.CopyAction)
+        elif len(selected) > 1:
+            answer = QMessageBox.question(self, "Confirm delete input files",
+                                          "Do you wish to delete the selected input files?", QMessageBox.Yes | QMessageBox.No)
+
+        if answer == QMessageBox.Yes:
+            self.deleteSelected()
+
+    #def dragMoveEvent(self, event):
+        #super().dragMoveEvent(event)
+
+        #if event.keyboardModifiers() == Qt.NoModifier:
+            #if event.source() is self:
+                ##Internal MOVE
+                #event.setDropAction(Qt.MoveAction)
+
+            #else:
+                ##Everything else is assumed to be COPY
+                #event.setDropAction(Qt.CopyAction)
+
+            #event.accept()
 
     def addFile(self, row_id=-1):
         if row_id < 0:

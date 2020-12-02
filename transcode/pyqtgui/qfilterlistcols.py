@@ -22,6 +22,7 @@ class BaseFilterCol(object):
 
     def seteditdata(self, index, obj, data):
         setattr(obj, self.attrname, data)
+        return True
 
     def flags(self, index, obj):
         if obj in self.noselect:
@@ -69,6 +70,12 @@ class FilterNameCol(BaseFilterCol):
 
         return super().editdata(index, obj)
 
+    def seteditdata(self, index, obj, value):
+        if value == "":
+            return super().seteditdata(index, obj, None)
+
+        return super().seteditdata(index, obj, value)
+
     def display(self, index, obj):
         k = self.filters.index(obj)
 
@@ -82,8 +89,11 @@ class FilterNameCol(BaseFilterCol):
         return f"{obj.__class__.__module__}.{obj.__class__.__name__}"
 
     def icon(self, index, obj):
-        if not hasattr(obj, "type"):
-            return
+        if hasattr(obj, "validate") and len(obj.validate()):
+            return QIcon.fromTheme("emblem-error")
+
+        if not hasattr(obj, "type") or obj.type is None:
+            return QIcon.fromTheme("emblem-warning")
 
         if obj.type == "video":
             return QIcon.fromTheme("video-x-generic")

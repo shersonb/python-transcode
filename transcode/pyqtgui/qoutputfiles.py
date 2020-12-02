@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (QTreeView, QAbstractItemView, QWidget, QVBoxLayout,
                              QWidgetAction, QLabel, QHBoxLayout)
 
 from .qitemmodel import QItemModel, Node
+from .treeview import TreeView as QTreeView
 from transcode.containers import writers
 from functools import partial
 
@@ -87,7 +88,7 @@ class OutputFileCol(object):
             insertSubMenu.addAction(item)
 
         delete = QAction("Delete selected...",
-                         table, triggered=partial(table.deleteSelectedFiles))
+                         table, triggered=partial(table.askDeleteSelected))
 
         if len(table.selectedIndexes()) == 0:
             delete.setDisabled(True)
@@ -106,8 +107,7 @@ class QOutputFileList(QTreeView):
 
         self.setDragDropMode(QTreeView.DragDrop)
         self.setDefaultDropAction(Qt.MoveAction)
-        self.setDragEnabled(True)
-        self.setAcceptDrops(True)
+
         self.setDragDropOverwriteMode(False)
         self.setDropIndicatorShown(True)
 
@@ -124,7 +124,10 @@ class QOutputFileList(QTreeView):
             ]
 
             self.setModel(OutputFilesModel(OutputFilesRoot(output_files), cols))
-            self.model().dataChanged.connect(self.contentsModified)
+            #self.model().dataChanged.connect(self.contentsModified)
+            #self.model().rowsInserted.connect(self.contentsModified)
+            #self.model().rowsMoved.connect(self.contentsModified)
+            #self.model().rowsRemoved.connect(self.contentsModified)
 
             for k, col in enumerate(cols):
                 if hasattr(col, "width"):
@@ -136,19 +139,9 @@ class QOutputFileList(QTreeView):
         else:
             self.setModel(QItemModel(Node(None), []))
 
-    def contextMenuEvent(self, event):
-        selected = self.currentIndex()
-        menu = self.model().data(selected, role=Qt.UserRole + 1)
-
-        if callable(menu):
-            menu = menu(self)
-
-        if isinstance(menu, QMenu):
-            menu.exec_(self.mapToGlobal(event.pos()))
-
-    def deleteSelectedFiles(self):
+    def askDeleteSelected(self):
         model = self.model()
-        selected = {index.data(Qt.UserRole)
+        selected = {model.getNode(index)
                     for index in self.selectedIndexes()}
 
         if len(selected) == 1:
@@ -160,12 +153,7 @@ class QOutputFileList(QTreeView):
                                           "Do you wish to delete the selected output files?", QMessageBox.Yes | QMessageBox.No)
 
         if answer == QMessageBox.Yes:
-
-            for tag in selected.copy():
-                index = model.findIndex(tag)
-
-                if index.isValid():
-                    model.removeRow(index.row(), index.parent())
+            self.deleteSelected()
 
     def addFile(self, cls, row_id=-1):
         model = self.model()

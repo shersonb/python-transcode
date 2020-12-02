@@ -7,6 +7,7 @@ from PyQt5.QtGui import QFont, QIcon, QBrush
 from .qitemmodel import QItemModel, Node, ChildNodes, NoChildren
 
 from .qlangselect import LanguageDelegate, LANGUAGES
+from .treeview import TreeView as QTreeView
 from transcode.containers.basereader import BaseReader
 from transcode.containers.basereader import Track as InputTrack
 from transcode.containers.basewriter import Track as OutputTrack
@@ -17,6 +18,7 @@ from transcode.filters.base import BaseFilter
 import av
 from functools import partial
 from itertools import count
+from collections import OrderedDict
 
 
 class BaseOutputTrackCol(object):
@@ -82,6 +84,18 @@ class QCodecSelection(QWidget):
         elif track.type == "subtitle":
             common_encoders = ["ass", "srt"]
             encoders = sencoders
+
+        else:
+            common_encoders = ["libx265", "libx264", "mpeg2video",
+                               "dca", "ac3",
+                               "libfdk_aac", "aac", "mp3", "flac",
+                               "ass", "srt"]
+
+            
+            encoders = OrderedDict()
+            encoders.update(vencoders)
+            encoders.update(aencoders)
+            encoders.update(sencoders)
 
         for key in common_encoders:
             try:
@@ -255,13 +269,16 @@ class TitleCol(BaseOutputTrackCol):
     tooltip = display
 
     def icon(self, index, track):
-        if track.type == "video":
+        if len(track.validate()):
+            return QIcon.fromTheme("emblem-error")
+
+        elif track.type == "video":
             return QIcon.fromTheme("video-x-generic")
 
-        if track.type == "audio":
+        elif track.type == "audio":
             return QIcon.fromTheme("audio-x-generic")
 
-        if track.type == "subtitle":
+        elif track.type == "subtitle":
             return QIcon.fromTheme("text-x-generic")
 
 
@@ -324,7 +341,7 @@ class OutputCodecCol(BaseOutputTrackCol):
             except:
                 return f"Unknown ({encoder.codec})"
 
-        else:
+        elif track.source is not None:
             try:
                 c = av.codec.Codec(track.source.codec, "w")
                 return f"{c.long_name} ({track.source.codec}, copy)"
@@ -540,8 +557,8 @@ class OutputTrackList(QTreeView):
         self.setFont(QFont("DejaVu Serif", 8))
         self.setMinimumWidth(640)
 
-        self.setEditTriggers(QTreeView.SelectedClicked |
-                             QTreeView.EditKeyPressed)
+        #self.setEditTriggers(QTreeView.SelectedClicked |
+                             #QTreeView.EditKeyPressed)
 
         self.setDragDropMode(QTreeView.DragDrop)
         self.setDefaultDropAction(Qt.MoveAction)
@@ -610,21 +627,21 @@ class OutputTrackList(QTreeView):
             self.setModel(QItemModel(Node(None), []))
             self.setAcceptDrops(False)
 
-    def currentChanged(self, newindex, oldindex):
-        if oldindex.isValid():
-            for j in range(self.model().columnCount()):
-                idx = self.model().index(oldindex.row(), j)
+    #def currentChanged(self, newindex, oldindex):
+        #if oldindex.isValid():
+            #for j in range(self.model().columnCount()):
+                #idx = self.model().index(oldindex.row(), j)
 
-                if self.model().flags(idx) & Qt.ItemIsEditable:
-                    self.closePersistentEditor(idx)
+                #if self.model().flags(idx) & Qt.ItemIsEditable:
+                    #self.closePersistentEditor(idx)
 
-        if newindex.isValid():
-            for j in range(self.model().columnCount()):
-                idx = self.model().index(newindex.row(), j)
+        #if newindex.isValid():
+            #for j in range(self.model().columnCount()):
+                #idx = self.model().index(newindex.row(), j)
 
-                if self.model().flags(idx) & Qt.ItemIsEditable:
-                    self.openPersistentEditor(
-                        self.model().index(newindex.row(), j))
+                #if self.model().flags(idx) & Qt.ItemIsEditable:
+                    #self.openPersistentEditor(
+                        #self.model().index(newindex.row(), j))
 
     def keyPressEvent(self, event):
         key = event.key()

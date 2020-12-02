@@ -1,5 +1,6 @@
 from PyQt5.QtCore import (Qt, pyqtSignal)
 from PyQt5.QtWidgets import (QTreeView, QMenu)
+from .treeview import TreeView as QTreeView
 from .qitemmodel import QItemModel, Node
 import sys
 
@@ -42,10 +43,10 @@ class QFilterList(QTreeView):
             ]
 
             self.setModel(FilterListModel(FiltersRoot(filters), cols))
-            self.model().dataChanged.connect(self.contentsModified)
-            self.model().rowsMoved.connect(self.contentsModified)
-            self.model().rowsInserted.connect(self.contentsModified)
-            self.model().rowsRemoved.connect(self.contentsModified)
+            #self.model().dataChanged.connect(self.contentsModified)
+            #self.model().rowsMoved.connect(self.contentsModified)
+            #self.model().rowsInserted.connect(self.contentsModified)
+            #self.model().rowsRemoved.connect(self.contentsModified)
 
             for k, col in enumerate(cols):
                 if hasattr(col, "width"):
@@ -57,14 +58,14 @@ class QFilterList(QTreeView):
         else:
             self.setModel(QItemModel(Node(None), []))
 
-    def contextMenuEvent(self, event):
-        selected = self.currentIndex()
-        menu = self.model().data(selected, role=Qt.UserRole + 1)
+    #def contextMenuEvent(self, event):
+        #selected = self.currentIndex()
+        #menu = self.model().data(selected, role=Qt.UserRole + 1)
 
-        if callable(menu):
-            menu = menu(self)
+        #if callable(menu):
+            #menu = menu(self)
 
-        if isinstance(menu, QMenu):
-            menu.exec_(self.mapToGlobal(event.pos()))
+        #if isinstance(menu, QMenu):
+            #menu.exec_(self.mapToGlobal(event.pos()))
 
 
