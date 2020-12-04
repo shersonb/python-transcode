@@ -29,7 +29,6 @@ class TreeView(QTreeView):
             event.accept()
 
     def openContextMenu(self, pos):
-        print("openContextMenu", self, pos)
         selected = self.currentIndex()
         menu = self.model().data(selected, role=Qt.UserRole + 1)
 
@@ -54,8 +53,6 @@ class TreeView(QTreeView):
 
                 if node.descendants is not None:
                     removed.update(node.descendants)
-
-        print("Garbage Collection", gc.collect())
 
     def setModel(self, model):
         super().setModel(model)
