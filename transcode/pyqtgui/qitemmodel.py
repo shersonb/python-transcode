@@ -316,6 +316,7 @@ class QItemModel(QAbstractItemModel):
             if srcnode is destnode and newposition > position:
                 newposition -= 1
 
+            value = srcnode.children[position].value
             node = srcnode.children.pop(position)
             destnode.children.insert(newposition, node)
             self.endMoveRows()
