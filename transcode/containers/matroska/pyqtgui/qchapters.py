@@ -978,7 +978,7 @@ class QChapterTree(QTreeView):
                         displays.append(ChapterDisplay(
                             display.chapString,
                             list(display.chapLanguages or []),
-                            langIETF=list(display.chapLanguageIETF or []),
+                            langIETF=list(display.chapLanguagesIETF or []),
                             countries=list(display.chapCountries or []),
                         ))
 
