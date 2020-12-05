@@ -61,3 +61,10 @@ class TreeView(QTreeView):
         model.rowsMoved.connect(self.contentsModified)
         model.rowsRemoved.connect(self.contentsModified)
 
+        if hasattr(model, "columns"):
+            for k, col in enumerate(model.columns):
+                if hasattr(col, "width"):
+                    self.setColumnWidth(k, col.width)
+
+                if callable(col.itemDelegate):
+                    self.setItemDelegateForColumn(k, col.itemDelegate(self))
