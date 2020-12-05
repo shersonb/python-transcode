@@ -40,6 +40,19 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
         return self.prev.framecount
 
     @cached
+    def keyframes(self):
+        prev = self.prev
+        kf = set()
+
+        if isinstance(prev, BaseFilter):
+            kf.update(k - self.prev_start for k in prev.keyframes if self.prev_start <= k < self.prev_end)
+
+        if self.firstframekey:
+            kf.update(0)
+
+        return kf
+
+    @cached
     def pts_time(self):
         return self.prev.pts_time[self.prev_start:self.prev_end] - self.startpts
 
@@ -105,8 +118,13 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                 if end is not None and self.endpts is not None:
                     end = min(self.prev_start + end, self.prev_end)
 
+                elif end is not None:
+                    end = self.prev_start + end
+
                 else:
                     end = self.prev_end
+
+                print(start, end)
 
             elif whence == "pts":
                 N = count(self.frameIndexFromPts(start))
