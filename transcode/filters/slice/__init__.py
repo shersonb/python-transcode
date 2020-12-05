@@ -124,8 +124,6 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                 else:
                     end = self.prev_end
 
-                print(start, end)
-
             elif whence == "pts":
                 N = count(self.frameIndexFromPts(start))
                 start = (self.startpts - 0.0005) / \
