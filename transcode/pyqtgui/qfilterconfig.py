@@ -63,12 +63,12 @@ class QFilterConfig(QDialog):
         self._resetSourceControls()
 
     def setFilterPrev(self, source):
-        self.shadow.prev = source
+        self.filtercopy.prev = source
         self._prevChanged(source)
 
     def setFilterSource(self, source):
-        if self.shadow.parent is None:
-            self.shadow.source = source
+        if self.filtercopy.parent is None:
+            self.filtercopy.source = source
             self.isModified()
             self._prevChanged(source)
 
@@ -77,18 +77,18 @@ class QFilterConfig(QDialog):
 
     def reset(self, nocopy=False):
         if not nocopy:
-            self.shadow = self.filter.copy()
+            self.filtercopy = self.filter.copy()
 
             if isinstance(self.filter.parent, FilterChain):
-                self.shadow.parent = self.filter.parent
-                self.shadow.prev = self.filter.prev
+                self.filtercopy.parent = self.filter.parent
+                self.filtercopy.prev = self.filter.prev
 
-            if self.shadow.prev is None and self.filter.prev is not None:
-                self.shadow.prev = self.filter.prev
-                self._prevChanged(self.shadow.prev)
+            if self.filtercopy.prev is None and self.filter.prev is not None:
+                self.filtercopy.prev = self.filter.prev
+                self._prevChanged(self.filtercopy.prev)
 
         else:
-            self.shadow = self.filter
+            self.filtercopy = self.filter
 
         self._resetSourceControls()
         self._resetControls()
@@ -111,7 +111,7 @@ class QFilterConfig(QDialog):
         self._showSourceControls(self.inputFiles or self.availableFilters)
 
         if hasattr(self, "sourceSelection") and isinstance(self.sourceSelection, QInputSelection):
-            self._setSourceSelection(self.sourceSelection, self.shadow.source)
+            self._setSourceSelection(self.sourceSelection, self.filtercopy.source)
 
     def _setSourceSelection(self, sourceSelection, source):
         if isinstance(source, Track) and self.inputFiles and \
@@ -160,8 +160,8 @@ class QFilterConfig(QDialog):
             (isinstance(other, Track) or self.filter not in other.dependencies)
 
     def apply(self):
-        if self.shadow is not self.filter:
-            cls, args, *more = self.shadow.__reduce__()
+        if self.filtercopy is not self.filter:
+            cls, args, *more = self.filtercopy.__reduce__()
 
             if len(more) == 0:
                 return
@@ -233,7 +233,7 @@ class QFilterConfig(QDialog):
             layout.addLayout(sublayout)
 
     def isModified(self):
-        if self.shadow is self.filter:
+        if self.filtercopy is self.filter:
             self.settingsApplied.emit()
 
         else:

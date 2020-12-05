@@ -9,7 +9,7 @@ import regex
 from functools import partial
 
 from . import Zone
-from transcode.pyqtgui.qzones import ZoneDlg, BaseShadowZone
+from transcode.pyqtgui.qzones import ZoneDlg
 from transcode.pyqtgui.qframetablecolumn import ZoneCol
 
 
@@ -58,17 +58,9 @@ class PatternValidator(QValidator):
         return QValidator.Acceptable, value, offset
 
 
-class ShadowZone(BaseShadowZone, Zone):
-    def __init__(self, zone):
-        self.yblend = None
-        self.uvblend = None
-        super().__init__(zone)
-
-
 class QPullup(ZoneDlg):
     zonename = "Pullup Zone"
     title = "Pullup Zone Editor"
-    shadowclass = ShadowZone
 
     def _prepare(self):
         self.pulldownLabel = QLabel("Pattern:", self)

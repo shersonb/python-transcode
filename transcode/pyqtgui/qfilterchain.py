@@ -14,6 +14,7 @@ import sys
 import traceback
 from fractions import Fraction as QQ
 from .qavailablefilters import QAvailableFilters
+from .treeview import TreeView as QTreeView
 
 
 class CurrentFiltersModel(QItemModel):
@@ -138,10 +139,10 @@ class CurrentFiltersListView(QTreeView):
             root = CurrentFiltersRoot(filters)
             model = CurrentFiltersModel(root, [CurrentFiltersCol()])
             self.setModel(model)
-            model.dataChanged.connect(self.contentsModified)
-            model.rowsMoved.connect(self._emitFilterMoved)
-            model.rowsInserted.connect(self._emitFilterInserted)
-            model.rowsRemoved.connect(self._emitFilterRemoved)
+            #model.dataChanged.connect(self.contentsModified)
+            #model.rowsMoved.connect(self._emitFilterMoved)
+            #model.rowsInserted.connect(self._emitFilterInserted)
+            #model.rowsRemoved.connect(self._emitFilterRemoved)
 
         else:
             self.setModel(QItemModel(Node(None), []))
@@ -181,14 +182,14 @@ class CurrentFiltersListView(QTreeView):
         if answer == QMessageBox.Yes:
             self.deleteSelected()
 
-    def deleteSelected(self):
-        selected = sorted(idx.row()
-                          for idx in self.selectionModel().selectedRows())
+    #def deleteSelected(self):
+        #selected = sorted(idx.row()
+                          #for idx in self.selectionModel().selectedRows())
 
-        for k, row in enumerate(selected):
-            self.model().removeRow(row - k)
+        #for k, row in enumerate(selected):
+            #self.model().removeRow(row - k)
 
-        self.contentsModified.emit()
+        #self.contentsModified.emit()
 
     def mouseDoubleClickEvent(self, event):
         idx = self.indexAt(event.pos())
@@ -536,11 +537,11 @@ class QFilterChain(QFilterConfig):
             self.filterlistlayout.setDirection(QBoxLayout.LeftToRight)
 
     def _resetControls(self):
-        self.currentFilters.listView.setFilters(self.shadow)
+        self.currentFilters.listView.setFilters(self.filtercopy)
 
-        if self.shadow.type == "video":
-            self.vFilterEdit.setFilters(self.shadow)
+        if self.filtercopy.type == "video":
+            self.vFilterEdit.setFilters(self.filtercopy)
 
-        self.setVideoMode(self.shadow.type == "video")
+        self.setVideoMode(self.filtercopy.type == "video")
 
 

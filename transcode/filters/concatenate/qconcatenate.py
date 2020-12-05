@@ -170,7 +170,7 @@ class EndCol(BaseColumn):
     def display(self, index, obj):
         k = index.row()
         t = sum(segment.duration for segment in list(self.filter)[:k+1])
-        m, s = divmod(t, 60)
+        m, s = divmod(float(t), 60)
         h, m = divmod(int(m), 60)
         return f"{h}:{m:02d}:{s:012.9f}"
 
@@ -321,13 +321,13 @@ class QConcatenate(QFilterConfig):
         self._resetConcatModel()
 
     def _resetConcatModel(self):
-        root = SegmentsRoot(self.shadow)
+        root = SegmentsRoot(self.filtercopy)
 
         cols = [
-            NameCol(self.inputFiles, self.availableFilters, self.shadow),
-            DurationCol(self.inputFiles, self.availableFilters, self.shadow),
-            StartCol(self.inputFiles, self.availableFilters, self.shadow),
-            EndCol(self.inputFiles, self.availableFilters, self.shadow)
+            NameCol(self.inputFiles, self.availableFilters, self.filtercopy),
+            DurationCol(self.inputFiles, self.availableFilters, self.filtercopy),
+            StartCol(self.inputFiles, self.availableFilters, self.filtercopy),
+            EndCol(self.inputFiles, self.availableFilters, self.filtercopy)
         ]
 
         model = SegmentsModel(root, cols)
@@ -344,10 +344,10 @@ class QConcatenate(QFilterConfig):
 
     def reset(self, nocopy=False):
         if not nocopy:
-            self.shadow = self.filter.copy()
+            self.filtercopy = self.filter.copy()
 
         else:
-            self.shadow = self.filter
+            self.filtercopy = self.filter
 
         self._resetSourceControls()
         self._resetControls()
@@ -358,8 +358,8 @@ class QConcatenate(QFilterConfig):
         if isinstance(other, BaseFilter) and (self.filter in other.dependencies or self.filter is other):
             return False
 
-        if len(self.shadow):
-            first = self.shadow[0]
+        if len(self.filtercopy):
+            first = self.filtercopy[0]
 
             if first.type != other.type:
                 return False

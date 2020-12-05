@@ -70,35 +70,35 @@ class QCrossFade(QFilterConfig):
 
     def setSource1Fade(self, value):
         if value:
-            self.shadow.flags &= ~1
+            self.filtercopy.flags &= ~1
 
         else:
-            self.shadow.flags |= 1
+            self.filtercopy.flags |= 1
 
-        if self.shadow.prev is not None and self.shadow.prev.type == "video":
+        if self.filtercopy.prev is not None and self.filtercopy.prev.type == "video":
             self.setFrame(self.frameSelect.slider.value())
 
         self.isModified()
 
     def setSource2Fade(self, value):
         if value:
-            self.shadow.flags &= ~2
+            self.filtercopy.flags &= ~2
 
         else:
-            self.shadow.flags |= 2
+            self.filtercopy.flags |= 2
 
-        if self.shadow.prev is not None and self.shadow.prev.type == "video":
+        if self.filtercopy.prev is not None and self.filtercopy.prev.type == "video":
             self.setFrame(self.frameSelect.slider.value())
 
         self.isModified()
 
     def setFrame(self, n):
         try:
-            frame = next(self.shadow.iterFrames(n, whence="framenumber"))
+            frame = next(self.filtercopy.iterFrames(n, whence="framenumber"))
 
         except StopIteration:
             self.imageView.setFrame(
-                QPixmap(self.shadow.width, self.shadow.height))
+                QPixmap(self.filtercopy.width, self.filtercopy.height))
             return
 
         im = frame.to_image()
@@ -110,24 +110,24 @@ class QCrossFade(QFilterConfig):
 
     def _resetSourceControls(self):
         self._showSourceControls(self.inputFiles or self.availableFilters)
-        self._setSourceSelection(self.source1Selection, self.shadow.source1)
-        self._setSourceSelection(self.source2Selection, self.shadow.source2)
+        self._setSourceSelection(self.source1Selection, self.filtercopy.source1)
+        self._setSourceSelection(self.source2Selection, self.filtercopy.source2)
 
     def _resetControls(self):
-        if self.shadow is not None:
+        if self.filtercopy is not None:
             self.source1Fade.blockSignals(True)
-            self.source1Fade.setCheckState(0 if (1 & self.shadow.flags) else 2)
+            self.source1Fade.setCheckState(0 if (1 & self.filtercopy.flags) else 2)
             self.source1Fade.blockSignals(False)
 
             self.source2Fade.blockSignals(True)
-            self.source2Fade.setCheckState(0 if (2 & self.shadow.flags) else 2)
+            self.source2Fade.setCheckState(0 if (2 & self.filtercopy.flags) else 2)
             self.source2Fade.blockSignals(False)
 
-            self.frameSelect.setVisible(self.shadow.type == "video")
-            self.imageView.setVisible(self.shadow.type == "video")
+            self.frameSelect.setVisible(self.filtercopy.type == "video")
+            self.imageView.setVisible(self.filtercopy.type == "video")
 
-            if self.shadow.type == "video":
-                self.frameSelect.setPtsTimeArray(self.shadow.pts_time)
+            if self.filtercopy.type == "video":
+                self.frameSelect.setPtsTimeArray(self.filtercopy.pts_time)
                 self.setFrame(0)
 
             self.setEnabled(True)
@@ -148,20 +148,20 @@ class QCrossFade(QFilterConfig):
     def setFilterSource1(self, source):
         self.imageView.setVisible(
             source is not None and source.type == "video")
-        self.shadow.source1 = source
+        self.filtercopy.source1 = source
         self.isModified()
 
-        if source is not None and self.shadow.source2 is not None and source.type == "video":
+        if source is not None and self.filtercopy.source2 is not None and source.type == "video":
             self.frameSelect.setPtsTimeArray(source.pts_time)
             self.setFrame(self.frameSelect.slider.value())
 
     def setFilterSource2(self, source):
         self.imageView.setVisible(
             source is not None and source.type == "video")
-        self.shadow.source2 = source
+        self.filtercopy.source2 = source
         self.isModified()
 
-        if source is not None and self.shadow.source1 is not None and source.type == "video":
+        if source is not None and self.filtercopy.source1 is not None and source.type == "video":
             self.frameSelect.setPtsTimeArray(source.pts_time)
             self.setFrame(self.frameSelect.slider.value())
 
@@ -172,21 +172,21 @@ class QCrossFade(QFilterConfig):
         if isinstance(other, BaseFilter) and self.filter in other.dependencies:
             return False
 
-        if self.shadow.source2 is None:
+        if self.filtercopy.source2 is None:
             return other.type in ("video", "audio")
 
         if other.type is None:
             return True
 
-        elif self.shadow.source2.type == "video":
-            return self.shadow.source2.framecount == other.framecount and \
-                self.shadow.source2.width == other.width and \
-                self.shadow.source2.height == other.height and \
-                (abs(self.shadow.source2.pts_time - other.pts_time) < 0.008).all()
+        elif self.filtercopy.source2.type == "video":
+            return self.filtercopy.source2.framecount == other.framecount and \
+                self.filtercopy.source2.width == other.width and \
+                self.filtercopy.source2.height == other.height and \
+                (abs(self.filtercopy.source2.pts_time - other.pts_time) < 0.008).all()
 
-        elif self.shadow.source2.type == "audio":
-            return self.shadow.source2.channels == other.channels and \
-                abs(self.shadow.source2.duration - other.duration) < 0.00001
+        elif self.filtercopy.source2.type == "audio":
+            return self.filtercopy.source2.channels == other.channels and \
+                abs(self.filtercopy.source2.duration - other.duration) < 0.00001
 
     def isValidSource2(self, other):
         if other is self.filter:
@@ -198,15 +198,15 @@ class QCrossFade(QFilterConfig):
         if other.type is None:
             return True
 
-        if self.shadow.source1 is None:
+        if self.filtercopy.source1 is None:
             return other.type in ("video", "audio")
 
-        elif self.shadow.source1.type == "video":
-            return self.shadow.source1.framecount == other.framecount and \
-                self.shadow.source1.width == other.width and \
-                self.shadow.source1.height == other.height and \
-                (abs(self.shadow.source1.pts_time - other.pts_time) < 0.008).all()
+        elif self.filtercopy.source1.type == "video":
+            return self.filtercopy.source1.framecount == other.framecount and \
+                self.filtercopy.source1.width == other.width and \
+                self.filtercopy.source1.height == other.height and \
+                (abs(self.filtercopy.source1.pts_time - other.pts_time) < 0.008).all()
 
-        elif self.shadow.source1.type == "audio":
-            return self.shadow.source1.channels == other.channels and \
-                abs(self.shadow.source1.duration - other.duration) < 0.00001
+        elif self.filtercopy.source1.type == "audio":
+            return self.filtercopy.source1.channels == other.channels and \
+                abs(self.filtercopy.source1.duration - other.duration) < 0.00001

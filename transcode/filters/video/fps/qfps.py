@@ -63,10 +63,10 @@ class FpsDlg(QFilterConfig):
         else:
             value = float(value)
 
-        self.shadow.rate = value
+        self.filtercopy.rate = value
         self.isModified()
 
     def _resetControls(self):
         self.fpsEdit.blockSignals(True)
-        self.fpsEdit.setText(f"{self.shadow.rate}")
+        self.fpsEdit.setText(f"{self.filtercopy.rate}")
         self.fpsEdit.blockSignals(False)

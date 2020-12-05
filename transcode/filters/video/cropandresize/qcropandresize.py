@@ -305,9 +305,6 @@ class QResize(QWidget):
         painter.drawLine(x0, y0 + H - self.cropBottom.value()
                          * zoom, x0 + W, y0 + H - self.cropBottom.value()*zoom)
 
-# class ShadowZone(BaseShadowZone, CropZone):
-    # pass
-
 
 class CropDlg(QFilterConfig):
     allowedtypes = ("video",)
@@ -345,8 +342,8 @@ class CropDlg(QFilterConfig):
 
     @pyqtSlot(int, QTime)
     def loadFrame(self, n, t):
-        if self.shadow.prev is not None:
-            frame = next(self.shadow.prev.iterFrames(n, whence="framenumber"))
+        if self.filtercopy.prev is not None:
+            frame = next(self.filtercopy.prev.iterFrames(n, whence="framenumber"))
             im = frame.to_image()
             pixmap = im.toqpixmap()
             self.cropWidget.setFrame(pixmap)
@@ -362,37 +359,37 @@ class CropDlg(QFilterConfig):
                        self.slider.currentTime.time())
 
     def _resetControlMaximums(self):
-        if self.shadow.prev is not None:
+        if self.filtercopy.prev is not None:
             self.cropWidget.cropTop.setMaximum(
-                self.shadow.prev.height - self.shadow.cropbottom - 2)
+                self.filtercopy.prev.height - self.filtercopy.cropbottom - 2)
             self.cropWidget.cropBottom.setMaximum(
-                self.shadow.prev.height - self.shadow.croptop - 2)
+                self.filtercopy.prev.height - self.filtercopy.croptop - 2)
             self.cropWidget.cropRight.setMaximum(
-                self.shadow.prev.width - self.shadow.cropleft - 2)
+                self.filtercopy.prev.width - self.filtercopy.cropleft - 2)
             self.cropWidget.cropLeft.setMaximum(
-                self.shadow.prev.width - self.shadow.cropright - 2)
+                self.filtercopy.prev.width - self.filtercopy.cropright - 2)
 
     def _resetControls(self):
         self.cropWidget.cropTop.blockSignals(True)
-        self.cropWidget.cropTop.setValue(self.shadow.croptop)
+        self.cropWidget.cropTop.setValue(self.filtercopy.croptop)
         self.cropWidget.cropTop.blockSignals(False)
 
         self.cropWidget.cropBottom.blockSignals(True)
-        self.cropWidget.cropBottom.setValue(self.shadow.cropbottom)
+        self.cropWidget.cropBottom.setValue(self.filtercopy.cropbottom)
         self.cropWidget.cropBottom.blockSignals(False)
 
         self.cropWidget.cropLeft.blockSignals(True)
-        self.cropWidget.cropLeft.setValue(self.shadow.cropleft)
+        self.cropWidget.cropLeft.setValue(self.filtercopy.cropleft)
         self.cropWidget.cropLeft.blockSignals(False)
 
         self.cropWidget.cropRight.blockSignals(True)
-        self.cropWidget.cropRight.setValue(self.shadow.cropright)
+        self.cropWidget.cropRight.setValue(self.filtercopy.cropright)
         self.cropWidget.cropRight.blockSignals(False)
 
-        if self.shadow.prev is not None:
-            self.cropWidget.setFrameWidth(self.shadow.prev.width)
-            self.cropWidget.setFrameHeight(self.shadow.prev.height)
-            self.slider.setPtsTimeArray(self.shadow.prev.pts_time)
+        if self.filtercopy.prev is not None:
+            self.cropWidget.setFrameWidth(self.filtercopy.prev.width)
+            self.cropWidget.setFrameHeight(self.filtercopy.prev.height)
+            self.slider.setPtsTimeArray(self.filtercopy.prev.pts_time)
             self.loadFrame(self.slider.slider.value(), QTime())
 
         else:
@@ -402,22 +399,22 @@ class CropDlg(QFilterConfig):
 
     @pyqtSlot(int)
     def setCropTop(self, croptop):
-        self.shadow.croptop = croptop
+        self.filtercopy.croptop = croptop
         self.isModified()
 
     @pyqtSlot(int)
     def setCropBottom(self, cropbottom):
-        self.shadow.cropbottom = cropbottom
+        self.filtercopy.cropbottom = cropbottom
         self.isModified()
 
     @pyqtSlot(int)
     def setCropLeft(self, cropleft):
-        self.shadow.cropleft = cropleft
+        self.filtercopy.cropleft = cropleft
         self.isModified()
 
     @pyqtSlot(int)
     def setCropRight(self, cropright):
-        self.shadow.cropright = cropright
+        self.filtercopy.cropright = cropright
         self.isModified()
 
 
@@ -477,47 +474,47 @@ class CropZoneDlg(ZoneDlg):
             layout.addLayout(hlayout)
 
     def _resetControlMaximums(self):
-        if self.shadow.prev is not None:
+        if self.filtercopy.prev is not None:
             self.cropWidget.cropTop.setMaximum(
-                self.shadow.prev.height - self.shadowzone.cropbottom - 2)
+                self.filtercopy.prev.height - self.zonecopy.cropbottom - 2)
             self.cropWidget.cropBottom.setMaximum(
-                self.shadow.prev.height - self.shadowzone.croptop - 2)
+                self.filtercopy.prev.height - self.zonecopy.croptop - 2)
             self.cropWidget.cropRight.setMaximum(
-                self.shadow.prev.width - self.shadowzone.cropleft - 2)
+                self.filtercopy.prev.width - self.zonecopy.cropleft - 2)
             self.cropWidget.cropLeft.setMaximum(
-                self.shadow.prev.width - self.shadowzone.cropright - 2)
+                self.filtercopy.prev.width - self.zonecopy.cropright - 2)
 
     def _resetZoneControls(self):
         self.cropWidget.cropTop.blockSignals(True)
-        self.cropWidget.cropTop.setValue(self.shadowzone.croptop)
+        self.cropWidget.cropTop.setValue(self.zonecopy.croptop)
         self.cropWidget.cropTop.blockSignals(False)
 
         self.cropWidget.cropBottom.blockSignals(True)
-        self.cropWidget.cropBottom.setValue(self.shadowzone.cropbottom)
+        self.cropWidget.cropBottom.setValue(self.zonecopy.cropbottom)
         self.cropWidget.cropBottom.blockSignals(False)
 
         self.cropWidget.cropLeft.blockSignals(True)
-        self.cropWidget.cropLeft.setValue(self.shadowzone.cropleft)
+        self.cropWidget.cropLeft.setValue(self.zonecopy.cropleft)
         self.cropWidget.cropLeft.blockSignals(False)
 
         self.cropWidget.cropRight.blockSignals(True)
-        self.cropWidget.cropRight.setValue(self.shadowzone.cropright)
+        self.cropWidget.cropRight.setValue(self.zonecopy.cropright)
         self.cropWidget.cropRight.blockSignals(False)
 
     def _resetGlobalControls(self):
         self.resizeWidget.height.blockSignals(True)
-        self.resizeWidget.height.setValue(self.shadow.height or 0)
+        self.resizeWidget.height.setValue(self.filtercopy.height or 0)
         self.resizeWidget.height.blockSignals(False)
 
         self.resizeWidget.width.blockSignals(True)
-        self.resizeWidget.width.setValue(self.shadow.width or 0)
+        self.resizeWidget.width.setValue(self.filtercopy.width or 0)
         self.resizeWidget.width.blockSignals(False)
 
         self.resizeWidget.sar.blockSignals(True)
-        self.resizeWidget.sar.setText(str(self.shadow.sar))
+        self.resizeWidget.sar.setText(str(self.filtercopy.sar))
         self.resizeWidget.sar.blockSignals(False)
 
-        idx = self.resizeWidget.resample.findData(self.shadow.sar)
+        idx = self.resizeWidget.resample.findData(self.filtercopy.sar)
 
         if idx >= 0:
             self.resizeWidget.resample.blockSignals(True)
@@ -554,36 +551,36 @@ class CropZoneDlg(ZoneDlg):
 
     @pyqtSlot(int)
     def setCropTop(self, croptop):
-        self.shadowzone.croptop = croptop
+        self.zonecopy.croptop = croptop
         self.zoneModified()
 
     @pyqtSlot(int)
     def setCropBottom(self, cropbottom):
-        self.shadowzone.cropbottom = cropbottom
+        self.zonecopy.cropbottom = cropbottom
         self.zoneModified()
 
     @pyqtSlot(int)
     def setCropLeft(self, cropleft):
-        self.shadowzone.cropleft = cropleft
+        self.zonecopy.cropleft = cropleft
         self.zoneModified()
 
     @pyqtSlot(int)
     def setCropRight(self, cropright):
-        self.shadowzone.cropright = cropright
+        self.zonecopy.cropright = cropright
         self.zoneModified()
 
     @pyqtSlot(int)
     def setHeight(self, height):
-        self.shadow.height = height or None
+        self.filtercopy.height = height or None
         self.isModified()
 
     @pyqtSlot(int)
     def setWidth(self, width):
-        self.shadow.width = width or None
+        self.filtercopy.width = width or None
         self.isModified()
 
     def zoneModified(self):
-        if self._mode == 2 and self.shadow.prev is not None:
+        if self._mode == 2 and self.filtercopy.prev is not None:
             self.loadFrame(self.slider.slider.value(),
                            self.slider.currentTime.time())
 
@@ -592,7 +589,7 @@ class CropZoneDlg(ZoneDlg):
     def zoneNotModified(self):
         super().zoneNotModified()
 
-        if self._mode == 2 and self.shadow.prev is not None:
+        if self._mode == 2 and self.filtercopy.prev is not None:
             self.loadFrame(self.slider.slider.value(),
                            self.slider.currentTime.time())
 
@@ -613,13 +610,13 @@ class CropZoneDlg(ZoneDlg):
         else:
             sar = float(sar)
 
-        self.shadow.sar = sar
+        self.filtercopy.sar = sar
         self.isModified()
 
     @pyqtSlot(int)
     def setResample(self, resample):
         resample = self.resizeWidget.resample.currentData()
-        self.shadow.resample = resample
+        self.filtercopy.resample = resample
         self.isModified()
 
     def _prevChanged(self, source):
@@ -628,10 +625,10 @@ class CropZoneDlg(ZoneDlg):
         self.loadFrame(self.slider.slider.value(),
                        self.slider.currentTime.time())
 
-        if self.shadow.height is None:
+        if self.filtercopy.height is None:
             self.resizeWidget.height.setValue(source.height)
 
-        if self.shadow.width is None:
+        if self.filtercopy.width is None:
             self.resizeWidget.width.setValue(source.width)
 
 
@@ -672,18 +669,18 @@ class ResizeDlg(QFilterConfig):
 
     def _resetControls(self):
         self.resizeWidget.height.blockSignals(True)
-        self.resizeWidget.height.setValue(self.shadow.height or 0)
+        self.resizeWidget.height.setValue(self.filtercopy.height or 0)
         self.resizeWidget.height.blockSignals(False)
 
         self.resizeWidget.width.blockSignals(True)
-        self.resizeWidget.width.setValue(self.shadow.width or 0)
+        self.resizeWidget.width.setValue(self.filtercopy.width or 0)
         self.resizeWidget.width.blockSignals(False)
 
         self.resizeWidget.sar.blockSignals(True)
-        self.resizeWidget.sar.setText(str(self.shadow.sar))
+        self.resizeWidget.sar.setText(str(self.filtercopy.sar))
         self.resizeWidget.sar.blockSignals(False)
 
-        idx = self.resizeWidget.resample.findData(self.shadow.sar)
+        idx = self.resizeWidget.resample.findData(self.filtercopy.sar)
 
         if idx >= 0:
             self.resizeWidget.resample.blockSignals(True)
@@ -691,20 +688,20 @@ class ResizeDlg(QFilterConfig):
             self.resizeWidget.resample.blockSignals(False)
 
     def _prevChanged(self, source):
-        if self.shadow.height is None:
+        if self.filtercopy.height is None:
             self.resizeWidget.height.setValue(source.height)
 
-        if self.shadow.width is None:
+        if self.filtercopy.width is None:
             self.resizeWidget.width.setValue(source.width)
 
     @pyqtSlot(int)
     def setHeight(self, height):
-        self.shadow.height = height or None
+        self.filtercopy.height = height or None
         self.isModified()
 
     @pyqtSlot(int)
     def setWidth(self, width):
-        self.shadow.width = width or None
+        self.filtercopy.width = width or None
         self.isModified()
 
     @pyqtSlot(str)
@@ -721,13 +718,13 @@ class ResizeDlg(QFilterConfig):
         else:
             sar = float(sar)
 
-        self.shadow.sar = sar
+        self.filtercopy.sar = sar
         self.isModified()
 
     @pyqtSlot(int)
     def setResample(self, resample):
         resample = self.resizeWidget.resample.currentData()
-        self.shadow.resample = resample
+        self.filtercopy.resample = resample
         self.isModified()
 
 

@@ -40,15 +40,15 @@ class QScenes(ZoneDlg):
 
     def _resetGlobalControls(self):
         self.fixPtsCheckBox.blockSignals(True)
-        self.fixPtsCheckBox.setCheckState(2 if self.shadow.fixpts else 0)
+        self.fixPtsCheckBox.setCheckState(2 if self.filtercopy.fixpts else 0)
         self.fixPtsCheckBox.blockSignals(False)
 
     def toggleFixPts(self, checkstate):
         if checkstate == Qt.Checked:
-            self.shadow.fixpts = 1
+            self.filtercopy.fixpts = 1
 
         else:
-            self.shadow.fixpts = 0
+            self.filtercopy.fixpts = 0
 
         self.isModified()
 

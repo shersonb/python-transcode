@@ -16,69 +16,14 @@ from ..filters.base import BaseFilter
 from av import VideoFrame
 
 
-class BaseShadowZone(object):
-    def __init__(self, zone):
-        self._zone = zone
-        super().__init__(zone)
-        self.__setstate__(zone.__getstate__())
-
-    @property
-    def src_start(self):
-        return self._zone.src_start
-
-    @property
-    def src_end(self):
-        return self._zone.src_end
-
-    @property
-    def prev_start(self):
-        return self._zone.prev_start
-
-    @property
-    def prev_end(self):
-        return self._zone.prev_end
-
-    @property
-    def dest_start(self):
-        return self._zone.dest_start
-
-    @property
-    def dest_end(self):
-        return self._zone.dest_end
-
-    @property
-    def prev(self):
-        return self._zone.prev
-
-    @prev.setter
-    def prev(self, value):
-        pass
-
-    @property
-    def next(self):
-        return self._zone.next
-
-    @next.setter
-    def next(self, value):
-        pass
-
-    @property
-    def parent(self):
-        return self._zone.parent
-
-    @parent.setter
-    def parent(self, value):
-        pass
-
-
 class ZoneDlg(QFilterConfig):
     zonename = "Zone"
     zoneChanged = pyqtSignal(Zone)
     contentsModified = pyqtSignal()
 
     def __init__(self, *args, **kwargs):
-        self.shadow = None
-        self.shadowzone = None
+        self.filtercopy = None
+        self.zonecopy = None
         self._mode = 2
         super().__init__(*args, **kwargs)
         self.toggleZoneAct = QAction("&Toggle", self, shortcut="Ctrl+T",
@@ -222,7 +167,7 @@ class ZoneDlg(QFilterConfig):
             layout.addLayout(sublayout)
 
     def _resetControls(self):
-        self.setZone(self.shadow[0])
+        self.setZone(self.filtercopy[0])
         self._resetGlobalControls()
 
     def setMode(self, mode):
@@ -231,36 +176,36 @@ class ZoneDlg(QFilterConfig):
         if self.zone:
             if self._mode == 0:
                 if self.modeBox.currentData() == 1:
-                    if isinstance(self.shadow.prev, BaseFilter):
-                        idxmap = self.shadow.prev.cumulativeIndexMap
+                    if isinstance(self.filtercopy.prev, BaseFilter):
+                        idxmap = self.filtercopy.prev.cumulativeIndexMap
 
                     else:
                         idxmap = None
 
                 if self.modeBox.currentData() == 2:
-                    idxmap = self.shadow.cumulativeIndexMap
+                    idxmap = self.filtercopy.cumulativeIndexMap
 
             elif self._mode == 1:
                 if self.modeBox.currentData() == 0:
-                    if isinstance(self.shadow.prev, BaseFilter):
-                        idxmap = self.shadow.prev.cumulativeIndexReverseMap
+                    if isinstance(self.filtercopy.prev, BaseFilter):
+                        idxmap = self.filtercopy.prev.cumulativeIndexReverseMap
 
                     else:
                         idxmap = None
 
                 if self.modeBox.currentData() == 2:
-                    idxmap = self.shadow.indexMap
+                    idxmap = self.filtercopy.indexMap
 
             elif self._mode == 2:
                 if self.modeBox.currentData() == 0:
-                    if isinstance(self.shadow, BaseFilter):
-                        idxmap = self.shadow.cumulativeIndexReverseMap
+                    if isinstance(self.filtercopy, BaseFilter):
+                        idxmap = self.filtercopy.cumulativeIndexReverseMap
 
                     else:
                         idxmap = None
 
                 if self.modeBox.currentData() == 1:
-                    idxmap = self.shadow.reverseIndexMap
+                    idxmap = self.filtercopy.reverseIndexMap
 
         if idxmap is None:
             m = n
@@ -316,28 +261,28 @@ class ZoneDlg(QFilterConfig):
         self.slider.blockSignals(True)
 
         if self._mode == 0:
-            self.slider.setPtsTimeArray(self.shadow.source.pts_time)
-            self.slider.setMinimum(self.shadowzone.src_start)
-            self.slider.setMaximum(self.shadowzone.src_end - 1)
+            self.slider.setPtsTimeArray(self.filtercopy.source.pts_time)
+            self.slider.setMinimum(self.zonecopy.src_start)
+            self.slider.setMaximum(self.zonecopy.src_end - 1)
 
         if self._mode == 1:
-            self.slider.setPtsTimeArray(self.shadow.prev.pts_time)
-            self.slider.setMinimum(self.shadowzone.prev_start)
-            self.slider.setMaximum(self.shadowzone.prev_end - 1)
+            self.slider.setPtsTimeArray(self.filtercopy.prev.pts_time)
+            self.slider.setMinimum(self.zonecopy.prev_start)
+            self.slider.setMaximum(self.zonecopy.prev_end - 1)
 
         if self._mode == 2:
-            pts_time = self.shadow.pts_time
+            pts_time = self.filtercopy.pts_time
 
-            if self.shadowzone is not None:
+            if self.zonecopy is not None:
                 pts_time = concatenate((
-                    pts_time[:self.shadowzone.dest_start],
-                    self.shadowzone.pts_time,
-                    pts_time[self.shadowzone.dest_end:]
+                    pts_time[:self.zonecopy.dest_start],
+                    self.zonecopy.pts_time,
+                    pts_time[self.zonecopy.dest_end:]
                 ))
 
             self.slider.setPtsTimeArray(pts_time)
-            self.slider.setMinimum(self.shadowzone.dest_start)
-            self.slider.setMaximum(self.shadowzone.dest_end - 1)
+            self.slider.setMinimum(self.zonecopy.dest_start)
+            self.slider.setMaximum(self.zonecopy.dest_end - 1)
 
         self.slider.blockSignals(False)
 
@@ -345,9 +290,9 @@ class ZoneDlg(QFilterConfig):
         self.zone = zone
 
         if zone is not None:
-            self.shadowzone = zone.copy()
+            self.zonecopy = zone.copy()
 
-            if self.shadow.prev is not None:
+            if self.filtercopy.prev is not None:
                 self._updateSliderInterval()
                 self.slider.slider.setValue(self.slider.slider.minimum())
                 self.loadFrame(
@@ -375,9 +320,9 @@ class ZoneDlg(QFilterConfig):
     @pyqtSlot()
     def toggleZone(self):
         n = self.slider.slider.value()
-        newzone = (self._mode == 0 and n > self.shadowzone.src_start) or \
-            (self._mode == 1 and n > self.shadowzone.prev_start) or \
-            (self._mode == 2 and n > self.shadowzone.dest_start)
+        newzone = (self._mode == 0 and n > self.zonecopy.src_start) or \
+            (self._mode == 1 and n > self.zonecopy.prev_start) or \
+            (self._mode == 2 and n > self.zonecopy.dest_start)
 
         if newzone and self.zonemodified:
             answer = self.askApplyZone()
@@ -392,51 +337,51 @@ class ZoneDlg(QFilterConfig):
             return
 
         if self._mode == 0:
-            if n > self.shadowzone.src_start:
-                J, zone = self.shadow.insertZoneAt(int(n))
+            if n > self.zonecopy.src_start:
+                J, zone = self.filtercopy.insertZoneAt(int(n))
                 self.setZone(zone)
 
             else:
-                prevzone = self.shadowzone.prev
-                self.shadow.removeZoneAt(self.shadowzone.src_start)
+                prevzone = self.zonecopy.prev
+                self.filtercopy.removeZoneAt(self.zonecopy.src_start)
                 self.setZone(prevzone)
                 self.slider.slider.setValue(n)
 
         elif self._mode == 1:
             if n > self.zone.prev_start:
-                if isinstance(self.shadow.prev, BaseFilter):
+                if isinstance(self.filtercopy.prev, BaseFilter):
                     if n > 0:
-                        m = self.shadow.prev.cumulativeIndexReverseMap[n-1] + 1
+                        m = self.filtercopy.prev.cumulativeIndexReverseMap[n-1] + 1
 
                     else:
-                        m = self.shadow.prev.cumulativeIndexReverseMap[n]
+                        m = self.filtercopy.prev.cumulativeIndexReverseMap[n]
 
                 else:
                     m = n
 
-                J, zone = self.shadow.insertZoneAt(int(m))
+                J, zone = self.filtercopy.insertZoneAt(int(m))
                 self.setZone(zone)
 
             else:
                 prevzone = self.zone.prev
-                self.shadow.removeZoneAt(self.shadowzone.src_start)
+                self.filtercopy.removeZoneAt(self.zonecopy.src_start)
                 self.setZone(prevzone)
                 self.slider.setValue(n)
 
         elif self._mode == 2:
             if n > self.zone.dest_start:
                 if n > 0:
-                    m = self.shadow.cumulativeIndexReverseMap[n-1] + 1
+                    m = self.filtercopy.cumulativeIndexReverseMap[n-1] + 1
 
                 else:
-                    m = self.shadow.cumulativeIndexReverseMap[n]
+                    m = self.filtercopy.cumulativeIndexReverseMap[n]
 
-                J, zone = self.shadow.insertZoneAt(int(m))
+                J, zone = self.filtercopy.insertZoneAt(int(m))
                 self.setZone(zone)
 
             else:
                 prevzone = self.zone.prev
-                self.shadow.removeZoneAt(self.shadowzone.src_start)
+                self.filtercopy.removeZoneAt(self.zonecopy.src_start)
                 self.setZone(prevzone)
                 self.slider.setValue(n)
 
@@ -474,17 +419,17 @@ class ZoneDlg(QFilterConfig):
             n = self.slider.slider.value()
 
         if self._mode == 0:
-            frame = next(self.shadow.source.iterFrames(
+            frame = next(self.filtercopy.source.iterFrames(
                 n, whence="framenumber"))
 
-            if n > self.shadowzone.src_start:
+            if n > self.zonecopy.src_start:
                 self.toggleZoneBtn.setText(f"&Insert {self.zonename} Here")
 
             else:
                 self.toggleZoneBtn.setText(f"&Remove {self.zonename} Here")
 
         elif self._mode == 1:
-            frame = next(self.shadow.prev.iterFrames(n, whence="framenumber"))
+            frame = next(self.filtercopy.prev.iterFrames(n, whence="framenumber"))
 
             if n > self.zone.prev_start:
                 self.toggleZoneBtn.setText(f"&Insert {self.zonename} Here")
@@ -495,7 +440,7 @@ class ZoneDlg(QFilterConfig):
         elif self._mode == 2:
             frame = self.generatePreview(n)
 
-            if n > self.shadowzone.dest_start:
+            if n > self.zonecopy.dest_start:
                 self.toggleZoneBtn.setText(f"&Insert {self.zonename} Here")
 
             else:
@@ -509,20 +454,20 @@ class ZoneDlg(QFilterConfig):
 
     def generatePreview(self, n):
         try:
-            return next(self.shadowzone.iterFrames(n))
+            return next(self.zonecopy.iterFrames(n))
 
         except StopIteration:
-            return VideoFrame(width=self.shadow.width, height=self.shadow.height)
+            return VideoFrame(width=self.filtercopy.width, height=self.filtercopy.height)
 
     @pyqtSlot()
     def applyZone(self):
-        self.zone.__setstate__(self.shadowzone.__getstate__())
+        self.zone.__setstate__(self.zonecopy.__getstate__())
         self.zoneNotModified()
         self.isModified()
 
     @pyqtSlot()
     def resetZone(self):
-        self.shadowzone.__setstate__(self.filter.__getstate__())
+        self.zonecopy.__setstate__(self.filter.__getstate__())
         self._resetZoneControls()
         self.zoneNotModified()
 
@@ -535,7 +480,7 @@ class ZoneDlg(QFilterConfig):
         if hasattr(self, "resetZoneBtn") and self.resetZoneBtn is not None:
             self.resetZoneBtn.setDisabled(False)
 
-        if self.filter is not self.shadow:
+        if self.filter is not self.filtercopy:
             self.isModified()
 
     def zoneNotModified(self):

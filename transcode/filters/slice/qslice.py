@@ -230,37 +230,37 @@ class QSlice(QFilterConfig):
 
     @pyqtSlot(int, float)
     def setStart(self, n, t):
-        self.shadow.startpts = t
+        self.filtercopy.startpts = t
         self.updateStartImage()
         self.isModified()
 
     @pyqtSlot(int, float)
     def setEnd(self, n, t):
-        if self.shadow.prev is not None:
-            if abs(t - self.shadow.prev.duration) < 10**-9:
-                self.shadow.endpts = None
+        if self.filtercopy.prev is not None:
+            if abs(t - self.filtercopy.prev.duration) < 10**-9:
+                self.filtercopy.endpts = None
 
             else:
-                self.shadow.endpts = t
+                self.filtercopy.endpts = t
 
         else:
-            self.shadow.endpts = t
+            self.filtercopy.endpts = t
 
         self.updateEndImage()
         self.isModified()
 
     def updateStartImage(self):
-        if self.shadow.prev is not None and self.shadow.prev.type == "video":
-            n = search(self.shadow.prev.pts_time,
-                       self.shadow.startpts + 0.0005, "-")
+        if self.filtercopy.prev is not None and self.filtercopy.prev.type == "video":
+            n = search(self.filtercopy.prev.pts_time,
+                       self.filtercopy.startpts + 0.0005, "-")
 
             try:
-                frame = next(self.shadow.prev.iterFrames(
+                frame = next(self.filtercopy.prev.iterFrames(
                     n, whence="framenumber"))
 
             except StopIteration:
                 self.startImageView.setFrame(
-                    QPixmap(self.shadow.prev.width, self.shadow.prev.height))
+                    QPixmap(self.filtercopy.prev.width, self.filtercopy.prev.height))
                 return
 
             im = frame.to_image()
@@ -268,18 +268,18 @@ class QSlice(QFilterConfig):
             self.startImageView.setFrame(pixmap)
 
     def updateEndImage(self):
-        if self.shadow.prev is not None and self.shadow.prev.type == "video":
-            if self.shadow.endpts is not None:
-                n = search(self.shadow.prev.pts_time,
-                           self.shadow.endpts + 0.0005, "-")
+        if self.filtercopy.prev is not None and self.filtercopy.prev.type == "video":
+            if self.filtercopy.endpts is not None:
+                n = search(self.filtercopy.prev.pts_time,
+                           self.filtercopy.endpts + 0.0005, "-")
 
                 try:
-                    frame = next(self.shadow.prev.iterFrames(
+                    frame = next(self.filtercopy.prev.iterFrames(
                         n, whence="framenumber"))
 
                 except StopIteration:
                     self.endImageView.setFrame(
-                        QPixmap(self.shadow.prev.width, self.shadow.prev.height))
+                        QPixmap(self.filtercopy.prev.width, self.filtercopy.prev.height))
                     return
 
                 im = frame.to_image()
@@ -288,7 +288,7 @@ class QSlice(QFilterConfig):
 
             else:
                 self.endImageView.setFrame(
-                    QPixmap(self.shadow.prev.width, self.shadow.prev.height))
+                    QPixmap(self.filtercopy.prev.width, self.filtercopy.prev.height))
 
     def createNewFilterInstance(self):
         return Slice()
@@ -308,9 +308,9 @@ class QSlice(QFilterConfig):
         self.endImageView.setVisible(source.type == "video")
 
     def _resetControlMaximums(self):
-        if self.shadow.prev is not None:
+        if self.filtercopy.prev is not None:
             pts_time = concatenate(
-                (self.shadow.prev.pts_time, [float(self.shadow.prev.duration)]))
+                (self.filtercopy.prev.pts_time, [float(self.filtercopy.prev.duration)]))
             self.startSlider.blockSignals(True)
             self.startSlider.setPtsTimeArray(pts_time)
             self.startSlider.blockSignals(False)
@@ -319,29 +319,29 @@ class QSlice(QFilterConfig):
             self.endSlider.setPtsTimeArray(pts_time)
             self.endSlider.blockSignals(False)
 
-            if self.shadow.prev.type == "subtitle":
+            if self.filtercopy.prev.type == "subtitle":
                 self.startSlider.timeSelect.setMinimum(0)
                 self.endSlider.timeSelect.setMinimum(0)
                 self.startSlider.timeSelect.setMaximum(24*3600)
                 self.endSlider.timeSelect.setMaximum(24*3600)
 
     def _resetControls(self):
-        if self.shadow is not None:
+        if self.filtercopy is not None:
             self._resetControlMaximums()
 
             self.startSlider.blockSignals(True)
-            self.startSlider.timeSelect.setValue(self.shadow.startpts)
+            self.startSlider.timeSelect.setValue(self.filtercopy.startpts)
             self.startSlider.blockSignals(False)
 
             self.endSlider.blockSignals(True)
 
-            if self.shadow.endpts is not None:
-                self.endSlider.timeSelect.setValue(self.shadow.endpts)
+            if self.filtercopy.endpts is not None:
+                self.endSlider.timeSelect.setValue(self.filtercopy.endpts)
 
-            elif self.shadow.prev is not None:
-                if self.shadow.prev.type in ("video", "audio"):
+            elif self.filtercopy.prev is not None:
+                if self.filtercopy.prev.type in ("video", "audio"):
                     self.endSlider.timeSelect.setValue(
-                        float(self.shadow.prev.duration))
+                        float(self.filtercopy.prev.duration))
 
                 else:
                     self.endSlider.timeSelect.setValue(24*3600)

@@ -11,7 +11,7 @@ import threading
 
 from . import Levels, Zone
 from transcode.pyqtgui.qframetablecolumn import ZoneCol
-from transcode.pyqtgui.qzones import ZoneDlg, BaseShadowZone
+from transcode.pyqtgui.qzones import ZoneDlg
 import sys
 import traceback
 
@@ -412,7 +412,7 @@ class QLevels(ZoneDlg):
 
     def generatePreview(self, n):
         self.currentFrame = next(
-            self.shadow.prev.iterFrames(n, whence="framenumber"))
+            self.filtercopy.prev.iterFrames(n, whence="framenumber"))
         return super().generatePreview(n)
 
     def updateColors(self):
@@ -428,32 +428,32 @@ class QLevels(ZoneDlg):
             N = arange(256, dtype=float64)
             n = self.slider.slider.value()
 
-            if self.transitionCheckBox.checkState() and self.shadowzone.prev is not None and self.shadowzone.next is not None:
-                t = (n - self.shadowzone.prev_start + 1) / \
-                    (self.shadowzone.prev_framecount + 1)
-                rmin = (1 - t)*self.shadowzone.prev.rmin + \
-                    t*self.shadowzone.next.rmin
-                gmin = (1 - t)*self.shadowzone.prev.gmin + \
-                    t*self.shadowzone.next.gmin
-                bmin = (1 - t)*self.shadowzone.prev.bmin + \
-                    t*self.shadowzone.next.bmin
+    if self.transitionCheckBox.checkState() and self.zonecopy.prev is not None and self.zonecopy.next is not None:
+                t = (n - self.zonecopy.prev_start + 1) / \
+                    (self.zonecopy.prev_framecount + 1)
+                rmin = (1 - t)*self.zonecopy.prev.rmin + \
+                    t*self.zonecopy.next.rmin
+                gmin = (1 - t)*self.zonecopy.prev.gmin + \
+                    t*self.zonecopy.next.gmin
+                bmin = (1 - t)*self.zonecopy.prev.bmin + \
+                    t*self.zonecopy.next.bmin
 
-                rmax = (1 - t)*self.shadowzone.prev.rmax + \
-                    t*self.shadowzone.next.rmax
-                gmax = (1 - t)*self.shadowzone.prev.gmax + \
-                    t*self.shadowzone.next.gmax
-                bmax = (1 - t)*self.shadowzone.prev.bmax + \
-                    t*self.shadowzone.next.bmax
+                rmax = (1 - t)*self.zonecopy.prev.rmax + \
+                    t*self.zonecopy.next.rmax
+                gmax = (1 - t)*self.zonecopy.prev.gmax + \
+                    t*self.zonecopy.next.gmax
+                bmax = (1 - t)*self.zonecopy.prev.bmax + \
+                    t*self.zonecopy.next.bmax
 
-                rgamma = (1 - t)*self.shadowzone.prev.rgamma + \
-                    t*self.shadowzone.next.rgamma
-                ggamma = (1 - t)*self.shadowzone.prev.ggamma + \
-                    t*self.shadowzone.next.ggamma
-                bgamma = (1 - t)*self.shadowzone.prev.bgamma + \
-                    t*self.shadowzone.next.bgamma
+                rgamma = (1 - t)*self.zonecopy.prev.rgamma + \
+                    t*self.zonecopy.next.rgamma
+                ggamma = (1 - t)*self.zonecopy.prev.ggamma + \
+                    t*self.zonecopy.next.ggamma
+                bgamma = (1 - t)*self.zonecopy.prev.bgamma + \
+                    t*self.zonecopy.next.bgamma
 
-                gamma = (1 - t)*self.shadowzone.prev.gamma + \
-                    t*self.shadowzone.next.gamma
+                gamma = (1 - t)*self.zonecopy.prev.gamma + \
+                    t*self.zonecopy.next.gamma
             else:
                 rmin = self.rchan.minSpinBox.value()
                 gmin = self.gchan.minSpinBox.value()
@@ -484,21 +484,21 @@ class QLevels(ZoneDlg):
             self.nextColorLabel.setText(f"({R}, {G}, {B})")
 
     def analyzeZone(self):
-        dlg = ZoneAnalysis(self.shadowzone, self)
+        dlg = ZoneAnalysis(self.zonecopy, self)
         dlg.exec_()
         self.zoneModified()
 
-        if self.shadowzone.histogram is not None:
-            self.rchan.setHistogram(self.shadowzone.histogram[0])
-            self.gchan.setHistogram(self.shadowzone.histogram[1])
-            self.bchan.setHistogram(self.shadowzone.histogram[2])
+        if self.zonecopy.histogram is not None:
+            self.rchan.setHistogram(self.zonecopy.histogram[0])
+            self.gchan.setHistogram(self.zonecopy.histogram[1])
+            self.bchan.setHistogram(self.zonecopy.histogram[2])
 
             self.suggBtn.setEnabled(True)
             gamma = self.autogamma()
             self.suggBtn.setText(f"Suggestion: {gamma:.2f}")
 
     def autogamma(self):
-        zone = self.shadowzone
+        zone = self.zonecopy
         a = arange(0, 256, 0.25)
         I = -log(1-a/256)
         r, g, b = self.rchan.minSpinBox.value(
@@ -529,9 +529,9 @@ class QLevels(ZoneDlg):
         self.widgetValuesChanged()
 
     def _resetZoneControls(self):
-        zone = self.shadowzone
+        zone = self.zonecopy
 
-        if self.shadowzone.transition:
+        if self.zonecopy.transition:
             self.transitionCheckBox.blockSignals(True)
             self.transitionCheckBox.setChecked(True)
             self.transitionCheckBox.blockSignals(False)
@@ -608,8 +608,8 @@ class QLevels(ZoneDlg):
         self.updateStats()
 
     def updateStats(self):
-        if self.shadowzone.histogram is not None:
-            R, G, B = self.shadowzone.histogram
+        if self.zonecopy.histogram is not None:
+            R, G, B = self.zonecopy.histogram
             self.rchan.setHistogram(R)
             self.gchan.setHistogram(G)
             self.bchan.setHistogram(B)
@@ -618,24 +618,24 @@ class QLevels(ZoneDlg):
             gamma = self.autogamma()
             self.suggBtn.setText(f"Suggestion: {gamma:.2f}")
 
-            if not self.shadowzone.transition:
+            if not self.zonecopy.transition:
                 N = arange(0, 256, 0.25)
                 I = -log(1 - N/256)/log(2)
 
-                rmin = self.shadowzone.rmin
-                rmax = self.shadowzone.rmax
+                rmin = self.zonecopy.rmin
+                rmax = self.zonecopy.rmax
                 Nr = (N.clip(min=rmin, max=rmax - 0.25) - rmin)/(rmax - rmin)
-                Ir = -self.shadowzone.gamma*self.shadowzone.rgamma*log(1 - Nr)/log(2)
+                Ir = -self.zonecopy.gamma*self.zonecopy.rgamma*log(1 - Nr)/log(2)
 
-                gmin = self.shadowzone.gmin
-                gmax = self.shadowzone.gmax
+                gmin = self.zonecopy.gmin
+                gmax = self.zonecopy.gmax
                 Ng = (N.clip(min=gmin, max=gmax - 0.25) - gmin)/(gmax - gmin)
-                Ig = -self.shadowzone.gamma*self.shadowzone.ggamma*log(1 - Ng)/log(2)
+                Ig = -self.zonecopy.gamma*self.zonecopy.ggamma*log(1 - Ng)/log(2)
 
-                bmin = self.shadowzone.bmin
-                bmax = self.shadowzone.bmax
+                bmin = self.zonecopy.bmin
+                bmax = self.zonecopy.bmax
                 Nb = (N.clip(min=bmin, max=bmax - 0.25) - bmin)/(bmax - bmin)
-                Ib = -self.shadowzone.gamma*self.shadowzone.bgamma*log(1 - Nb)/log(2)
+                Ib = -self.zonecopy.gamma*self.zonecopy.bgamma*log(1 - Nb)/log(2)
 
                 self.redAvgIntensIn.setText(f"Avg Red Intensity: {(I*R).sum()/R.sum():.2f}")
                 self.greenAvgIntensIn.setText(f"Avg Green Intensity: {(I*G).sum()/G.sum():.2f}")
@@ -671,22 +671,22 @@ class QLevels(ZoneDlg):
             self.blueAvgIntensIn.setText("Avg Blue Intensity: —")
 
     def updateZoneValues(self):
-        self.shadowzone.transition = bool(self.transitionCheckBox.checkState())
+        self.zonecopy.transition = bool(self.transitionCheckBox.checkState())
 
-        if self.shadowzone is not None and not self.shadowzone.transition:
-            self.shadowzone.rmin = self.rchan.minSpinBox.value()
-            self.shadowzone.rgamma = self.rchan.gammaSpinBox.value()
-            self.shadowzone.rmax = self.rchan.maxSpinBox.value()
+        if self.zonecopy is not None and not self.zonecopy.transition:
+            self.zonecopy.rmin = self.rchan.minSpinBox.value()
+            self.zonecopy.rgamma = self.rchan.gammaSpinBox.value()
+            self.zonecopy.rmax = self.rchan.maxSpinBox.value()
 
-            self.shadowzone.gmin = self.gchan.minSpinBox.value()
-            self.shadowzone.ggamma = self.gchan.gammaSpinBox.value()
-            self.shadowzone.gmax = self.gchan.maxSpinBox.value()
+            self.zonecopy.gmin = self.gchan.minSpinBox.value()
+            self.zonecopy.ggamma = self.gchan.gammaSpinBox.value()
+            self.zonecopy.gmax = self.gchan.maxSpinBox.value()
 
-            self.shadowzone.bmin = self.bchan.minSpinBox.value()
-            self.shadowzone.bgamma = self.bchan.gammaSpinBox.value()
-            self.shadowzone.bmax = self.bchan.maxSpinBox.value()
+            self.zonecopy.bmin = self.bchan.minSpinBox.value()
+            self.zonecopy.bgamma = self.bchan.gammaSpinBox.value()
+            self.zonecopy.bmax = self.bchan.maxSpinBox.value()
 
-            self.shadowzone.gamma = self.gammaSpinBox.value()
+            self.zonecopy.gamma = self.gammaSpinBox.value()
 
         self.updateStats()
         self.loadFrame(self.slider.slider.value(),
@@ -697,7 +697,7 @@ class QLevels(ZoneDlg):
         self.updateZoneValues()
         self.zoneModified()
 
-        zone = self.shadowzone
+        zone = self.zonecopy
         self.rchan.histogram.setGamma(zone.rgamma*zone.gamma)
         self.gchan.histogram.setGamma(zone.ggamma*zone.gamma)
         self.bchan.histogram.setGamma(zone.bgamma*zone.gamma)
