@@ -476,14 +476,11 @@ class BaseFilter(object):
 
     @classmethod
     def QtInitialize(cls, parent=None):
-        self = cls()
-        dlg = self.QtDlg(parent)
-        dlg.setNewConfig(True)
-        return dlg
+        if cls.hasQtDlg():
+            return cls.QtDlgClass()(parent)
 
     def QtDlg(self, parent=None):
-        from PyQt5.QtWidgets import QWidget
-        dlg = self.QtDlgClass()(parent)
+        dlg = self.QtInitialize(parent)
         dlg.setFilter(self)
         return dlg
 
@@ -638,12 +635,6 @@ class FilterChain(llist, BaseFilter):
 
     def __hash__(self):
         return BaseFilter.__hash__(self)
-
-    def __deepcopy__(self, memo):
-        """
-        We want to keep the original reference to self.source.
-        """
-        return self.__class__(deepcopy(list(self), memo), source=self.source)
 
     @property
     def format(self):
