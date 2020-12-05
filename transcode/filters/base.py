@@ -152,7 +152,9 @@ class BaseFilter(object):
         else:
             source = self._source
 
-        if self.parent is not None:
+        parent = self.parent
+
+        if isinstance(parent, BaseFilter):
             return value or source or self.parent.prev
 
         return value or source
@@ -443,9 +445,16 @@ class BaseFilter(object):
             yield frame
 
     @property
-    def keyFrames(self):
-        if self.prev:
-            return self.prev.keyframes
+    def keyframes(self):
+        if len(self):
+            return self.end.keyframes
+
+        prev = self.prev
+
+        if isinstance(prev, BaseFilter):
+            return prev.keyframes
+
+        return set()
 
     def __next__(self):
         with self.lock:

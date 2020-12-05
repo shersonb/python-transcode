@@ -66,5 +66,5 @@ class TreeView(QTreeView):
                 if hasattr(col, "width"):
                     self.setColumnWidth(k, col.width)
 
-                if callable(col.itemDelegate):
+                if hasattr(col, "itemDelegate") and callable(col.itemDelegate):
                     self.setItemDelegateForColumn(k, col.itemDelegate(self))

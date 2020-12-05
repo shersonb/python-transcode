@@ -421,6 +421,17 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
     def source(self):
         raise AttributeError
 
+    @cached
+    def keyframes(self):
+        kf = set()
+        n = 0
+
+        for segment in self:
+            kf.update(k + n for k in segment.keyframes)
+            n += segment.framecount
+
+        return kf
+
     @staticmethod
     def QtDlgClass():
         from .qconcatenate import QConcatenate

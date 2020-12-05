@@ -106,6 +106,12 @@ class BaseVideoFilter(BaseFilter):
         except AttributeError:
             pass
 
+        try:
+            del self.keyframes
+
+        except AttributeError:
+            pass
+
         super().reset_cache(start, end)
 
     @cached
@@ -228,10 +234,22 @@ class BaseVideoFilter(BaseFilter):
             yield frame
 
     @property
-    def keyFrames(self):
-        if self.prev:
-            return self.prev.keyFrames
+    def prev_keyframes(self):
+        prev = self.prev
 
+        if isinstance(prev, BaseVideoFilter):
+            return prev.keyframes
+
+        return set()
+
+    @cached
+    def keyframes(self):
+        prev = self.prev_keyframes
+        kf = set(self.indexMap[numpy.int0(list(prev))])
+        return self.new_keyframes.union(prev)
+
+    @property
+    def new_keyframes(self):
         return set()
 
     def __next__(self):

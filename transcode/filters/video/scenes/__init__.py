@@ -291,22 +291,8 @@ class Scenes(zoned.ZonedFilter):
         return numpy.arange(self.prev.framecount)
 
     @property
-    def keyFrames(self):
-        if self.prev:
-            prev = self.prev.keyFrames
-            prevadj = set()
-
-            for k in prev:
-                try:
-                    while self.indexMap[k] < 0:
-                        k += 1
-
-                except IndexError:
-                    continue
-
-                prevadj.add(self.indexMap[k])
-
-        return prevadj.union({zone.dest_start for zone in self})
+    def new_keyframes(self):
+        return {zone.dest_start for zone in self}
 
     @staticmethod
     def QtDlgClass():
