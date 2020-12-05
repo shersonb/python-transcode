@@ -154,9 +154,6 @@ class LanguageCol(BaseInputCol):
 
     tooltip = display
 
-    def itemDelegate(self, parent):
-        return LanguageDelegate(parent)
-
 
 class InputTypeCol(BaseInputCol):
     width = 128
