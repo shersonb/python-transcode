@@ -34,20 +34,7 @@ class FiltersRoot(Node):
 
         elif action == Qt.CopyAction:
             for k, item in enumerate(items, row):
-                if item.value.hasQtDlg():
-                    dlg = item.value.QtInitialize()
-                    dlg.setSources(self.value.config.input_files, self.value)
-
-                    if dlg.exec_():
-                        filter = dlg.filter
-
-                    else:
-                        filter = None
-
-                else:
-                    filter = item.value()
-
-                model.insertRow(k, filter, index)
+                model.insertRow(k, item.value(), index)
 
         return True
 
