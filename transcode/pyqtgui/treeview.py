@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QTreeView, QMenu
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal
 import gc
 
 class TreeView(QTreeView):
@@ -67,4 +67,11 @@ class TreeView(QTreeView):
                     self.setColumnWidth(k, col.width)
 
                 if hasattr(col, "itemDelegate") and callable(col.itemDelegate):
-                    self.setItemDelegateForColumn(k, col.itemDelegate(self))
+                    delegate = col.itemDelegate(self)
+
+                    if hasattr(delegate, "contentsModified") and \
+                            isinstance(delegate.contentsModified, pyqtBoundSignal):
+                        delegate.contentsModified.connect(
+                            self.contentsModified)
+
+                    self.setItemDelegateForColumn(k, delegate)
