@@ -11,12 +11,12 @@ Further containers can be supported by placing a module in the transcode/contain
 the following classes:
 
 * Read support:
-** transcode.container.basereader.BaseReader
-** transcode.container.basereader.Track
+    * transcode.container.basereader.BaseReader
+    * transcode.container.basereader.Track
 
 * Write support:
-** transcode.container.basewriter.BaseWriter
-** transcode.container.basewriter.Track
+    * transcode.container.basewriter.BaseWriter
+    * transcode.container.basewriter.Track
 
 Opening a file for reading, with container automatically selected, **including a full scan**:
 
