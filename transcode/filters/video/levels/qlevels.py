@@ -428,7 +428,7 @@ class QLevels(ZoneDlg):
             N = arange(256, dtype=float64)
             n = self.slider.slider.value()
 
-    if self.transitionCheckBox.checkState() and self.zonecopy.prev is not None and self.zonecopy.next is not None:
+            if self.transitionCheckBox.checkState() and self.zonecopy.prev is not None and self.zonecopy.next is not None:
                 t = (n - self.zonecopy.prev_start + 1) / \
                     (self.zonecopy.prev_framecount + 1)
                 rmin = (1 - t)*self.zonecopy.prev.rmin + \
