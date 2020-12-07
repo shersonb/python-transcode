@@ -9,6 +9,7 @@ from collections import OrderedDict
 from ..basereader import BaseReader
 from .attachments import AttachmentRef
 from .uid import formatUID
+import random
 
 codecs = dict(
     hevc="V_MPEGH/ISO/HEVC",
@@ -602,3 +603,13 @@ class MatroskaWriter(basewriter.BaseWriter):
             exceptions.extend(self.attachments.validate())
 
         return exceptions
+
+    def _createTrack(self, source, filters=None, encoder=None):
+        existingUIDs = {track.trackUID for track in self.tracks}
+
+        UID = random.randint(1, 2**64 - 1)
+
+        while UID in existingUIDs:
+            UID = random.randint(1, 2**64 - 1)
+
+        return self.trackclass(source, filters, encoder, trackUID=UID)
