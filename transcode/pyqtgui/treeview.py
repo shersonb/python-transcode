@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QTreeView, QMenu
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal, QRect
 import gc
 
 class TreeView(QTreeView):
@@ -12,21 +12,81 @@ class TreeView(QTreeView):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.openContextMenu)
 
-    def dragMoveEvent(self, event):
-        super().dragMoveEvent(event)
+    def _getDropAction(self, event):
         supp = self.model().supportedDropActions()
         mod = event.keyboardModifiers()
+        internaldrag = event.source() is self
 
         if mod == Qt.NoModifier and supp & Qt.MoveAction and supp & Qt.CopyAction:
-            if event.source() is self:
-                #Internal MOVE
-                event.setDropAction(Qt.MoveAction)
+            if internaldrag:
+                return Qt.MoveAction
 
             else:
-                #Everything else is assumed to be COPY
-                event.setDropAction(Qt.CopyAction)
+                return Qt.CopyAction
 
+        elif mod == Qt.ControlModifier and supp & Qt.CopyAction:
+            return Qt.CopyAction
+
+        elif mod == Qt.ShiftModifier and supp & Qt.MoveAction:
+            return Qt.MoveAction
+
+        else:
+            return default
+
+    def dragMoveEvent(self, event):
+        super().dragMoveEvent(event)
+        action = self._getDropAction(event)
+        mimeData = event.mimeData()
+
+        if self._canDrop(event):
+            event.setDropAction(action)
             event.accept()
+
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        action = self._getDropAction(event)
+
+        if self._canDrop(event):
+            self._drop(event)
+
+    def _getDropArgs(self, event):
+        droppos = self.dropIndicatorPosition()
+        mimeData = event.mimeData()
+        pos = event.pos()
+        index = self.indexAt(pos)
+        col = index.column()
+        default = self.defaultDropAction()
+
+        if droppos == QTreeView.AboveItem:
+            parent = index.parent()
+            row = index.row()
+
+        elif droppos == QTreeView.BelowItem:
+            parent = index.parent()
+            row = index.row() + 1
+
+        elif droppos == QTreeView.OnItem:
+            parent = index
+            row = -1
+
+        else:
+            parent = self.model().index(0, 0).parent()
+            row = -1
+
+        return (mimeData, row, col, parent)
+
+
+    def _canDrop(self, event):
+        (data, row, column, parent) = self._getDropArgs(event)
+        action = self._getDropAction(event)
+        return self.model().canDropMimeData(data, action, row, column, parent)
+
+    def _drop(self, event):
+        (data, row, column, parent) = self._getDropArgs(event)
+        action = self._getDropAction(event)
+        return self.model().dropMimeData(data, action, row, column, parent)
 
     def openContextMenu(self, pos):
         selected = self.currentIndex()
