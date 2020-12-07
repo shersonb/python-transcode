@@ -128,7 +128,10 @@ class BaseVideoFilter(BaseFilter):
 
     @cached
     def duration(self):
-        return self.prev.duration
+        prev = self.prev
+
+        if prev is not None:
+            return prev.duration
 
     @cached
     def durations(self):
