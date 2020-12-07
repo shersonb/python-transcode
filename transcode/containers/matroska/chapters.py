@@ -1,6 +1,7 @@
 import matroska.chapters
 from transcode.util import ChildList, llist
 from collections import OrderedDict, UserList
+from .uid import formatUID
 
 
 class ChapterDisplay(object):
@@ -189,7 +190,7 @@ class ChapterAtom(object):
             self._timeEnd = None
 
     def prepare(self, logfile=None):
-        flagstrings = [f"UID {self.UID}"]
+        flagstrings = [f"UID {formatUID(self.UID)}"]
 
         if self.enabled:
             flagstrings.append("Enabled")
@@ -318,10 +319,10 @@ class EditionEntry(llist):
 
         if len(flagstrings):
             print(
-                f"Edition Entry {self.UID} ({', '.join(flagstrings)})", file=logfile)
+                f"Edition Entry {formatUID(self.UID)} ({', '.join(flagstrings)})", file=logfile)
 
         else:
-            print(f"Edition Entry {self.UID}", file=logfile)
+            print(f"Edition Entry {formatUID(self.UID)}", file=logfile)
 
         return matroska.chapters.EditionEntry(self.UID, self.hidden, self.default, [chapter.prepare(logfile) for chapter in self], self.ordered)
 

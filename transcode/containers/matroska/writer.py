@@ -8,6 +8,7 @@ import ebml
 from collections import OrderedDict
 from ..basereader import BaseReader
 from .attachments import AttachmentRef
+from .uid import formatUID
 
 codecs = dict(
     hevc="V_MPEGH/ISO/HEVC",
@@ -111,7 +112,7 @@ class Track(basewriter.Track):
                 codecs[self.codec])
 
         self.trackEntry.trackUID = self.trackUID
-        print(f"    Track UID: {self.trackUID}", file=logfile)
+        print(f"    Track UID: {formatUID(self.trackUID)}", file=logfile)
 
         self.trackEntry.defaultDuration = self.defaultDuration
 

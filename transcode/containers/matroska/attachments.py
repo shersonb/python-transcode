@@ -5,6 +5,7 @@ import pathlib
 import mimetypes
 import os
 from copy import deepcopy
+from .uid import formatUID
 
 
 class AttachmentRef(object):
@@ -141,7 +142,7 @@ class AttachedFile(object):
                 return f.read()
 
     def prepare(self, logfile=None):
-        print(f"Attachment {self.UID}", file=logfile)
+        print(f"Attachment {formatUID(self.UID)}", file=logfile)
         print(f"    Filename: {self.fileName}", file=logfile)
         print(f"    Mimetype: {self.mimeType}", file=logfile)
 

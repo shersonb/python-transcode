@@ -5,6 +5,7 @@ import os
 from xml.dom.minidom import Document, Element, Text, DocumentType
 import base64
 import regex
+from .uid import formatUID
 
 
 class SimpleTag(object):
@@ -284,19 +285,19 @@ class Tag(object):
 
         if len(self.tracks):
             print(
-                f"    Target Tracks: {', '.join(str(item.trackUID) for item in self.tracks)}", file=logfile)
+                f"    Target Tracks: {', '.join(formatUID(item.trackUID) for item in self.tracks)}", file=logfile)
 
         if len(self.editions):
             print(
-                f"    Target Editions: {', '.join(str(item) for item in self.editions)}", file=logfile)
+                f"    Target Editions: {', '.join(formatUID(item.UID) for item in self.editions)}", file=logfile)
 
         if len(self.chapters):
             print(
-                f"    Target Chapters: {', '.join(str(item) for item in self.chapters)}", file=logfile)
+                f"    Target Chapters: {', '.join(formatUID(item.UID) for item in self.chapters)}", file=logfile)
 
         if len(self.attachments):
             print(
-                f"    Target Attachments: {', '.join(str(item.UID) for item in self.attachments)}", file=logfile)
+                f"    Target Attachments: {', '.join(formatUID(item.UID) for item in self.attachments)}", file=logfile)
 
 
         targets = matroska.tags.Targets(self.typeValue, self.type,
@@ -331,28 +332,28 @@ class Tag(object):
         for item in self.tracks:
             child = Element("TrackUID")
             text = Text()
-            text.data = str(item)
+            text.data = str(item.trackUID)
             child.appendChild(text)
             targets.appendChild(child)
 
         for item in self.chapters:
             child = Element("ChapterUID")
             text = Text()
-            text.data = str(item)
+            text.data = str(item.UID)
             child.appendChild(text)
             targets.appendChild(child)
 
         for item in self.attachments:
             child = Element("AttachmentUID")
             text = Text()
-            text.data = str(item)
+            text.data = str(item.UID)
             child.appendChild(text)
             targets.appendChild(child)
 
         for item in self.editions:
             child = Element("EditionUID")
             text = Text()
-            text.data = str(item)
+            text.data = str(item.UID)
             child.appendChild(text)
             targets.appendChild(child)
 
