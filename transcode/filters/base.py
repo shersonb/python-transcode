@@ -760,7 +760,7 @@ class FilterChain(llist, BaseFilter):
     @property
     def reverseIndexMap(self):
         if self.end is not None:
-            return self.end.reverseIndexMap
+            return self.end.cumulativeIndexReverseMap
 
         elif self.prev is not None:
             return numpy.arange(0, self.prev.framecount, dtype=numpy.int0)
