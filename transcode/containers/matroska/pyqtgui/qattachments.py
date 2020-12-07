@@ -465,7 +465,7 @@ class SizeCol(BaseColumn):
             size = obj.source.attachment.fileData.size
 
         else:
-            size = os.stat(os.path.join(workingdir, obj.source)).st_size
+            size = os.stat(obj.source).st_size
 
         if size >= 1024**4:
             return f"{size/1024**4:,.2f} TB"
