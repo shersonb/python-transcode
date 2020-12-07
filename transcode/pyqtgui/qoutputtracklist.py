@@ -602,26 +602,9 @@ class OutputTrackList(QTreeView):
 
             root = OutputFileNode(output_file)
             self.setModel(OutputTrackModel(root, cols))
-            self.model().dataChanged.connect(self.contentsModified)
-            self.model().rowsMoved.connect(self.contentsModified)
-            self.model().rowsInserted.connect(self.contentsModified)
-            self.model().rowsRemoved.connect(self.contentsModified)
+
             self.setAcceptDrops(True)
             self.viewport().setAcceptDrops(True)
-
-            for k, col in enumerate(cols):
-                if hasattr(col, "width"):
-                    self.setColumnWidth(k, col.width)
-
-                if callable(col.itemDelegate):
-                    delegate = col.itemDelegate(self)
-
-                    if hasattr(delegate, "contentsModified") and \
-                            isinstance(delegate.contentsModified, pyqtBoundSignal):
-                        delegate.contentsModified.connect(
-                            self.contentsModified)
-
-                    self.setItemDelegateForColumn(k, delegate)
 
         else:
             self.setModel(QItemModel(Node(None), []))
@@ -666,11 +649,11 @@ class OutputTrackList(QTreeView):
         if answer == QMessageBox.Yes:
             self.deleteSelected()
 
-    def deleteSelected(self):
-        selected = sorted(idx.row()
-                          for idx in self.selectionModel().selectedRows())
+    #def deleteSelected(self):
+        #selected = sorted(idx.row()
+                          #for idx in self.selectionModel().selectedRows())
 
-        for k, row in enumerate(selected):
-            self.model().removeRow(row - k)
+        #for k, row in enumerate(selected):
+            #self.model().removeRow(row - k)
 
-        self.contentsModified.emit()
+        #self.contentsModified.emit()
