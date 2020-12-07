@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (QTreeView, QMenu, QAction, QMessageBox, QWidget, QHBoxLayout,
                              QFileIconProvider, QVBoxLayout, QLabel, QSpinBox, QTimeEdit,
-                             QDialog, QPushButton)
-from PyQt5.QtCore import Qt, QModelIndex, QTime, QFileInfo, pyqtSignal
+                             QDialog, QPushButton, QItemDelegate, QMenu, QWidgetAction,
+                             QToolButton)
+from PyQt5.QtCore import Qt, QModelIndex, QTime, QFileInfo, pyqtSignal, QSize
 from transcode.pyqtgui.qitemmodel import Node, ChildNodes, NoChildren, QItemModel
 from ..chapters import ChapterAtom, ChapterDisplay, EditionEntry, Editions
 from functools import partial
@@ -10,12 +11,14 @@ from .quidspinbox import UIDDelegate
 from transcode.pyqtgui.qimageview import QImageView
 from transcode.pyqtgui.slider import Slider
 from transcode.pyqtgui.qtimeselect import QTimeSelect
+from transcode.pyqtgui.treeview import TreeView as QTreeView
 from transcode.filters.video.scenes import Scenes
 from ..reader import MatroskaReader
 from matroska.chapters import EditionEntry as InputEditionEntry
 from matroska.chapters import ChapterAtom as InputChapterAtom
 from matroska.chapters import ChapterDisplay as InputChapterDisplay
-from transcode.containers.basereader import BaseReader
+from transcode.containers.basereader import BaseReader, Track
+from transcode.filters.base import BaseFilter
 
 icons = QFileIconProvider()
 
@@ -334,16 +337,18 @@ class BaseColumn(object):
         self.attrname = attrname
 
     def editdata(self, index, obj):
-        return getattr(obj, self.attrname)
+        if isinstance(self.attrname, str):
+            return getattr(obj, self.attrname)
 
     def seteditdata(self, index, obj, data):
-        try:
-            setattr(obj, self.attrname, data)
+        if data != self.editdata(index, obj):
+            try:
+                setattr(obj, self.attrname, data)
 
-        except:
-            return False
+            except:
+                return False
 
-        return True
+            return True
 
     def display(self, index, obj):
         return str(self.editdata(index, obj))
@@ -697,12 +702,32 @@ class StartCol(BaseColumn):
     def __init__(self, tags, editions):
         super().__init__(tags, editions, "timeStart")
 
+    def editdata(self, index, obj):
+        if isinstance(obj, ChapterAtom):
+            return (obj.startFrame, obj.timeStart)
+
+    def seteditdata(self, index, obj, value):
+        if isinstance(obj, ChapterAtom):
+            (n, t) = value
+
+            if n is not None:
+                if obj.startFrame != n:
+                    obj.startFrame = n
+                    return True
+
+            else:
+                if obj.timeStart != t:
+                    obj.timeStart = t
+                    return True
+
+        return False
+
     def flags(self, index, obj):
-        return super().flags(index, obj) & ~Qt.ItemIsEditable
+        return super().flags(index, obj) | Qt.ItemIsEditable
 
     def display(self, index, obj):
         if isinstance(obj, ChapterAtom):
-            pts = self.editdata(index, obj)
+            (n, pts) = self.editdata(index, obj)
 
             if pts is None:
                 return "—"
@@ -713,10 +738,10 @@ class StartCol(BaseColumn):
 
         return ""
 
-    def seteditdata(self, index, obj, data):
-        if isinstance(obj, ChapterDisplay):
-            super().seteditdata(index, obj, data.replace(" ", "").split(","))
-            return True
+    def itemDelegate(self, parent):
+        delegate = TimeSelectDelegate(parent)
+        delegate.setSource(self.editions.parent.vtrack)
+        return delegate
 
 
 class EndCol(BaseColumn):
@@ -724,14 +749,37 @@ class EndCol(BaseColumn):
     headerdisplay = "End Time"
 
     def __init__(self, tags, editions):
-        super().__init__(tags, editions, "timeEnd")
+        super().__init__(tags, editions, None)
+
+    def editdata(self, index, obj):
+        if isinstance(obj, ChapterAtom):
+            return (obj.endFrame, obj.timeEnd)
+
+    def seteditdata(self, index, obj, value):
+        if isinstance(obj, ChapterAtom):
+            (n, t) = value
+
+            if n is not None:
+                if obj.endFrame != n:
+                    obj.endFrame = n
+                    return True
+
+            else:
+                if obj.timeEnd != t:
+                    obj.timeEnd = t
+                    return True
+
+        return False
 
     def flags(self, index, obj):
+        if isinstance(obj, ChapterAtom) and obj.parent.ordered:
+            return super().flags(index, obj) | Qt.ItemIsEditable
+
         return super().flags(index, obj) & ~Qt.ItemIsEditable
 
     def display(self, index, obj):
         if isinstance(obj, ChapterAtom):
-            pts = self.editdata(index, obj)
+            (n, pts) = self.editdata(index, obj)
 
             if pts is None:
                 return "—"
@@ -741,11 +789,6 @@ class EndCol(BaseColumn):
             return f"{h}:{m:02d}:{s:012.9f}"
 
         return ""
-
-    def seteditdata(self, index, obj, data):
-        if isinstance(obj, ChapterDisplay):
-            super().seteditdata(index, obj, data.replace(" ", "").split(","))
-            return True
 
 
 class UIDCol(BaseColumn):
@@ -774,8 +817,40 @@ class UIDCol(BaseColumn):
     def itemDelegate(self, parent):
         return UIDDelegate(parent)
 
+    def contextmenu(self, index, obj):
+        return partial(self.createContextMenu, obj=obj, index=index)
+
+    def createContextMenu(self, table, index, obj):
+        menu = super().createContextMenu(table, index, obj)
+        selectRandom = QAction(f"Select random UID", table,
+                               triggered=partial(self.selectRandomUID, obj, table.model()))
+
+        menu.addAction(selectRandom)
+
+        selectRandom.setEnabled(isinstance(obj, (ChapterAtom, EditionEntry)))
+
+        return menu
+
+    def selectRandomUID(self, obj, model):
+        UID = random.randint(1, 2**64 - 1)
+
+        if isinstance(obj, ChapterAtom):
+            existingUIDs = {
+                chap.UID for ed in self.editions for chap in ed if chap is not obj}
+
+        else:
+            existingUIDs = {ed.UID for ed in self.editions if ed is not obj}
+
+        while UID in existingUIDs:
+            UID = random.randint(1, 2**64 - 1)
+
+        obj.UID = UID
+        model.dataChanged.emit(QModelIndex(), QModelIndex())
+
 
 class QChapterTree(QTreeView):
+    contentsModified = pyqtSignal()
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setMinimumWidth(540)
@@ -821,13 +896,6 @@ class QChapterTree(QTreeView):
             self.setModel(model)
             self.expandAll()
 
-            for k, col in enumerate(cols):
-                if hasattr(col, "width") and isinstance(col.width, int):
-                    self.setColumnWidth(k, col.width)
-
-                if hasattr(col, "itemDelegate") and callable(col.itemDelegate):
-                    self.setItemDelegateForColumn(k, col.itemDelegate(self))
-
         else:
             self.setModel(QItemModel(Node(None), []))
 
@@ -849,25 +917,10 @@ class QChapterTree(QTreeView):
 
     def askDeleteSelected(self):
         answer = QMessageBox.question(
-            self, "Delete tags", "Do you wish to delete the selected tags? Any child tags will also be lost!", QMessageBox.Yes | QMessageBox.No)
+            self, "Delete editions/chapters", "Do you wish to delete the selected editions/chapters?", QMessageBox.Yes | QMessageBox.No)
 
         if answer == QMessageBox.Yes:
             self.deleteSelected()
-
-    def deleteSelected(self):
-        model = self.model()
-        selected = {model.getNode(index) for index in self.selectedIndexes()}
-        removed = set()
-
-        for node in selected:
-            parent = node.parent
-
-            if node not in removed:
-                model.removeRow(parent.index(node), model.findIndex(parent))
-                removed.add(node)
-
-                if node.descendants is not None:
-                    removed.update(node.descendants)
 
     def addEdition(self, row=-1):
         if row == -1:
@@ -878,10 +931,10 @@ class QChapterTree(QTreeView):
         for edition in self.editions:
             existingUIDs.add(edition.UID)
 
-        UID = random.randint(1, 2**128 - 1)
+        UID = random.randint(1, 2**64 - 1)
 
         while UID in existingUIDs:
-            UID = random.randint(1, 2**128 - 1)
+            UID = random.randint(1, 2**64 - 1)
 
         edition = EditionEntry(UID=UID)
         self.model().insertRow(row, edition)
@@ -903,10 +956,10 @@ class QChapterTree(QTreeView):
             for chapter in edition:
                 existingUIDs.add(chapter.UID)
 
-        UID = random.randint(1, 2**128 - 1)
+        UID = random.randint(1, 2**64 - 1)
 
         while UID in existingUIDs:
-            UID = random.randint(1, 2**128 - 1)
+            UID = random.randint(1, 2**64 - 1)
 
         chapter = ChapterAtom(UID, startFrame)
         self.model().insertRow(row, chapter, parent)
@@ -920,93 +973,102 @@ class QChapterTree(QTreeView):
         self.setCurrentIndex(parent.child(row, 0))
         self.edit(parent.child(row, 0))
 
-    def addFromInput(self):
-        input_files = self.editions.parent.config.input_files
-        dlg = AvailableEditionsSelection(self)
-        dlg.setInputFiles(input_files)
+    def importChapterAtom(self, chapteratom, existingChapterUIDs, ordered=False):
+        chapterUID = chapteratom.chapterUID
+
+        while chapterUID in existingChapterUIDs:
+            chapterUID = random.randint(1, 2**64 - 1)
+
+        if self.vtrack is not None:
+            m, s = divmod(float(chapteratom.chapterTimeStart)/10**9, 60)
+            h, m = divmod(int(m), 60)
+            startFrame = self.vtrack.source.frameIndexFromPts(
+                chapteratom.chapterTimeStart + 8*10**6, "-")
+
+            if ordered:
+                endFrame = self.vtrack.source.frameIndexFromPts(
+                    chapteratom.chapterTimeEnd + 8*10**6, "-")
+
+            else:
+                endFrame = None
+
+            timeStart = timeEnd = None
+
+        else:
+            startFrame = endFrame = None
+            timeStart = chapteratom.chapterTimeStart
+
+            if ordered:
+                timeEnd = chapteratom.chapterTimeEnd
+
+            else:
+                timeEnd = None
+
+        displays = []
+
+        for display in chapteratom.chapterDisplays:
+            displays.append(ChapterDisplay(
+                display.chapString,
+                list(display.chapLanguages or []),
+                langIETF=list(display.chapLanguagesIETF or []),
+                countries=list(display.chapCountries or []),
+            ))
+
+        hidden = bool(chapteratom.chapterFlagHidden)
+        enabled = bool(chapteratom.chapterFlagEnabled)
+
+        existingChapterUIDs.add(chapterUID)
+        return ChapterAtom(chapterUID, startFrame, endFrame,
+                           timeStart, timeEnd, displays, hidden, enabled)
+
+    def importEdition(self, edition):
         existingEditionUIDs = {edition.UID for edition in self.editions}
         existingChapterUIDs = {chapter.UID
                                for edition in self.editions
                                for chapter in edition
                                }
 
-        vtrack = self.editions.parent.vtrack
+        editionUID = edition.editionUID
+        ordered = bool(edition.editionFlagOrdered)
+
+        while editionUID in existingEditionUIDs:
+            editionUID = random.randint(1, 2**64 - 1)
+
+        chapters = []
+
+        for chapteratom in edition.chapterAtoms:
+            chapters.append(self.importChapterAtom(
+                chapteratom, existingChapterUIDs, ordered))
+
+        default = bool(edition.editionFlagDefault)
+        hidden = bool(edition.editionFlagHidden)
+        return EditionEntry(chapters, editionUID, hidden, default, ordered)
+
+    def addFromInput(self):
+        input_files = self.editions.parent.config.input_files
+        dlg = AvailableEditionsSelection(self)
+        dlg.setInputFiles(input_files)
 
         if dlg.exec_():
             model = self.model()
             neweditions = []
 
             for input_file, edition in dlg.selectedEditions:
-                editionUID = edition.editionUID
-                ordered = bool(edition.editionFlagOrdered)
-
-                while editionUID in existingEditionUIDs:
-                    editionUID = random.randint(1, 2**128 - 1)
-
-                chapters = []
-
-                for chapteratom in edition.chapterAtoms:
-                    chapterUID = chapteratom.chapterUID
-
-                    while chapterUID in existingChapterUIDs:
-                        chapterUID = random.randint(1, 2**128 - 1)
-
-                    if self.vtrack is not None:
-                        startFrame = self.vtrack.frameIndexFromPts(chapteratom.chapterTimeStart + 8*10**6, "-")
-
-                        if ordered:
-                            endFrame = self.vtrack.frameIndexFromPts(chapteratom.chapterTimeEnd + 8*10**6, "-")
-
-                        else:
-                            endFrame = None
-
-                        timeStart = timeEnd = None
-
-                    else:
-                        startFrame = endFrame = None
-                        timeStart = chapteratom.chapterTimeStart
-
-                        if ordered:
-                            timeEnd = chapteratom.chapterTimeEnd
-
-                        else:
-                            timeEnd = None
-
-                    displays = []
-
-                    for display in chapteratom.chapterDisplays:
-                        displays.append(ChapterDisplay(
-                            display.chapString,
-                            list(display.chapLanguages or []),
-                            langIETF=list(display.chapLanguagesIETF or []),
-                            countries=list(display.chapCountries or []),
-                        ))
-
-                    hidden = bool(chapteratom.chapterFlagHidden)
-                    enabled = bool(chapteratom.chapterFlagEnabled)
-
-                    newchapteratom = ChapterAtom(chapterUID, startFrame, endFrame,
-                                                 timeStart, timeEnd, displays, hidden, enabled)
-                    chapters.append(newchapteratom)
-
-                    existingChapterUIDs.add(chapterUID)
-
-                default = bool(edition.editionFlagDefault)
-                hidden = bool(edition.editionFlagHidden)
-                newedition = EditionEntry(
-                    chapters, editionUID, hidden, default, ordered)
-                neweditions.append(newedition)
-                existingEditionUIDs.add(editionUID)
+                neweditions.append(self.importEdition(edition))
 
             model.insertRows(model.rowCount(), neweditions, QModelIndex())
 
 
-class QFrameSelect(QWidget):
+class FrameSelectWidget(QWidget):
     frameSelectionChanged = pyqtSignal(int, QTime)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setMaximumWidth(960)
+
         layout = QVBoxLayout()
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
         self.setLayout(layout)
 
         self.imageView = QImageView(self)
@@ -1037,7 +1099,46 @@ class QFrameSelect(QWidget):
         hlayout.addWidget(self.currentTime)
         hlayout.addStretch()
         hlayout.addWidget(self.nextLabel)
+
+        hlayout = QHBoxLayout()
+        hlayout.setContentsMargins(0, 0, 0, 0)
+        hlayout.setSpacing(4)
+        layout.addLayout(hlayout)
+
+        self.okayBtn = QPushButton("&OK", self)
+        self.cancelBtn = QPushButton("&Cancel", self)
+
+        hlayout.addStretch()
+        hlayout.addWidget(self.okayBtn)
+        hlayout.addWidget(self.cancelBtn)
         self.setFrameSource(None, None)
+
+    def sizeHint(self):
+        widgetHeights = (
+            self.slider.height()
+            + max([self.okayBtn.height(), self.cancelBtn.height()])
+            + max([self.currentIndex.height(), self.currentTime.height()])
+        )
+
+        if isinstance(self.filters, BaseFilter):
+            w, h = self.filters.width, self.filters.height
+            sar = self.filters.sar
+
+        elif isinstance(self.source, (Track, BaseFilter)):
+            w, h = self.source.width, self.source.height
+            sar = self.source.sar
+
+        else:
+            return super().sizeHint()
+
+        dar = w*sar/h
+        W, H = min([
+            max([(w, h/sar), (w*sar, h)]),
+            (960 - 8, (960 - 8)/dar),
+            ((720 - 20 - widgetHeights)*dar, 720 - 20 - widgetHeights)
+        ])
+
+        return QSize(int(W + 8), int(H + 20 + widgetHeights))
 
     def setFrameSource(self, source, filters=None):
         self.source = source
@@ -1049,17 +1150,16 @@ class QFrameSelect(QWidget):
 
             if self.filters is not None:
                 lastpts = self.filters.pts_time[-1]
-
-                for filter in self.filters:
-                    if isinstance(filter, Scenes):
-                        self.slider.setSnapValues(filter.zone_indices)
-                        break
-                else:
-                    self.slider.setSnapValues(None)
+                self.slider.setSnapValues(self.filters.keyframes)
 
             else:
                 lastpts = self.source.pts_time[-1]
-                self.slider.setSnapValues(None)
+
+                if isinstance(self.source, BaseFilter):
+                    self.slider.setSnapValues(self.source.keyframes)
+
+                else:
+                    self.slider.setSnapValues(None)
 
             ms = int(lastpts*1000 + 0.5)
             s, ms = divmod(ms, 1000)
@@ -1167,6 +1267,93 @@ class QFrameSelect(QWidget):
             self._frameChange(n)
 
 
+class QFrameSelect(QToolButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setPopupMode(QToolButton.MenuButtonPopup)
+        self.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+
+        self.widget = FrameSelectWidget(self)
+        self.widget.okayBtn.clicked.connect(self._handleOKClicked)
+        self.widget.cancelBtn.clicked.connect(self._handleCancelClicked)
+
+        act = QWidgetAction(self)
+        act.setDefaultWidget(self.widget)
+
+        self.menu = QMenu(self)
+        self.menu.addAction(act)
+        self.setMenu(self.menu)
+
+        self.clicked.connect(self.showMenu)
+        self.setFrameSource(None, None)
+        self.setFrameSelection((0, 0))
+
+    def showMenu(self):
+        n, t = self.frameSelection()
+        self.widget.slider.setValue(n)
+        super().showMenu()
+
+    def frameSelection(self):
+        return self._frameSelection
+
+    def setFrameSelection(self, value):
+        n, t = value
+
+        if self.widget.source is not None:
+            if self.widget.filters is not None:
+                self._frameSelection = (
+                    n, int(10**9*self.widget.filters.pts_time[n]))
+
+            else:
+                self._frameSelection = (
+                    n, int(10**9*self.widget.source.pts_time[n]))
+
+        m, s = divmod(float(t/10**9), 60)
+        h, m = divmod(int(m), 60)
+
+        self.setText(f"{h}:{m:02d}:{s:012.9f}")
+
+    def setFrameSource(self, source, filters=None):
+        self.widget.setFrameSource(source, filters)
+
+    def _handleOKClicked(self):
+        self.setFrameSelection((self.widget.slider.value(
+        ), self.widget.currentTime.time().msecsSinceStartOfDay()*10**6))
+        self.menu.close()
+
+    def _handleCancelClicked(self):
+        self.menu.close()
+
+
+class TimeSelectDelegate(QItemDelegate):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setSource(None)
+
+    def setSource(self, source):
+        self._source = source
+
+    def source(self):
+        return self._source
+
+    def createEditor(self, parent, option, index):
+        if self.source() is not None:
+            editor = QFrameSelect(parent)
+            editor.setFrameSource(self.source().source, self.source().filters)
+            return editor
+
+    def setEditorData(self, editor, index):
+        if self.source() is not None:
+            data = index.data(Qt.EditRole)
+            editor.setFrameSelection(data)
+
+    def setModelData(self, editor, model, index):
+        model.setData(index, editor.frameSelection(), Qt.EditRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        editor.setGeometry(option.rect)
+
+
 class QChaptersWidget(QWidget):
     contentsModified = pyqtSignal()
 
@@ -1176,42 +1363,10 @@ class QChaptersWidget(QWidget):
         self.setLayout(layout)
 
         self.chapterTree = QChapterTree(self)
+        self.chapterTree.contentsModified.connect(self.contentsModified)
         layout.addWidget(self.chapterTree)
         self.chapterTree.setMinimumWidth(640)
         self.chapterTree.setMinimumHeight(240)
-
-        frameselectlayout = QHBoxLayout()
-        layout.addLayout(frameselectlayout)
-
-        self.startFrameSelect = QFrameSelect(self)
-        self.startFrameSelect.imageView.setMaximumHeight(360)
-        self.startFrameSelect.frameSelectionChanged.connect(
-            self.handleStartFrameSelectionChange)
-
-        self.endFrameSelect = QFrameSelect(self)
-        self.endFrameSelect.imageView.setMaximumHeight(360)
-        self.endFrameSelect.frameSelectionChanged.connect(
-            self.handleEndFrameSelectionChange)
-        self.endFrameSelect.setHidden(True)
-
-        frameselectlayout.addWidget(self.startFrameSelect)
-        frameselectlayout.addWidget(self.endFrameSelect)
-
-        timeselectlayout = QHBoxLayout()
-        self.startTimeSelect = QTimeSelect(self)
-        self.startTimeSelect.valueChanged.connect(
-            self.handleStartTimeSelectionChange)
-        self.startTimeSelect.setHidden(True)
-
-        self.endTimeSelect = QTimeSelect(self)
-        self.endTimeSelect.valueChanged.connect(
-            self.handleEndTimeSelectionChange)
-        self.endTimeSelect.setHidden(True)
-
-        timeselectlayout.addWidget(self.startTimeSelect)
-        timeselectlayout.addWidget(self.endTimeSelect)
-
-        layout.addLayout(timeselectlayout)
 
         btnlayout = QHBoxLayout()
         layout.addLayout(btnlayout)
@@ -1226,76 +1381,6 @@ class QChaptersWidget(QWidget):
         btnlayout.addWidget(self.removeBtn)
         btnlayout.addStretch()
 
-    def handleStartFrameSelectionChange(self, n, t):
-        selected = self.chapterTree.currentIndex().data(Qt.UserRole)
-
-        if isinstance(selected, ChapterDisplay):
-            selected = selected.parent
-
-        if isinstance(selected, ChapterAtom):
-            selected.startFrame = n
-            self.chapterTree.model().emitDataChanged()
-
-    def handleEndFrameSelectionChange(self, n, t):
-        selected = self.chapterTree.currentIndex().data(Qt.UserRole)
-
-        if isinstance(selected, ChapterDisplay):
-            selected = selected.parent
-
-        if isinstance(selected, ChapterAtom):
-            selected.endFrame = n
-            self.chapterTree.model().emitDataChanged()
-
-    def handleStartTimeSelectionChange(self, t):
-        selected = self.chapterTree.currentIndex().data(Qt.UserRole)
-
-        if isinstance(selected, ChapterDisplay):
-            selected = selected.parent
-
-        if isinstance(selected, ChapterAtom):
-            selected.timeStart = int(10**9*t)
-            self.chapterTree.model().emitDataChanged()
-
-    def handleEndTimeSelectionChange(self, t):
-        selected = self.chapterTree.currentIndex().data(Qt.UserRole)
-
-        if isinstance(selected, ChapterDisplay):
-            selected = selected.parent
-
-        if isinstance(selected, ChapterAtom):
-            selected.timeEnd = int(10**9*t)
-            self.chapterTree.model().emitDataChanged()
-
-    def handleIndexChange(self, newindex, oldindex):
-        selected = newindex.data(Qt.UserRole)
-
-        if isinstance(selected, ChapterDisplay):
-            selected = selected.parent
-
-        if isinstance(selected, ChapterAtom):
-            self.endFrameSelect.setHidden(not selected.parent.ordered)
-
-            if selected.startFrame is not None:
-                self.startFrameSelect.blockSignals(True)
-                self.startFrameSelect.slider.setValue(selected.startFrame)
-                self.startFrameSelect.blockSignals(False)
-
-            self.startTimeSelect.blockSignals(True)
-            self.startTimeSelect.setValue(selected.timeStart/10**9)
-            self.startTimeSelect.blockSignals(False)
-
-            if selected.parent.ordered:
-                if selected.endFrame is not None or selected.startFrame is not None:
-                    self.endFrameSelect.blockSignals(True)
-                    self.endFrameSelect.slider.setValue(
-                        selected.endFrame or selected.startFrame)
-                    self.endFrameSelect.blockSignals(False)
-
-                self.endTimeSelect.blockSignals(True)
-                self.endTimeSelect.setValue(selected.timeEnd/10**9)
-                self.endTimeSelect.blockSignals(False)
-
-
     def setData(self, tracks, tags, chapters):
         for track in tracks:
             if track.type == "video":
@@ -1306,55 +1391,6 @@ class QChaptersWidget(QWidget):
             self.vtrack = None
 
         self.chapterTree.setData(self.vtrack, tags, chapters)
-
-        duration = max(float(track.duration) for track in tracks)
-
-        if chapters is not None:
-            self.chapterTree.selectionModel().currentChanged.connect(self.handleIndexChange)
-            self.chapterTree.model().dataChanged.connect(self.contentsModified)
-            self.chapterTree.model().rowsInserted.connect(self.contentsModified)
-            self.chapterTree.model().rowsRemoved.connect(self.contentsModified)
-            self.chapterTree.model().rowsMoved.connect(self.contentsModified)
-            self.chapterTree.selectionModel().selectionChanged.connect(
-                self.handleSelectionChanged)
-            self.handleSelectionChanged()
-
-            if chapters.parent is not None and self.vtrack is not None:
-                self.startFrameSelect.blockSignals(True)
-                self.startFrameSelect.setFrameSource(
-                    self.vtrack.source, self.vtrack.filters)
-                self.startFrameSelect.blockSignals(False)
-                self.startFrameSelect.setVisible(True)
-
-                self.endFrameSelect.blockSignals(True)
-                self.endFrameSelect.setFrameSource(
-                    self.vtrack.source, self.vtrack.filters)
-                self.endFrameSelect.blockSignals(False)
-                self.endFrameSelect.setVisible(True)
-
-                self.startTimeSelect.setHidden(True)
-                self.endTimeSelect.setHidden(True)
-
-            else:
-                self.startFrameSelect.blockSignals(True)
-                self.startFrameSelect.setFrameSource(None)
-                self.startFrameSelect.blockSignals(False)
-                self.startFrameSelect.setVisible(False)
-
-                self.endFrameSelect.blockSignals(True)
-                self.endFrameSelect.setFrameSource(None)
-                self.endFrameSelect.blockSignals(False)
-                self.endFrameSelect.setVisible(False)
-
-                self.startTimeSelect.blockSignals(True)
-                self.startTimeSelect.setMaximum(duration)
-                self.startTimeSelect.blockSignals(False)
-                self.startTimeSelect.setHidden(False)
-
-                self.endTimeSelect.blockSignals(True)
-                self.endTimeSelect.setMaximum(duration)
-                self.endTimeSelect.blockSignals(False)
-                self.endTimeSelect.setHidden(False)
 
     def handleSelectionChanged(self):
         self.removeBtn.setEnabled(
