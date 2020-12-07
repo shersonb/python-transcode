@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxL
 from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QRegExpValidator
 
 from transcode.pyqtgui.qitemmodel import QItemModel, Node, ChildNodes
+from transcode.pyqtgui.treeview import TreeView as QTreeView
 from ..tags import Tag, Tags, SimpleTag
 from transcode.pyqtgui.qlangselect import LanguageDelegate, LANGUAGES
 from titlecase import titlecase
@@ -22,58 +23,72 @@ from ..attachments import Attachments, AttachedFile
 from .qtargetselection import QTargetSelection
 import traceback
 import xml.dom.minidom
+from itertools import count
+
+
+class VScrollArea(QScrollArea):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.horizontalScrollBar().setEnabled(False)
+        self.setWidgetResizable(True)
+
+    def minimumSizeHint(self):
+        sizehint = super().minimumSizeHint()
+        widgetsize = self.widget().sizeHint()
+        scrollwidth = self.verticalScrollBar().width()
+        sizehint.setWidth(widgetsize.width() + scrollwidth)
+        return sizehint
 
 
 class TagItemModel(QItemModel):
-    def dropItems(self, items, action, row, column, parent):
-        if row == -1:
-            row = self.rowCount(parent)
-
-        node = self.getNode(parent)
-
-        j = 0
-
-        for k, item in enumerate(items):
-            old_parent = self.findIndex(item.parent)
-            old_row = item.parent.index(item)
-            self.moveRow(old_row, row + k - j, old_parent, parent)
-
-            if self.getNode(old_parent) is self.getNode(parent) and old_row < row:
-                j += 1
-
-            return False
-
-        return True
-
-    def canDropItems(self, items, action, row, column, parent):
-        node = self.getNode(parent)
-
-        for item in items:
-            o = item
-
-            while o.parent is not None:
-                o = o.parent
-
-            if o is not self.root:
-                return False
-
-            if isinstance(item.value, SimpleTag) and isinstance(node.value, (SimpleTag, Tag)):
-                continue
-
-            if isinstance(item.value, Tag) and isinstance(node.value, Tags):
-                continue
-
-            return False
-
-        return True
-
     def supportedDropActions(self):
-        return Qt.MoveAction
+        return Qt.MoveAction | Qt.CopyAction
 
 
 class TagsNode(Node):
     def _wrapChildren(self, children):
         return TagsChildren.fromValues(children, self)
+
+    def canDropChildren(self, model, parent, items, row, action):
+        if action == Qt.CopyAction:
+            for item in items:
+                if not isinstance(item.value, Tag):
+                    return False
+
+        elif action == Qt.MoveAction:
+            for item in items:
+                if not item in self.children:
+                    return False
+
+        return True
+
+    def dropChildren(self, model, parent, items, row, action):
+        if action == Qt.CopyAction:
+            K = count(row)
+
+            for item in items:
+                newtag = item.value.copy()
+                model.insertRow(next(K), newtag, parent)
+
+        elif action == Qt.MoveAction:
+            j = 0
+
+            for k, item in enumerate(items, row):
+                old_row = self.children.index(item)
+                model.moveRow(old_row, k - j, parent)
+
+                if old_row < row:
+                    j += 1
+
+        return True
+
+    def canDropItems(self, model, parent, items, action):
+        return self.canDropChildren(model, parent, items, len(self.children), action)
+
+    def dropItems(self, model, parent, items, action):
+        return self.dropChildren(model, parent, items, len(self.children), action)
 
 
 class TagsChildren(ChildNodes):
@@ -88,6 +103,46 @@ class TagNode(Node):
 
     def _iterChildren(self):
         return self.value.simpletags
+
+    def canDropChildren(self, model, parent, items, row, action):
+        if action == Qt.CopyAction:
+            for item in items:
+                if not isinstance(item.value, SimpleTag):
+                    return False
+
+        elif action == Qt.MoveAction:
+            for item in items:
+                if not isinstance(item.value, SimpleTag):
+                    return False
+
+        return True
+
+    def dropChildren(self, model, parent, items, row, action):
+        if action == Qt.CopyAction:
+            K = count(row)
+
+            for item in items:
+                newtag = item.value.copy()
+                model.insertRow(next(K), newtag, parent)
+
+        elif action == Qt.MoveAction:
+            j = 0
+
+            for k, item in enumerate(items, row):
+                old_parent = model.findIndex(item.parent)
+                old_row = item.parent.index(item)
+                model.moveRow(old_row, k - j, old_parent, parent)
+
+                if old_row < row and item.parent is self:
+                    j += 1
+
+        return True
+
+    def canDropItems(self, model, parent, items, action):
+        return self.canDropChildren(model, parent, items, len(self.children), action)
+
+    def dropItems(self, model, parent, items, action):
+        return self.dropChildren(model, parent, items, len(self.children), action)
 
 
 class TagChildren(ChildNodes):
@@ -117,6 +172,46 @@ class SimpleTagNode(Node):
 
     def _iterChildren(self):
         return self.value.subtags
+
+    def canDropChildren(self, model, parent, items, row, action):
+        if action == Qt.CopyAction:
+            for item in items:
+                if not isinstance(item.value, SimpleTag):
+                    return False
+
+        elif action == Qt.MoveAction:
+            for item in items:
+                if not isinstance(item.value, SimpleTag):
+                    return False
+
+        return True
+
+    def dropChildren(self, model, parent, items, row, action):
+        if action == Qt.CopyAction:
+            K = count(row)
+
+            for item in items:
+                newtag = item.value.copy()
+                model.insertRow(next(K), newtag, parent)
+
+        elif action == Qt.MoveAction:
+            j = 0
+
+            for k, item in enumerate(items, row):
+                old_parent = model.findIndex(item.parent)
+                old_row = item.parent.index(item)
+                model.moveRow(old_row, k - j, old_parent, parent)
+
+                if old_row < row and item.parent is self:
+                    j += 1
+
+        return True
+
+    def canDropItems(self, model, parent, items, action):
+        return self.canDropChildren(model, parent, items, len(self.children), action)
+
+    def dropItems(self, model, parent, items, action):
+        return self.dropChildren(model, parent, items, len(self.children), action)
 
 
 class SimpleTagChildren(ChildNodes):
@@ -491,9 +586,7 @@ class NewTagDlg(QDialog):
         sublayout.addStretch()
         layout.addLayout(sublayout)
 
-        scrollArea = QScrollArea(self)
-        scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scrollArea = VScrollArea(self)
 
         self.newTags = NewSimpleTags(scrollArea)
         scrollArea.setWidget(self.newTags)
