@@ -160,6 +160,8 @@ class ChapterAtom(object):
             elif self.segment and self.segment.vtrack:
                 return int(self.segment.vtrack.duration/self.segment.vtrack.time_base)
 
+        return self._timeEnd
+
     @timeEnd.setter
     def timeEnd(self, value):
         self._timeEnd = value
