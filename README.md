@@ -75,8 +75,6 @@ further codecs have been tested at this time.
 ## Contributing
 Pull requests are welcome, especially to add container and codec support. For major changes, please open an issue first to discuss what you would like to change.
 
-Please make sure to update tests as appropriate.
-
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
 
