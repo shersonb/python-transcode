@@ -9,6 +9,7 @@ class TreeView(QTreeView):
         super().__init__(*args, **kwargs)
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
+        self.setMinimumHeight(160)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.openContextMenu)
 
