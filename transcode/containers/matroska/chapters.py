@@ -206,9 +206,18 @@ class ChapterAtom(object):
 
         print(
             f"    Chapter {self.parent.index(self) + 1}: {', '.join(flagstrings)}", file=logfile)
-        ebml = matroska.chapters.ChapterAtom(self.UID, self.timeStart, self.timeEnd, self.hidden, self.enabled,
-                                             chapterSegmentUID=self.segmentUID, chapterSegmentEditionUID=self.segmentEditionUID,
-                                             chapterTrack=self.tracks, chapterDisplays=[display.prepare(logfile) for display in self.displays])
+        ebml = matroska.chapters.ChapterAtom(
+            chapterUID=self.UID,
+            chapterTimeStart=self.timeStart,
+            chapterTimeEnd=self.timeEnd,
+            chapterFlagHidden=self.hidden,
+            chapterFlagEnabled=self.enabled,
+            chapterSegmentUID=self.segmentUID, 
+            chapterSegmentEditionUID=self.segmentEditionUID,
+            chapterTrack=self.tracks,
+            chapterDisplays=[
+                display.prepare(logfile)
+                for display in self.displays])
         if self.timeEnd:
             m, ms = divmod(self.timeEnd, 60*10**9)
             s2 = ms/10**9
