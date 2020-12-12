@@ -538,7 +538,7 @@ class DefaultCol(BaseColumn):
                 return True
 
             elif not obj.default and state == 2:
-                for edition in obj.parent:
+                for edition in self.editions:
                     edition.default = edition is obj
 
                 return True
