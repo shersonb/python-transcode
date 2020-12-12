@@ -14,7 +14,7 @@ class KeyFrames(BaseVideoFilter, set):
         BaseVideoFilter.__init__(self, prev=prev, next=next)
 
     def reset_cache(self, start=0, end=None):
-        del self.prev_keyframes
+        del self.new_keyframes
         super().reset_cache(start, end)
 
     @property
@@ -40,7 +40,7 @@ class KeyFrames(BaseVideoFilter, set):
         return sorted(self)
 
     @cached
-    def prev_keyframes(self):
+    def new_keyframes(self):
         if len(self) == 0:
             return set()
 
@@ -58,13 +58,13 @@ class KeyFrames(BaseVideoFilter, set):
         firstpts = frame.pts
         n = self.prev.frameIndexFromPts(firstpts)
 
-        if n in self.prev_keyframes:
+        if n in self.new_keyframes:
             frame.pict_type = "I"
 
         yield frame
 
         for k, frame in enumerate(iterable, n + 1):
-            if k in self.prev_keyframes:
+            if k in self.new_keyframes:
                 frame.pict_type = "I"
 
             yield frame
