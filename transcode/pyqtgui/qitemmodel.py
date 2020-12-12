@@ -288,10 +288,17 @@ class QItemModel(QAbstractItemModel):
 
     def insertRow(self, row_id, row, parent=QModelIndex()):
         node = self.getNode(parent)
+        old_rowcount = len(node.children)
         self.beginInsertRows(parent, row_id, row_id)
         node.children.insertValue(row_id, row)
         self.endInsertRows()
-        self.emitDataChanged(parent)
+
+        if old_rowcount > 0 or not parent.isValid():
+            self.emitDataChanged(parent)
+
+        else:
+            self.emitDataChanged(parent.parent())
+
         return True
 
     def insertRows(self, row_id, rows, parent=QModelIndex()):
