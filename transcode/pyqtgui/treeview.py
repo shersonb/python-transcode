@@ -17,6 +17,7 @@ class TreeView(QTreeView):
         supp = self.model().supportedDropActions()
         mod = event.keyboardModifiers()
         internaldrag = event.source() is self
+        default = self.defaultDropAction()
 
         if mod == Qt.NoModifier and supp & Qt.MoveAction and supp & Qt.CopyAction:
             if internaldrag:
@@ -58,7 +59,6 @@ class TreeView(QTreeView):
         pos = event.pos()
         index = self.indexAt(pos)
         col = index.column()
-        default = self.defaultDropAction()
 
         if droppos == QTreeView.AboveItem:
             parent = index.parent()
