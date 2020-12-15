@@ -225,7 +225,7 @@ class BaseFilter(object):
         return state
 
     def __setstate__(self, state):
-        if self.parent is None:
+        if not isinstance(self.parent, FilterChain):
             try:
                 self.source = state.get("source", state.get("prev"))
 
