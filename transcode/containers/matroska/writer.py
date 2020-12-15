@@ -4,12 +4,18 @@ from ...encoders.base import EncoderContext
 from ...util import h
 #from ...encoders.audio.base import AudioEncoderContext
 from fractions import Fraction as QQ
-import ebml
 from collections import OrderedDict
+from numpy import (array, int0, unique, searchsorted, concatenate, sort,
+                   diff, insert, zeros, log2, concatenate)
 from ..basereader import BaseReader
 from .attachments import AttachmentRef
 from .uid import formatUID
 import random
+from more_itertools import windowed
+from ebml.ndarray import EBMLNDArray
+from ebml.base import EBMLList, EBMLMasterElement, EBMLProperty
+from ebml.util import toVint
+
 
 codecs = dict(
     hevc="V_MPEGH/ISO/HEVC",
@@ -34,6 +40,41 @@ codecs = dict(
 )
 
 
+class PtsArray(EBMLNDArray):
+    ebmlID = b"\xde"
+
+
+class PtsArrays(EBMLList):
+    itemclass = PtsArray
+
+
+class ClusterPts(EBMLMasterElement):
+    ebmlID = b"\x14\xae\x04\x35"
+    __ebmlchildren__ = (
+            EBMLProperty("ptsArrays", PtsArrays),
+        )
+
+
+def calcKeyFrames(iterable, maxint, end):
+    """
+    Takes an iterable of increasing integers and inserts values so that two consecutive
+    values do not differ more than maxint. Much like inserting keyframes every n frames if
+    no scene cuts have been encountered.
+    """
+    for x1, x2 in windowed(iterable, 2):
+        if end < x2:
+            for x in range(x1, end, maxint):
+                yield x
+
+            return
+
+        for x in range(x1, x2, maxint):
+            yield x
+
+    for x in range(x2, end, maxint):
+        yield x
+
+
 class Track(basewriter.Track):
     """Track class for the Matroska media format."""
 
@@ -49,6 +90,8 @@ class Track(basewriter.Track):
         self.trackEntry = None
         self.mincache = mincache
         self.maxcache = maxcache
+        self.clusterPts = None
+        self.clusterPtsHist = ClusterPts([])
         super().__init__(source, encoder, filters, name=name,
                          language=language, container=container)
 
@@ -156,45 +199,122 @@ class Track(basewriter.Track):
         else:
             self.trackEntry.codecPrivate = self.source.extradata
 
-    def calcOverhead(self):
-        if self.defaultDuration:
-            isDefaultDuration = (abs(
-                self.durations - int(self.defaultDuration)) < 2*10**6 + (self.durations == 0)).sum()
+    def _getClusterSplit(self):
+        vtrack = self.container.vtrack
+
+        if self.container:
+            if self.container.clusterPtsHist.ptsArrays:
+                # Get clusterPts data from previous encode.
+                return iter(self.container.clusterPtsHist.ptsArrays[-1])
+
+            elif vtrack is not None:
+                # Fallback: Predict clusterPts data
+                if vtrack.filters:
+                    kf = sorted(vtrack.filters.keyframes)
+
+                else:
+                    kf = [0]
+
+                if hasattr(vtrack.encoder, "keyint"):
+                    kf = list(calcKeyFrames(kf, vtrack.encoder.keyint, vtrack.filters.framecount))
+
+                clusterPts = vtrack.pts[kf]
+
+                return calcKeyFrames(clusterPts, 32768*10**6,
+                                   int(vtrack.filters.duration*10**9+0.5))
+
+    @property
+    def sizes(self):
+        if self.sizeStats is not None and len(self.sizeStats):
+            sizes = self.sizeStats[-1].copy()
+
+        elif self.compression == 0 and hasattr(self.source, "zsizes"):
+            sizes = self.source.zsizes.copy()
 
         else:
-            isDefaultDuration = (self.durations == 0).sum()
+            sizes = self.source.sizes.copy()
 
-        simpleBlockCount = isDefaultDuration//self.maxInLace + \
-            bool(isDefaultDuration % self.maxInLace > 0)
+        sizes = sizes[:self.framecount]
+
+        if len(sizes) < self.framecount:
+            sizes = concatenate((sizes, [0]*(self.framecount - len(sizes))))
+
+        if self.encoder:
+            if self.codec in ("libx265", "libx264", "hevc", "h264"):
+                sizes += 4
+
+        return sizes
+
+    def calcOverhead(self):
+        sizes = self.sizes.copy()
 
         if self.maxInLace > 1:
-            overheadPerSimpleBlock = len(
-                matroska.blocks.SimpleBlock.ebmlID) + 3 + 1 + 2 + 1 + 1 + (self.maxInLace - 1)
+            clusterPts = array(list(self._getClusterSplit()))
+            B = unique(searchsorted(self.pts, clusterPts))
+
+            if self.defaultDuration:
+                isNotDefaultDuration = abs(self.durations - int(self.defaultDuration)) >= 10**6
+                B = unique(sort(concatenate((B, isNotDefaultDuration.nonzero()[0]))))
+
+            B = array(list(calcKeyFrames(B, self.maxInLace, self.framecount)) + [self.framecount])
+
+            NumInLace = diff(B)
+            lacingOverhead = zeros(NumInLace.shape, dtype=int0)
+            dsizes = insert(0, 1, diff(sizes))
+            csizes = insert(0, 1, sizes.cumsum())
+            cadsizes = abs(dsizes).cumsum()
+
+            var = cadsizes[B[1:] - 1] - cadsizes[B[:-1]]
+
+            fixedLaceBlocks = (var == 0)*(NumInLace > 1)
+            varLaceBlocks = (var > 0)*(NumInLace > 1)
+
+            lacingOverhead[fixedLaceBlocks] = 1
+
+            EBMLLacingOverheadByPacket = int0((log2(abs(dsizes) + 1) + 1)/7) + 1
+            EBMLLacingOverheadByPacket[B[:-1]] = int0(log2(sizes[B[:-1]] + 1)/7) + 1
+            cE = insert(0, 1, EBMLLacingOverheadByPacket.cumsum())
+            EBMLLacingOverhead = cE[B[1:]] - cE[B[:-1]]
+
+            lacingOverhead[varLaceBlocks] = EBMLLacingOverhead[varLaceBlocks]
+
+            Hsizes = int(log2(self.track_index + 1)/7 + 1) + 2 + 1 + lacingOverhead
+            Psizes = csizes[B[1:]] - csizes[B[:-1]]
+            Dsizes = Hsizes + Psizes
+            overhead = (1 + int0(log2(Dsizes + 1)/7 + 1) + Hsizes).sum()
 
         else:
-            overheadPerSimpleBlock = len(
-                matroska.blocks.SimpleBlock.ebmlID) + 3 + 1 + 2 + 1
+            if self.defaultDuration:
+                isNotDefaultDuration = abs(self.durations - int(self.defaultDuration)) >= 10**6
+                isDefaultDuration = ~isNotDefaultDuration
 
-        simpleBlockOverhead = overheadPerSimpleBlock*simpleBlockCount
+            else:
+                isNotDefaultDuration = abs(self.durations) >= 10**6
+                isDefaultDuration = ~isNotDefaultDuration
 
-        blockGroupCount = self.framecount - isDefaultDuration
-        overheadPerBlockGroup = len(matroska.blocks.BlockGroup.ebmlID) + 3
-        overheadPerBlock = len(matroska.blocks.Block.ebmlID) + 3 + 1 + 2 + 1
-        overheadPerBlockDuration = len(
-            matroska.blocks.BlockDuration.ebmlID) + 1 + 4
-        blockOverHead = blockGroupCount * \
-            (overheadPerBlockGroup + overheadPerBlock + overheadPerBlockDuration)
+            overheads = zeros(isDefaultDuration.shape, dtype=int0)
+            BlockDurationSizes = zeros(isDefaultDuration.shape, dtype=int0)
+            BGoverhead = zeros(isDefaultDuration.shape, dtype=int0)
 
-        overhead = simpleBlockOverhead + blockOverHead
+            HeadSizes = int(log2(self.track_index + 1)/7 + 1) + 2 + 1
+            BlockPayloadSizes = HeadSizes + sizes
+            BlockOverheadSizes = 1 + int0(log2(BlockPayloadSizes + 1)/7 + 1) + HeadSizes
+            BlockDurationSizes[isNotDefaultDuration*(self.durations >= 256*10**6)] = 4
+            BlockDurationSizes[isNotDefaultDuration*(self.durations < 256*10**6)] = 3
+            BlockGroupPayloadSizes = BlockOverheadSizes + sizes + BlockDurationSizes
+            BlockGroupOverheadSizes = 1 + int0(log2(BlockGroupPayloadSizes + 1)/7 + 1) + BlockDurationSizes
+            overhead = BlockOverheadSizes.sum() + BlockGroupOverheadSizes[isNotDefaultDuration].sum()
+            #return (HeadSizes, BlockPayloadSizes, BlockOverheadSizes, BlockDurationSizes, BlockGroupPayloadSizes, BlockGroupOverheadSizes)
 
         if self.encoder:
             if self.codec in ("libx265", "libx264", "hevc", "h264"):
                 overhead += 4*self.framecount
 
         else:
-            overhead += self.source.sizes.sum()
+            overhead += sum(sizes)
 
         return overhead
+
 
     def _iterFrames(self, duration=None, logfile=None):
         frames = super()._iterFrames(duration, logfile)
@@ -217,6 +337,20 @@ class Track(basewriter.Track):
             for frame in frames:
                 yield frame
 
+
+    def _iterPackets(self, packets, duration=None, logfile=None):
+        packets = super()._iterPackets(packets, duration, logfile)
+
+        if self.container is not None and self.encoder is not None and self.type == "video":
+            for packet in packets:
+                if hasattr(packet, "keyframe") and packet.keyframe:
+                    self.container.clusterPts.append(packet.pts)
+
+                yield packet
+
+        else:
+            for packet in packets:
+                yield packet
 
 class MatroskaWriter(basewriter.BaseWriter):
     """Writer class for the Matroska media format."""
@@ -351,7 +485,7 @@ class MatroskaWriter(basewriter.BaseWriter):
         # Tracks
         trackSizes = self.lastoverhead.get("trackEntrySizes", ())
         overhead.append(len(matroska.Tracks.ebmlID))
-        overhead.append(len(ebml.util.toVint(sum(trackSizes))))
+        overhead.append(len(toVint(sum(trackSizes))))
         overhead.extend(trackSizes)
         overhead.append(128)
 
@@ -443,6 +577,8 @@ class MatroskaWriter(basewriter.BaseWriter):
         self.mkvfile = matroska.MatroskaFile(self.outputpathabs, "w")
 
     def _preparefile(self, logfile=None):
+        self.clusterPts = []
+
         if self.title:
             self.mkvfile.title = self.title
             print(f"Title: {self.title}", file=logfile)
@@ -613,3 +749,31 @@ class MatroskaWriter(basewriter.BaseWriter):
             UID = random.randint(1, 2**64 - 1)
 
         return self.trackclass(source, filters, encoder, trackUID=UID)
+
+    def loadOverhead(self):
+        super().loadOverhead()
+
+        try:
+            clusterptsfile = open(
+                f"{self.config.configstem}-{self.file_index}-clusterpts.dat", "rb")
+
+            self.clusterPtsHist = ClusterPts.fromFile(clusterptsfile)
+            clusterptsfile.close()
+
+        except:
+            self.clusterPtsHist = ClusterPts([])
+
+    def saveOverhead(self):
+        super().saveOverhead()
+
+        if self.clusterPts:
+            self.clusterPtsHist.ptsArrays.append(array(self.clusterPts))
+
+            try:
+                clusterptsfile = open(
+                    f"{self.config.configstem}-{self.file_index}.{k}-clusterpts.dat", "wb")
+                self.clusterPtsHist.toFile(clusterptsfile)
+                clusterptsfile.close()
+
+            except:
+                pass
