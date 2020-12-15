@@ -145,6 +145,7 @@ class QOutputConfig(QWidget):
 
     def isModified(self):
         self._modified = True
+        self.targetSizeSpinBox.setMinimum(self.output_file.minimumSize()/1024**2)
         self.contentsModified.emit()
 
     def notModified(self):
@@ -177,7 +178,9 @@ class QOutputConfig(QWidget):
             self.targetSizeSpinBox.setHidden(output_file.targetsize is None)
 
             if output_file.targetsize:
+                output_file.loadOverhead()
                 self.targetSizeSpinBox.blockSignals(True)
+                self.targetSizeSpinBox.setMinimum(output_file.minimumSize()/1024**2)
                 self.targetSizeSpinBox.setValue(output_file.targetsize/1024**2)
                 self.targetSizeSpinBox.blockSignals(False)
 
@@ -212,6 +215,7 @@ class QOutputConfig(QWidget):
     def configureContainer(self):
         if self.output_file.QtDlgExec(self):
             self.contentsModified.emit()
+            self.targetSizeSpinBox.setMinimum(self.output_file.minimumSize()/1024**2)
 
     #def paintEvent(self, event):
         #painter = QPainter(self)
