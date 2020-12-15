@@ -1084,10 +1084,12 @@ class BaseWriter(abc.ABC):
     @property
     def duration(self):
         if self.vtrack:
-            return self.vtrack.duration
+            return self.vtrack.duration + self.vtrack.delay
 
-        else:
-            return max([track.duration for track in self.tracks])
+        elif len(self.tracks):
+            return max([track.duration + track.delay for track in self.tracks])
+
+        return 0
 
     @staticmethod
     def _printexeption(exc, tb, logfile):
@@ -1145,6 +1147,20 @@ class BaseWriter(abc.ABC):
         I.e., overhead due to file headers, indexes, chapters, attachments, ...
         """
         return 0
+
+    def minimumSize(self):
+        overhead = self.calcOverhead()
+        overheadbitrate = 0
+
+        for track in self.tracks:
+            overhead += track.calcOverhead()
+
+            if track is not self.vtrack and track.encoder and track.bitrate is not None:
+                overheadbitrate += track.bitrate
+
+        overheadbitrate += 16
+
+        return overhead + 125*overheadbitrate*self.duration
 
     def bitrateFromTargetSize(self):
         overhead = self.calcOverhead()
