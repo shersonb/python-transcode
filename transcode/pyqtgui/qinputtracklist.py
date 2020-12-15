@@ -51,7 +51,6 @@ class BaseInputCol(object):
         return partial(self.createContextMenu, obj=obj, index=index)
 
     def createContextMenu(self, table, index, obj):
-        print("A")
         menu = QMenu(table)
         delete = QAction("Delete selected...",
                          table, triggered=partial(table.askDeleteSelected))
