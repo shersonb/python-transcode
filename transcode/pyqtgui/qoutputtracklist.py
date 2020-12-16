@@ -1,7 +1,7 @@
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtBoundSignal)
 from PyQt5.QtWidgets import (QHBoxLayout, QAbstractItemView, QMessageBox, QPushButton,
                              QTreeView, QComboBox, QDoubleSpinBox, QItemDelegate,
-                             QComboBox, QWidget)
+                             QComboBox, QWidget, QApplication, QMenu, QAction)
 from PyQt5.QtGui import QFont, QIcon, QBrush
 
 from .qitemmodel import QItemModel, Node, ChildNodes, NoChildren
@@ -45,6 +45,45 @@ class BaseOutputTrackCol(object):
             return True
 
         return False
+
+    def contextmenu(self, index, obj):
+        return partial(self.createContextMenu, obj=obj, index=index)
+
+    def createContextMenu(self, table, index, obj):
+        menu = QMenu(table)
+        selected = table.selectedIndexes()
+        current = table.currentIndex()
+        track = current.data(Qt.UserRole)
+
+        if isinstance(track, OutputTrack):
+            configurefilter = QAction("Configure Filters...",
+                         table, triggered=partial(table.configureFilters, track))
+
+            configureencoder = QAction("Configure Encoder...",
+                         table, triggered=partial(table.configureEncoder, track.encoder))
+
+        else:
+            configurefilter = QAction("Configure Filters...", table)
+            configureencoder = QAction("Configure Encoder...", table)
+
+
+        configurefilter.setDisabled(track.encoder is None)
+        configureencoder.setDisabled(track.encoder is None)
+
+        menu.addAction(configurefilter)
+        menu.addAction(configureencoder)
+
+        delete = QAction("Delete selected...",
+                         table, triggered=partial(table.askDeleteSelected))
+
+
+        if len(selected) == 0 or any(not isinstance(index.data(Qt.UserRole), BaseReader) for index in selected):
+            delete.setDisabled(True)
+
+        menu.addAction(delete)
+
+
+        return menu
 
 
 class QCodecSelection(QWidget):
@@ -498,17 +537,17 @@ class OutputFileNode(Node):
             for item in items:
                 if isinstance(item.value, BaseReader):
                     for track in item.value.tracks:
-                        newtrack = self.value.trackclass(track,
+                        newtrack = self.value.createTrack(track,
                                                          name=track.name, language=track.language)
 
                         model.insertRow(next(K), newtrack, parent)
 
                 elif isinstance(item.value, BaseFilter):
-                    newtrack = self.value.trackclass(item.value)
+                    newtrack = self.value.createTrack(item.value)
                     model.insertRow(next(K), newtrack, parent)
 
                 else:
-                    newtrack = self.value.trackclass(item.value,
+                    newtrack = self.value.createTrack(item.value,
                                                      name=item.value.name, language=item.value.language)
 
                     model.insertRow(next(K), newtrack, parent)
@@ -610,21 +649,21 @@ class OutputTrackList(QTreeView):
             self.setModel(QItemModel(Node(None), []))
             self.setAcceptDrops(False)
 
-    #def currentChanged(self, newindex, oldindex):
-        #if oldindex.isValid():
-            #for j in range(self.model().columnCount()):
-                #idx = self.model().index(oldindex.row(), j)
+    def currentChanged(self, newindex, oldindex):
+        if oldindex.isValid():
+            for j in range(self.model().columnCount(oldindex.parent())):
+                idx = oldindex.sibling(oldindex.row(), j)
 
-                #if self.model().flags(idx) & Qt.ItemIsEditable:
-                    #self.closePersistentEditor(idx)
+                if self.model().flags(idx) & Qt.ItemIsEditable:
+                    self.closePersistentEditor(idx)
 
-        #if newindex.isValid():
-            #for j in range(self.model().columnCount()):
-                #idx = self.model().index(newindex.row(), j)
+        if newindex.isValid():
+            for j in range(self.model().columnCount(newindex.parent())):
+                idx = oldindex.sibling(newindex.row(), j)
 
-                #if self.model().flags(idx) & Qt.ItemIsEditable:
-                    #self.openPersistentEditor(
-                        #self.model().index(newindex.row(), j))
+                if (self.model().flags(idx) & Qt.ItemIsEditable):
+                    self.openPersistentEditor(
+                        self.model().index(newindex.row(), j))
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -649,11 +688,16 @@ class OutputTrackList(QTreeView):
         if answer == QMessageBox.Yes:
             self.deleteSelected()
 
-    #def deleteSelected(self):
-        #selected = sorted(idx.row()
-                          #for idx in self.selectionModel().selectedRows())
+    def configureEncoder(self, encoder):
+        dlg = encoder.QtDlg(self)
+        dlg.settingsApplied.connect(self.contentsModified)
+        dlg.exec_()
 
-        #for k, row in enumerate(selected):
-            #self.model().removeRow(row - k)
+    def configureFilters(self, track):
+        if track.filters is None:
+            track.filters = FilterChain([])
 
-        #self.contentsModified.emit()
+        dlg = track.filters.QtDlg(self)
+        dlg.settingsApplied.connect(self.contentsModified)
+        dlg.exec_()
+
