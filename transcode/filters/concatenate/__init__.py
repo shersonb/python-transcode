@@ -366,12 +366,15 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
         self.segments.clear()
 
     def __getitem__(self, index):
-        segment = self.segments[index]
+        item = self.segments[index]
 
-        if isinstance(segment, weakref.ref):
-            segment = segment()
+        if isinstance(index, int) and isinstance(item, weakref.ref):
+            item = item()
 
-        return segment
+        elif isinstance(index, slice):
+            item = [x() if isinstance(x, weakref.ref) else x for x in item]
+
+        return item
 
     def __len__(self):
         return len(self.segments)
