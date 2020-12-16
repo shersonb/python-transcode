@@ -15,7 +15,9 @@ setup(
         'transcode.filters.audio',
         'transcode.filters.video',
         'transcode.filters.video.cropandresize',
+        'transcode.filters.video.dropframes',
         'transcode.filters.video.fps',
+        'transcode.filters.video.hsladjust',
         'transcode.filters.video.keyframes',
         'transcode.filters.video.levels',
         'transcode.filters.video.pullup',
@@ -39,7 +41,9 @@ setup(
         'bin/qtranscode-config'
     ],
     install_requires=[
-        'ebml', 'matroska', 'titlecase', 'ass', 'av', 'parallel'
+        'ebml', 'matroska', 'titlecase', 'ass', 'av', 'parallel',
+        'numpy', 'scipy', 'lzma', 'Pillow', 'xml', 'json',
+        'regex', 'itertools', 'more_itertools', 'scenedetect'
     ],
     license="MIT"
 )
