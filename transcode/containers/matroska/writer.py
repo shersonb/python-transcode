@@ -6,7 +6,7 @@ from ...util import h
 from fractions import Fraction as QQ
 from collections import OrderedDict
 from numpy import (array, int0, unique, searchsorted, concatenate, sort,
-                   diff, insert, zeros, log2, concatenate)
+                   diff, insert, zeros, ones, log2, concatenate)
 from ..basereader import BaseReader
 from .attachments import AttachmentRef
 from .uid import formatUID
@@ -62,7 +62,7 @@ def calcKeyFrames(iterable, maxint, end):
     no scene cuts have been encountered.
     """
     for x1, x2 in windowed(iterable, 2):
-        if end < x2:
+        if x2 is None or end < x2:
             for x in range(x1, end, maxint):
                 yield x
 
@@ -216,12 +216,12 @@ class Track(basewriter.Track):
                     kf = [0]
 
                 if hasattr(vtrack.encoder, "keyint"):
-                    kf = list(calcKeyFrames(kf, vtrack.encoder.keyint, vtrack.filters.framecount))
+                    kf = list(calcKeyFrames(kf, vtrack.encoder.keyint, vtrack.framecount))
 
                 clusterPts = vtrack.pts[kf]
 
                 return calcKeyFrames(clusterPts, 32768*10**6,
-                                   int(vtrack.filters.duration*10**9+0.5))
+                                   int(vtrack.duration*10**9+0.5))
 
     @property
     def sizes(self):
@@ -231,8 +231,11 @@ class Track(basewriter.Track):
         elif self.compression == 0 and hasattr(self.source, "zsizes"):
             sizes = self.source.zsizes.copy()
 
-        else:
+        elif hasattr(self.source, "sizes"):
             sizes = self.source.sizes.copy()
+
+        else:
+            sizes = 1024*ones(self.framecount, dtype=int0)
 
         sizes = sizes[:self.framecount]
 
@@ -740,7 +743,7 @@ class MatroskaWriter(basewriter.BaseWriter):
 
         return exceptions
 
-    def _createTrack(self, source, filters=None, encoder=None):
+    def createTrack(self, source, filters=None, encoder=None, name=None, language=None):
         existingUIDs = {track.trackUID for track in self.tracks}
 
         UID = random.randint(1, 2**64 - 1)
@@ -748,7 +751,7 @@ class MatroskaWriter(basewriter.BaseWriter):
         while UID in existingUIDs:
             UID = random.randint(1, 2**64 - 1)
 
-        return self.trackclass(source, filters, encoder, trackUID=UID)
+        return self.trackclass(source, filters, encoder, name=None, language=None, trackUID=UID)
 
     def loadOverhead(self):
         super().loadOverhead()
@@ -771,7 +774,7 @@ class MatroskaWriter(basewriter.BaseWriter):
 
             try:
                 clusterptsfile = open(
-                    f"{self.config.configstem}-{self.file_index}.{k}-clusterpts.dat", "wb")
+                    f"{self.config.configstem}-{self.file_index}-clusterpts.dat", "wb")
                 self.clusterPtsHist.toFile(clusterptsfile)
                 clusterptsfile.close()
 

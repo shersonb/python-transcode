@@ -1225,15 +1225,15 @@ class BaseWriter(abc.ABC):
         exceptions.extend(exc for track in self.tracks for exc in track.validate())
         return exceptions
 
-    def _createTrack(self, source, filters=None, encoder=None):
-        return self.trackclass(source, filters, encoder)
+    def createTrack(self, source, filters=None, encoder=None, name=None, language=None):
+        return self.trackclass(source, filters, encoder, name=None, language=None)
 
-    def addTrack(self, source, filters=None, encoder=None):
-        track = self._createTrack(source, filters, encoder)
+    def addTrack(self, source, filters=None, encoder=None, name=None, language=None):
+        track = self.createTrack(source, filters, encoder)
         self.tracks.append(track)
         return track
 
-    def insertTrack(self, index, source, filters=None, encoder=None):
-        track = self._createTrack(source, filters, encoder)
+    def insertTrack(self, index, source, filters=None, encoder=None, name=None, language=None):
+        track = self.createTrack(source, filters, encoder)
         self.tracks.insert(index, track)
         return track
