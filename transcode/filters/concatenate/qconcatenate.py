@@ -3,9 +3,13 @@ from transcode.pyqtgui.qfilterlist import FilterNameCol, SourceCol, FormatCol
 from transcode.pyqtgui.qinputselection import InputSelectionRoot, ColumnUnion
 from transcode.pyqtgui.qitemmodel import Node, ChildNodes, NoChildren, QItemModel
 from transcode.pyqtgui.qfilterconfig import QFilterConfig
-from PyQt5.QtWidgets import QVBoxLayout, QTreeView, QLabel, QSplitter, QWidget, QMessageBox, QMenu, QAction
+from transcode.pyqtgui.qframeselect import QFrameSelect
+from transcode.pyqtgui.qimageview import QImageView
+from PyQt5.QtWidgets import (QVBoxLayout, QTreeView, QLabel, QSplitter, QWidget, QMessageBox,
+                             QMenu, QAction)
+from transcode.pyqtgui.treeview import TreeView as QTreeView
 from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal, QTime
 from transcode.containers.basereader import Track
 from . import Concatenate
 from ..base import BaseFilter, FilterChain
@@ -146,7 +150,7 @@ class DurationCol(BaseColumn):
     headerdisplay = "Duration"
 
     def display(self, index, obj):
-        m, s = divmod(obj.duration, 60)
+        m, s = divmod(float(obj.duration), 60)
         h, m = divmod(int(m), 60)
         return f"{h}:{m:02d}:{s:012.9f}"
 
@@ -231,6 +235,42 @@ class QSegmentTree(QTreeView):
         self.contentsModified.emit()
 
 
+class QVideoPreview(QWidget):
+    frameChanged = pyqtSignal(int, QTime)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.imageView = QImageView(self)
+        self.frameSelection = QFrameSelect(self)
+        self.frameSelection.frameSelectionChanged.connect(self.updateImage)
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        layout.addWidget(self.imageView)
+        layout.addWidget(self.frameSelection)
+
+    def setSource(self, source):
+        self._source = source
+        self.frameSelection.setPtsTimeArray(source.pts_time)
+        self.setFrameIndex(0)
+        s, ms = divmod(int(1000*source.pts_time[0]), 1000)
+        m, s = divmod(s, 60)
+        h, m = divmod(m, 60)
+        self.updateImage(0, QTime(h, m, s, ms))
+
+    def setFrameIndex(self, value):
+        self.frameSelection.slider.setValue(value)
+
+    def updateImage(self, n, t):
+        try:
+            frame = next(self._source.iterFrames(n, whence="framenumber"))
+
+        except:
+            return
+
+        self.imageView.setFrame(frame.to_image().toqpixmap())
+        self.frameChanged.emit(n, t)
+
+
 class QConcatenate(QFilterConfig):
     def createNewFilterInstance(self):
         return Concatenate()
@@ -241,11 +281,14 @@ class QConcatenate(QFilterConfig):
         #layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
-        splitter = QSplitter(Qt.Vertical, self)
-        layout.addWidget(splitter)
+        self.outersplitter = QSplitter(Qt.Vertical, self)
+        layout.addWidget(self.outersplitter)
 
-        col1 = QWidget(splitter)
-        col2 = QWidget(splitter)
+        self.innersplitter = QSplitter(Qt.Vertical, self.outersplitter)
+        self.outersplitter.addWidget(self.innersplitter)
+
+        col1 = QWidget(self.innersplitter)
+        col2 = QWidget(self.innersplitter)
 
         vlayout1 = QVBoxLayout()
         vlayout1.setContentsMargins(0, 16, 0, 0)
@@ -255,8 +298,8 @@ class QConcatenate(QFilterConfig):
         vlayout2.setContentsMargins(0, 16, 0, 0)
         col2.setLayout(vlayout2)
 
-        splitter.addWidget(col1)
-        splitter.addWidget(col2)
+        self.innersplitter.addWidget(col1)
+        self.innersplitter.addWidget(col2)
 
         self.sourcesLabel = QLabel("Sources", self)
         self.sourcesLabel.setFont(
@@ -272,10 +315,13 @@ class QConcatenate(QFilterConfig):
         self.segmentsLabel.setFont(
             QFont("DejaVu Serif", 18, QFont.Bold, italic=True))
         self.segmentsList = QSegmentTree(self)
-        self.segmentsList.contentsModified.connect(self.settingsApplied)
+        self.segmentsList.contentsModified.connect(self.isModified)
 
         vlayout2.addWidget(self.segmentsLabel)
         vlayout2.addWidget(self.segmentsList)
+
+        self.preview = QVideoPreview(self.outersplitter)
+        self.outersplitter.addWidget(self.preview)
 
         self._prepareDlgButtons()
 
@@ -320,6 +366,15 @@ class QConcatenate(QFilterConfig):
     def _resetControls(self):
         self._resetConcatModel()
 
+        if self.filtercopy.type == "video":
+            self.preview.setSource(self.filtercopy)
+            self.preview.show()
+            self.innersplitter.setOrientation(Qt.Horizontal)
+
+        else:
+            self.preview.hide()
+            self.innersplitter.setOrientation(Qt.Vertical)
+
     def _resetConcatModel(self):
         root = SegmentsRoot(self.filtercopy)
 
@@ -332,15 +387,104 @@ class QConcatenate(QFilterConfig):
 
         model = SegmentsModel(root, cols)
         self.segmentsList.setModel(model)
-        model.rowsRemoved.connect(self.isModified)
-        model.rowsMoved.connect(self.isModified)
-        model.rowsInserted.connect(self.isModified)
+        model.rowsRemoved.connect(self._handleSegmentsRemoved)
+        model.rowsMoved.connect(self._handleSegmentsMoved)
+        model.rowsInserted.connect(self._handleSegmentsInserted)
+        self.segmentsList.selectionModel().currentChanged.connect(self._handleCurrentIndexChanged)
 
-        for k, col in enumerate(cols):
-            if hasattr(col, "width"):
-                self.segmentsList.setColumnWidth(k, col.width)
+        #for k, col in enumerate(cols):
+            #if hasattr(col, "width"):
+                #self.segmentsList.setColumnWidth(k, col.width)
 
         self.segmentsList.expandAll()
+
+    def _handleCurrentIndexChanged(self, current, previous):
+        if self.filtercopy.type == "video":
+            try:
+                k = sum(segment.framecount for segment in self.filtercopy[:current.row()])
+
+            except:
+                return
+
+            self.segmentsList.selectionModel().blockSignals(True)
+            self.preview.frameSelection.slider.setValue(k)
+            self.segmentsList.selectionModel().blockSignals(False)
+            self.segmentsList.update()
+
+    def _handleSegmentsRemoved(self, parent, first, last):
+        if self.filtercopy.type == "video":
+            k = self.preview.frameSelection.slider.value()
+            self.preview.frameSelection.blockSignals(True)
+            self.preview.frameSelection.setPtsTimeArray(self.filtercopy.pts_time)
+
+            try:
+                framesBeforeRemoval = sum(segment.framecount for segment in self.filtercopy[:first])
+                framesRemoved = self.preview.frameSelection.slider.maximum() + 1 - self.filtercopy.framecount
+
+                if framesBeforeRemoval <= k < framesBeforeRemoval + framesRemoved:
+                    self.preview.frameSelection.blockSignals(False)
+                    self.preview.frameSelection.slider.setValue(k + framesInserted)
+
+                elif k >= framesBeforeRemoval + framesRemoved:
+                    self.preview.frameSelection.slider.setValue(k - framesRemoved)
+
+            except:
+                pass
+
+            finally:
+                self.preview.frameSelection.blockSignals(False)
+
+    def _handleSegmentsMoved(self, parent, first, last, dest, row):
+        # Notice: first, last, and row indicate OLD offsets, but we are looking at the segments AFTER the swap.
+        if first > row:
+            # Swapping [row, row+1, ..., first-1] with [first, first+1, ..., last]...
+            # is equivalent to...
+            return self._handleSegmentsMoved(parent, row, first - 1, dest, last+1)
+
+        # Swapping [first, first+1, ..., last] with [last+1, last+2, ..., row-1]
+
+        if self.filtercopy.type == "video":
+            k = self.preview.frameSelection.slider.value()
+            self.preview.frameSelection.blockSignals(True)
+            self.preview.frameSelection.setPtsTimeArray(self.filtercopy.pts_time)
+            segmentsMoved = last - first + 1
+
+            try:
+                framesMoved = sum(segment.framecount for segment in self.filtercopy[row - segmentsMoved:row])
+                framesBeforeInsertion = sum(segment.framecount for segment in self.filtercopy[:row - segmentsMoved])
+                framesBeforeMoved = sum(segment.framecount for segment in self.filtercopy[:first])
+
+                if framesBeforeMoved <= k < framesBeforeMoved + framesMoved:
+                    self.preview.frameSelection.slider.setValue(k + framesBeforeInsertion - framesBeforeMoved)
+
+                elif framesBeforeMoved + framesMoved <= k < framesBeforeInsertion + framesMoved:
+                    self.preview.frameSelection.slider.setValue(k - framesMoved)
+
+            except:
+                pass
+
+            finally:
+                self.preview.frameSelection.blockSignals(False)
+
+    def _handleSegmentsInserted(self, parent, first, last):
+        if self.filtercopy.type == "video":
+            k = self.preview.frameSelection.slider.value()
+            self.preview.frameSelection.blockSignals(True)
+            self.preview.frameSelection.setPtsTimeArray(self.filtercopy.pts_time)
+
+            try:
+                try:
+                    framesBeforeInsertion = sum(segment.framecount for segment in self.filtercopy[:first])
+                    framesInserted = sum(segment.framecount for segment in self.filtercopy[first:last+1])
+
+                except:
+                    return
+
+                if k >= framesBeforeInsertion:
+                    self.preview.frameSelection.slider.setValue(k + framesInserted)
+
+            finally:
+                self.preview.frameSelection.blockSignals(False)
 
     def reset(self, nocopy=False):
         if not nocopy:
