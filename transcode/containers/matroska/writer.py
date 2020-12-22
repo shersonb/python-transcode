@@ -223,6 +223,9 @@ class Track(basewriter.Track):
                 return calcKeyFrames(clusterPts, 32768*10**6,
                                    int(vtrack.duration*10**9+0.5))
 
+            else:
+                return calcKeyFrames([0], 32768*10**6, int(self.duration*10**9+0.5))
+
     @property
     def sizes(self):
         if self.sizeStats is not None and len(self.sizeStats):
@@ -259,7 +262,10 @@ class Track(basewriter.Track):
                 isNotDefaultDuration = abs(self.durations - int(self.defaultDuration)) >= 10**6
                 B = unique(sort(concatenate((B, isNotDefaultDuration.nonzero()[0]))))
 
-            B = array(list(calcKeyFrames(B, self.maxInLace, self.framecount)) + [self.framecount])
+            if len(B) == 0:
+                B = [0]
+
+            B = array(list(calcKeyFrames(B, self.maxInLace, self.framecount or 0)) + [self.framecount or 0])
 
             NumInLace = diff(B)
             lacingOverhead = zeros(NumInLace.shape, dtype=int0)

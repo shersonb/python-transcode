@@ -54,7 +54,10 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
             L.append(segment.pts_time + T)
             T += segment.duration
 
-        return numpy.concatenate(L)
+        if len(L):
+            return numpy.concatenate(L)
+
+        return numpy.array((), dtype=numpy.float64)
 
     @cached
     def pts(self):
@@ -66,11 +69,17 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
     @cached
     def durations(self):
-        return numpy.int0(numpy.concatenate([segment.durations*segment.time_base/self.time_base for segment in self]) + 0.0001)
+        if len(self):
+            return numpy.int0(numpy.concatenate([segment.durations*segment.time_base/self.time_base for segment in self]) + 0.0001)
+
+        return numpy.array((), dtype=numpy.float64)
 
     @cached
     def sizes(self):
-        return numpy.concatenate([segment.sizes for segment in self])
+        if len(self):
+            return numpy.concatenate([segment.sizes for segment in self])
+
+        return numpy.array((), dtype=numpy.int0)
 
     @cached
     def framecount(self):
