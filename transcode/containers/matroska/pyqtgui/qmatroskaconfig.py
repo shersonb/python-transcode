@@ -36,6 +36,8 @@ class QMatroskaConfig(QTabWidget):
 
 
 class QMatroskaConfigDlg(QDialog):
+    settingsApplied = pyqtSignal()
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -82,7 +84,7 @@ class QMatroskaConfigDlg(QDialog):
         self.output_file.tags = self.tags
         self.output_file.chapters = self.editions
         self.output_file.attachments = self.attachments
-        self.accept()
+        self.settingsApplied.emit()
         self.notModified()
 
     def reset(self):
