@@ -186,8 +186,7 @@ class QOutputConfig(QWidget):
 
             self.browseBtn.setEnabled(True)
 
-            self.settingsBtn.setEnabled(
-                hasattr(output_file, "QtDlgExec") and callable(output_file.QtDlgExec))
+            self.settingsBtn.setEnabled(output_file.QtDlgClass() is not None)
             self.settingsBtn.setText(f"{output_file.fmtname} Options...")
 
         else:
@@ -213,14 +212,12 @@ class QOutputConfig(QWidget):
             self.targetSizeSpinBox.setHidden(True)
 
     def configureContainer(self):
-        if self.output_file.QtDlgExec(self):
-            self.contentsModified.emit()
-            self.targetSizeSpinBox.setMinimum(self.output_file.minimumSize()/1024**2)
+        dlg = self.output_file.QtDlg(self)
 
-    #def paintEvent(self, event):
-        #painter = QPainter(self)
-        #rect = self.rect()
-        #painter.fillRect(rect, QColor(64, 255, 64))
+        if dlg is not None:
+            dlg.settingsApplied.connect(self.contentsModified)
+            dlg.exec_()
+            self.targetSizeSpinBox.setMinimum(self.output_file.minimumSize()/1024**2)
 
 
 class QOutputConfigDlg(QDialog):
