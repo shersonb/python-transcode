@@ -465,7 +465,7 @@ class SizeCol(BaseColumn):
             size = obj.source.attachment.fileData.size
 
         else:
-            size = os.stat(obj.source).st_size
+            size = os.stat(obj.sourceabs).st_size
 
         if size >= 1024**4:
             return f"{size/1024**4:,.2f} TB"
@@ -498,7 +498,7 @@ class SourceCol(BaseColumn):
         if isinstance(data, AttachmentRef):
             return f"Attachment {data.UID} from input:{input_files.index(data.source)} ({data.source.inputpathrel})"
 
-        return data.name
+        return obj.sourcerel
 
     def tooltip(self, index, obj):
         return str(self.editdata(index, obj))
@@ -679,11 +679,6 @@ class QAttachmentTree(QTreeView):
 
             while UID in existingUIDs:
                 UID = random.randint(1, 2**64 - 1)
-
-            relPath = os.path.relpath(fileName, workingdir)
-
-            if not relPath.startswith(f"{os.path.pardir}{os.path.sep}"):
-                fileName = relPath
 
             _, fileStem = os.path.split(fileName)
             newfiles.append(AttachedFile(
