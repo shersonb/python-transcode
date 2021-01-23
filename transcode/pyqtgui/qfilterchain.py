@@ -52,6 +52,7 @@ class CurrentFiltersModel(QItemModel):
                 if item.value.hasQtDlg():
                     dlg = item.value.QtInitialize()
                     dlg.setFilterPrev(prev)
+                    dlg.setNewConfig(True)
 
                     if dlg.exec_():
                         filter = dlg.filter
@@ -140,9 +141,9 @@ class CurrentFiltersListView(QTreeView):
             model = CurrentFiltersModel(root, [CurrentFiltersCol()])
             self.setModel(model)
             #model.dataChanged.connect(self.contentsModified)
-            #model.rowsMoved.connect(self._emitFilterMoved)
-            #model.rowsInserted.connect(self._emitFilterInserted)
-            #model.rowsRemoved.connect(self._emitFilterRemoved)
+            model.rowsMoved.connect(self._emitFilterMoved)
+            model.rowsInserted.connect(self._emitFilterInserted)
+            model.rowsRemoved.connect(self._emitFilterRemoved)
 
         else:
             self.setModel(QItemModel(Node(None), []))
