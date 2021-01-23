@@ -1,7 +1,7 @@
 import av
 import threading
 import os
-from ..util import cached, search
+from ..util import cached, search, WorkaheadIterator
 from collections import OrderedDict
 import numpy
 from av import VideoFrame
@@ -213,6 +213,13 @@ class Track(object):
         index = self.frameIndexFromPts(key_pts)
 
         packets = self.iterPackets(key_pts)
+
+        if hasattr(self, "defaultDuration") and self.defaultDuration:
+            packets = WorkaheadIterator(packets,
+                        int(10/self.defaultDuration/self.time_base) + 1)
+
+        else:
+            packets = WorkaheadIterator(packets)
 
         decoder = av.CodecContext.create(self.codec, "r")
 
