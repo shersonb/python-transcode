@@ -216,7 +216,7 @@ class Track(basewriter.Track):
                     kf = [0]
 
                 if hasattr(vtrack.encoder, "keyint"):
-                    kf = list(calcKeyFrames(kf, vtrack.encoder.keyint, vtrack.framecount))
+                    kf = list(calcKeyFrames(kf, vtrack.encoder.keyint or 240, vtrack.framecount))
 
                 clusterPts = vtrack.pts[kf]
 
@@ -293,14 +293,15 @@ class Track(basewriter.Track):
             overhead = (1 + int0(log2(Dsizes + 1)/7 + 1) + Hsizes).sum()
 
         else:
+            durations = self.durations[:self.framecount]
+
             if self.defaultDuration:
-                isNotDefaultDuration = abs(self.durations - int(self.defaultDuration)) >= 10**6
-                isDefaultDuration = ~isNotDefaultDuration
+                isNotDefaultDuration = abs(durations - int(self.defaultDuration)) >= 10**6
 
             else:
-                isNotDefaultDuration = abs(self.durations) >= 10**6
-                isDefaultDuration = ~isNotDefaultDuration
+                isNotDefaultDuration = abs(durations) >= 10**6
 
+            isDefaultDuration = ~isNotDefaultDuration
             overheads = zeros(isDefaultDuration.shape, dtype=int0)
             BlockDurationSizes = zeros(isDefaultDuration.shape, dtype=int0)
             BGoverhead = zeros(isDefaultDuration.shape, dtype=int0)
@@ -308,12 +309,11 @@ class Track(basewriter.Track):
             HeadSizes = int(log2(self.track_index + 1)/7 + 1) + 2 + 1
             BlockPayloadSizes = HeadSizes + sizes
             BlockOverheadSizes = 1 + int0(log2(BlockPayloadSizes + 1)/7 + 1) + HeadSizes
-            BlockDurationSizes[isNotDefaultDuration*(self.durations >= 256*10**6)] = 4
-            BlockDurationSizes[isNotDefaultDuration*(self.durations < 256*10**6)] = 3
+            BlockDurationSizes[isNotDefaultDuration*(durations >= 256*10**6)] = 4
+            BlockDurationSizes[isNotDefaultDuration*(durations < 256*10**6)] = 3
             BlockGroupPayloadSizes = BlockOverheadSizes + sizes + BlockDurationSizes
             BlockGroupOverheadSizes = 1 + int0(log2(BlockGroupPayloadSizes + 1)/7 + 1) + BlockDurationSizes
             overhead = BlockOverheadSizes.sum() + BlockGroupOverheadSizes[isNotDefaultDuration].sum()
-            #return (HeadSizes, BlockPayloadSizes, BlockOverheadSizes, BlockDurationSizes, BlockGroupPayloadSizes, BlockGroupOverheadSizes)
 
         if self.encoder:
             if self.codec in ("libx265", "libx264", "hevc", "h264"):
@@ -347,19 +347,16 @@ class Track(basewriter.Track):
                 yield frame
 
 
-    def _iterPackets(self, packets, duration=None, logfile=None):
-        packets = super()._iterPackets(packets, duration, logfile)
+    def _iterPacketHook(self, packet):
+        if (self.container is not None
+                and self.encoder is not None
+                and self.type == "video"
+                and hasattr(packet, "keyframe")
+                and packet.keyframe):
+            self.container.clusterPts.append(packet.pts)
 
-        if self.container is not None and self.encoder is not None and self.type == "video":
-            for packet in packets:
-                if hasattr(packet, "keyframe") and packet.keyframe:
-                    self.container.clusterPts.append(packet.pts)
+        return packet
 
-                yield packet
-
-        else:
-            for packet in packets:
-                yield packet
 
 class MatroskaWriter(basewriter.BaseWriter):
     """Writer class for the Matroska media format."""
@@ -695,7 +692,6 @@ class MatroskaWriter(basewriter.BaseWriter):
         track = self.tracks[packet.track_index]
         packet = matroska.Packet.copy(
             packet, trackNumber=track.trackEntry.trackNumber)
-        packet.compression = track.compression
 
         if track.codec == "libx265":
             packet.referenceBlocks = None
@@ -703,7 +699,7 @@ class MatroskaWriter(basewriter.BaseWriter):
         if track.type == "video":
             packet.duration = None
 
-        self.mkvfile.mux(packet)
+        return self.mkvfile.mux(packet)
 
     @property
     def time_base(self):
@@ -725,12 +721,10 @@ class MatroskaWriter(basewriter.BaseWriter):
         from .pyqtgui.qtracklist import cols
         return cols
 
-    def QtDlgExec(self, parent=None):
+    @staticmethod
+    def QtDlgClass():
         from .pyqtgui.qmatroskaconfig import QMatroskaConfigDlg
-        dlg = QMatroskaConfigDlg(parent)
-        dlg.setOutputFile(self)
-
-        return dlg.exec_()
+        return QMatroskaConfigDlg
 
     def removeDependency(self, dependency):
         super().removeDependency(dependency)
@@ -750,14 +744,24 @@ class MatroskaWriter(basewriter.BaseWriter):
         return exceptions
 
     def createTrack(self, source, filters=None, encoder=None, name=None, language=None):
+        if name is None and hasattr(source, "name"):
+            name = source.name
+
+        if language is None and hasattr(source, "language"):
+            language = source.language
+
         existingUIDs = {track.trackUID for track in self.tracks}
 
-        UID = random.randint(1, 2**64 - 1)
+        if hasattr(source, "UID") and isinstance(source.UID, int) and 0 < source.UID < 2**64:
+            UID = source.UID
+
+        else:
+            UID = random.randint(1, 2**64 - 1)
 
         while UID in existingUIDs:
             UID = random.randint(1, 2**64 - 1)
 
-        return self.trackclass(source, filters, encoder, name=None, language=None, trackUID=UID)
+        return self.trackclass(source, filters, encoder, name=language, language=language, trackUID=UID)
 
     def loadOverhead(self):
         super().loadOverhead()
