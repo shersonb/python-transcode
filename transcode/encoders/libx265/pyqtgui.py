@@ -12,7 +12,7 @@ from . import x265colonrationalparams, x265slashrationalparams
 
 class Choices(QWidget):
     def __init__(self, encoder, optname, attrname, choices, *args, **kwargs):
-        super(Choices, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.encoder = encoder
         self.optname = optname
         self.attrname = attrname
@@ -59,7 +59,7 @@ class Choices(QWidget):
 
 class IntOption(QWidget):
     def __init__(self, encoder, optname, attrname, minval, maxval, step, *args, **kwargs):
-        super(IntOption, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.encoder = encoder
         self.optname = optname
         self.attrname = attrname
@@ -93,6 +93,44 @@ class IntOption(QWidget):
 
     def valueChanged(self, value):
         if value > self.spinbox.minimum():
+            setattr(self.encoder, self.attrname, value)
+
+        else:
+            setattr(self.encoder, self.attrname, None)
+
+
+class StrOption(QWidget):
+    def __init__(self, encoder, optname, attrname, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.encoder = encoder
+        self.optname = optname
+        self.attrname = attrname
+
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
+
+        self.label = QLabel(optname, self)
+        layout.addWidget(self.label)
+
+        layout.addStretch()
+
+        self.textBox = QLineEdit(self)
+        layout.addWidget(self.textBox)
+
+
+        currentvalue = getattr(encoder, attrname)
+
+        if currentvalue is not None:
+            self.textBox.setText(currentvalue)
+
+        else:
+            self.textBox.setText("")
+
+        self.textBox.textChanged.connect(self.textChanged)
+
+    def textChanged(self, value):
+        if value:
             setattr(self.encoder, self.attrname, value)
 
         else:
@@ -229,6 +267,18 @@ class PerformanceTab(QWidget):
         layout.addWidget(self.framethreads)
 
         # TODO: Insert --pools, --numa-pools
+
+        self.numapools = StrOption(encoder, "Numa Pools", "numa-pools", self)
+        self.numapools.textBox.textChanged.connect(self.optionchanged.emit)
+        #self.numapools.setToolTip("--slices <integer>\n\n"
+                               #"Encode each incoming frame as multiple parallel slices that may be decoded\n"
+                               #"independently. Support available only for rectangular slices that cover the\n"
+                               #"entire width of the image.\n\n"
+                               #"Recommended for improving encoder performance only if frame-parallelism\n"
+                               #"and WPP are unable to maximize utilization on given hardware.\n\n"
+                               #"Default: 1 slice per frame. Experimental feature.")
+        layout.addWidget(self.numapools)
+
 
         self.slices = IntOption(encoder, "Slices", "slices", 0, 16, 1, self)
         self.slices.spinbox.valueChanged.connect(self.optionchanged.emit)

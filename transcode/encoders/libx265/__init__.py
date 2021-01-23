@@ -13,7 +13,7 @@ x265strparams = {"stats", "tune", "qpfile", "zones", "scaling-list",
                  "lambda-file", "deblock", "preset", "level-idc", "input-csp", "fps", "sar",
                  "deblock", "display-window", "overscan", "videoformat", "range",
                  "colorprim", "transfer", "colormatrix", "master-display", "max-cll",
-                 "nalu-file", "dolby-vision-profile", "log-level", "asm", "pools", "numa_pools",
+                 "nalu-file", "dolby-vision-profile", "log-level", "asm", "pools", "numa-pools",
                  "interlace", "analysis-save", "analysis-load", "analysis-reuse-file",
                  "refine-mv-type", "me", "merange", "hme-search", "hme-range"
                  }
@@ -167,6 +167,7 @@ class libx265EncoderContext(EncoderContext):
             b"^" + 5*pattern + b"$", packet.to_bytes())[0]
 
         NALtypes = [0b100000, 0b100001, 0b100010, 0b100111]
+
         for naltype, p in zip(NALtypes, (nal1, nal2, nal3, nal4)):
             data += naltype.to_bytes(1, "big")
             data += int.to_bytes(1, 2, "big")
