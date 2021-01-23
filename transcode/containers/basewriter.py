@@ -205,6 +205,7 @@ class Track(abc.ABC):
             return
 
     def _iterPackets(self, packets, duration=None, logfile=None):
+        hasPacketHook = hasattr(self, "_iterPacketHook") and callable(self._iterPacketHook)
         self._sizes = []
         track_index = self.track_index
         exit = False
@@ -215,16 +216,12 @@ class Track(abc.ABC):
                     packet.track_index = track_index
                     packet.pts += int(self.delay/self.time_base)
 
+                    if hasPacketHook:
+                        packet = self._iterPacketHook(packet)
+
                     if duration is not None and packet.keyframe and packet.pts >= duration/self.time_base:
                         break
 
-                    if self.codec in ("hevc", "libx265"):
-                        size = packet.size - 4
-
-                    else:
-                        size = packet.size
-
-                    self._sizes.append(size)
                     yield packet
 
             except GeneratorExit:
@@ -520,10 +517,11 @@ class Track(abc.ABC):
         print(f"    Codec: {self.codec} (copy)", file=logfile)
         packets = self.source.iterPackets()
 
-        if self.type == "subtitle":
-            return WorkaheadIterator(packets)
+        if hasattr(self.source, "defaultDuration") and self.source.defaultDuration:
+            return WorkaheadIterator(packets,
+                        int(10/self.source.defaultDuration/self.source.time_base) + 1)
 
-        return packets
+        return WorkaheadIterator(packets)
 
     @property
     def framecount(self):
@@ -986,10 +984,18 @@ class BaseWriter(abc.ABC):
             if self._stop.isSet():
                 return
 
-            self._mux(packet)
+            size = self._mux(packet)
 
             if callable(notifymux):
-                notifymux(packet)
+                notifymux(packet, size)
+
+            track = self.tracks[packet.track_index]
+
+            if track.codec in ("hevc", "libx265"):
+                size -= 4
+
+            track._sizes.append(size)
+
 
     def open(self, logfile=None):
         try:
@@ -1237,3 +1243,16 @@ class BaseWriter(abc.ABC):
         track = self.createTrack(source, filters, encoder)
         self.tracks.insert(index, track)
         return track
+
+    @staticmethod
+    def QtDlgClass():
+        return
+
+    def QtDlg(self, parent=None):
+        dlgcls = self.QtDlgClass()
+
+        if dlgcls is not None:
+            dlg = dlgcls(parent)
+            dlg.setOutputFile(self)
+            return dlg
+
