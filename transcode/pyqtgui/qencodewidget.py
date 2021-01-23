@@ -160,7 +160,7 @@ class TrackStats(QWidget):
         self.duration = duration
         self.timestamps = []
         self.sizes = []
-        self.bytesreceived = 0
+        self.byteswritten = 0
         self.packetsreceived = 0
         self.lastpts = 0
         self.keep = keep
@@ -186,7 +186,7 @@ class TrackStats(QWidget):
 
     def reset(self):
         self.timestamps = []
-        self.bytesreceived = 0
+        self.byteswritten = 0
         self.packetsreceived = 0
         self.lastpts = 0
 
@@ -201,14 +201,14 @@ class TrackStats(QWidget):
         self.timestampLabel.setText("0:00:00.000")
         self.etaLabel.setText("—")
 
-    def newPacket(self, packet):
+    def newPacket(self, packet, size):
         self.timestamps.append(time.time())
 
         if self.keep and len(self.timestamps) > self.keep:
             del self.timestamps[:-self.keep]
 
-        self.bytesreceived += packet.size
-        self.sizeLabel.setText(transcode.util.h(self.bytesreceived))
+        self.byteswritten += size
+        self.sizeLabel.setText(transcode.util.h(self.byteswritten))
         self.packetsreceived += 1
 
         if len(self.timestamps) >= 2 and self.timestamps[-1] - self.timestamps[0] > 0:
@@ -256,7 +256,7 @@ class TrackStats(QWidget):
 
         if self.lastpts:
             self.bitrateLabel.setText(
-                f"{float(self.bytesreceived/self.lastpts/125):,.2f} kbps")
+                f"{float(self.byteswritten/self.lastpts/125):,.2f} kbps")
 
         m, s = divmod(float(self.lastpts), 60)
         h, m = divmod(int(m), 60)
@@ -265,7 +265,7 @@ class TrackStats(QWidget):
 
 class QEncodeDialog(QDialog):
     framesenttoencoder = pyqtSignal(VideoFrame)
-    packetreceived = pyqtSignal(Packet)
+    packetreceived = pyqtSignal(Packet, int)
     statsloaded = pyqtSignal(numpy.ndarray)
     encodefinished = pyqtSignal()
     encodepaused = pyqtSignal(str)
@@ -481,24 +481,26 @@ class QEncodeDialog(QDialog):
         self.startTranscode()
         return QDialog.exec_(self)
 
-    def packetReceived(self, pkt):
-        if self.output_file is not None and self.output_file.vtrack is not None and pkt.track_index == self.output_file.vtrack.track_index:
+    def packetReceived(self, pkt, size):
+        if (self.output_file is not None
+                and self.output_file.vtrack is not None
+                and pkt.track_index == self.output_file.vtrack.track_index):
             k = self.trackinfo[pkt.track_index].packetsreceived
 
             if self.vhist is not None and self.vhist.ndim:
                 if len(self.vhist) >= 2:
                     self.graph.addPoints(
-                        [(k, self.vhist[-2, k]), (k, self.vhist[-1, k]), (k, pkt.size)])
+                        [(k, self.vhist[-2, k]), (k, self.vhist[-1, k]), (k, size)])
 
                 elif len(self.vhist) == 1:
                     self.graph.addPoints(
-                        [(k, self.vhist[-1, k]), (k, pkt.size)])
+                        [(k, self.vhist[-1, k]), (k, size)])
 
             else:
-                self.graph.addPoints([(k, pkt.size)])
+                self.graph.addPoints([(k, size)])
 
-        self.trackinfo[pkt.track_index].newPacket(pkt)
-        self.totalinfo.newPacket(pkt)
+        self.trackinfo[pkt.track_index].newPacket(pkt, size)
+        self.totalinfo.newPacket(pkt, size)
         framesdone = sum(
             info.packetsreceived for info in self.trackinfo if info.framecount)
         self.progressBar.setValue(framesdone)
