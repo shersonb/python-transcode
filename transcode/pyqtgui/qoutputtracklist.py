@@ -1,7 +1,7 @@
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtBoundSignal)
 from PyQt5.QtWidgets import (QHBoxLayout, QAbstractItemView, QMessageBox, QPushButton,
                              QTreeView, QComboBox, QDoubleSpinBox, QItemDelegate,
-                             QComboBox, QWidget, QApplication, QMenu, QAction)
+                             QComboBox, QWidget, QApplication, QMenu, QAction, QFileDialog)
 from PyQt5.QtGui import QFont, QIcon, QBrush
 
 from .qitemmodel import QItemModel, Node, ChildNodes, NoChildren
@@ -15,10 +15,12 @@ from transcode.encoders import vencoders, aencoders, sencoders
 from transcode.encoders import createConfigObj as createCodecConfigObj
 from transcode.filters.filterchain import FilterChain
 from transcode.filters.base import BaseFilter
+from transcode.config.ebml.filterchains import FilterChainElement, FilterElement
 import av
 from functools import partial
 from itertools import count
 from collections import OrderedDict
+import sys
 
 
 class BaseOutputTrackCol(object):
@@ -55,22 +57,31 @@ class BaseOutputTrackCol(object):
         current = table.currentIndex()
         track = current.data(Qt.UserRole)
 
-        if isinstance(track, OutputTrack):
-            configurefilter = QAction("Configure Filters...",
-                         table, triggered=partial(table.configureFilters, track))
+        configurefilter = QAction("Configure Filters...",
+                        table, triggered=partial(table.configureFilters, track))
 
+        importfilters = QAction("Load Filters...",
+                        table, triggered=partial(table.importFilterChain, track))
+
+        exportfilters = QAction("Save Filters...",
+                        table, triggered=partial(table.exportFilterChain, track))
+
+        if isinstance(track, OutputTrack):
             configureencoder = QAction("Configure Encoder...",
                          table, triggered=partial(table.configureEncoder, track.encoder))
 
         else:
-            configurefilter = QAction("Configure Filters...", table)
             configureencoder = QAction("Configure Encoder...", table)
 
 
-        configurefilter.setDisabled(track.encoder is None)
-        configureencoder.setDisabled(track.encoder is None)
+        configurefilter.setDisabled(track is None or track.encoder is None)
+        importfilters.setDisabled(track is None or track.encoder is None)
+        exportfilters.setDisabled(track is None or track.encoder is None)
+        configureencoder.setDisabled(track is None or track.encoder is None)
 
         menu.addAction(configurefilter)
+        menu.addAction(importfilters)
+        menu.addAction(exportfilters)
         menu.addAction(configureencoder)
 
         delete = QAction("Delete selected...",
@@ -81,8 +92,6 @@ class BaseOutputTrackCol(object):
             delete.setDisabled(True)
 
         menu.addAction(delete)
-
-
         return menu
 
 
@@ -532,7 +541,8 @@ class OutputFileNode(Node):
 
     def dropChildren(self, model, parent, items, row, action):
         if action == Qt.CopyAction:
-            K = count(row)
+            #K = count(row)
+            newtracks = []
 
             for item in items:
                 if isinstance(item.value, BaseReader):
@@ -540,17 +550,22 @@ class OutputFileNode(Node):
                         newtrack = self.value.createTrack(track,
                                                          name=track.name, language=track.language)
 
-                        model.insertRow(next(K), newtrack, parent)
+                        #model.insertRow(next(K), newtrack, parent)
+                        newtracks.append(newtrack)
 
                 elif isinstance(item.value, BaseFilter):
                     newtrack = self.value.createTrack(item.value)
-                    model.insertRow(next(K), newtrack, parent)
+                    #model.insertRow(next(K), newtrack, parent)
+                    newtracks.append(newtrack)
 
                 else:
                     newtrack = self.value.createTrack(item.value,
                                                      name=item.value.name, language=item.value.language)
 
-                    model.insertRow(next(K), newtrack, parent)
+                    #model.insertRow(next(K), newtrack, parent)
+                    newtracks.append(newtrack)
+
+            model.insertRows(row, newtracks, parent)
 
         elif action == Qt.MoveAction:
             j = 0
@@ -701,3 +716,35 @@ class OutputTrackList(QTreeView):
         dlg.settingsApplied.connect(self.contentsModified)
         dlg.exec_()
 
+    def exportFilterChain(self, track):
+        filefilters = "Filterchains (*.filterchain *.filterchain.gz *.filterchain.bz2 *.filterchain.xz)"
+
+        defaultname = "untitled.filterchain.xz"
+        fileName, _ = QFileDialog.getSaveFileName(self, "Save File",
+                                                  defaultname, filefilters)
+
+        if fileName:
+            try:
+                FilterChainElement.save(track.filters, fileName)
+
+            except:
+                self._handleException(*sys.exc_info())
+
+    def importFilterChain(self, track):
+        filefilters = "Filterchains (*.filterchain *.filterchain.gz *.filterchain.bz2 *.filterchain.xz)"
+
+        defaultname = "untitled.filterchain.xz"
+        fileName, _ = QFileDialog.getOpenFileName(self, "Save File",
+                                                  defaultname, filefilters)
+
+        if fileName:
+            try:
+                filters = FilterChainElement.load(fileName)
+
+            except:
+                self._handleException(*sys.exc_info())
+
+            if not track.filters or QMessageBox.question(
+            self, "Replace Filters", "Do you wish to replace the current filters for the selected track? Current filters associated with selected track will be lost!", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+                track.filters = filters
+                self.contentsModified.emit()
