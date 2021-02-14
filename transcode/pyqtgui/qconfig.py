@@ -219,9 +219,9 @@ class QConfigWindow(QMainWindow):
         self.delayedNew.connect(self.fileNew)
         self.delayedExit.connect(self.close)
 
-        self.fileLoading.connect(self.handleFileLoading)
-        self.fileLoaded.connect(self.handleFileLoaded)
-        self.exceptionCaptured.connect(self.handleException)
+        self.fileLoading.connect(self._handleFileLoading)
+        self.fileLoaded.connect(self._handleFileLoaded)
+        self.exceptionCaptured.connect(self._handleException)
 
         self.loading = False
         self.loadConfig(Config())
@@ -237,13 +237,7 @@ class QConfigWindow(QMainWindow):
     def loadConfig(self, config):
         self.config = config
         self.configWidget.setConfig(config)
-
-        if config.configname:
-            self.setWindowTitle(f"QTranscode Editor - [{config.configname}]")
-
-        else:
-            self.setWindowTitle("QTranscode Editor - Untitled")
-
+        self._updateWindowTitle()
         self.notModified()
 
     def fileNew(self):
@@ -340,20 +334,26 @@ class QConfigWindow(QMainWindow):
         if fileName:
             self.config.configname = fileName
             self.fileSave()
-            self.setWindowTitle(
-                f"QTranscode Editor - [{self.config.configname}]")
 
         return fileName
 
-    def handleFileLoading(self):
+    def _updateWindowTitle(self):
+        if self.config.configname:
+            self.setWindowTitle(f"QTranscode Editor - [{self.config.configname}]")
+
+        else:
+            self.setWindowTitle("QTranscode Editor - Untitled")
+
+    def _handleFileLoading(self):
         self.loading = True
         self.setDisabled(True)
 
-    def handleFileLoaded(self):
+    def _handleFileLoaded(self):
         self.loading = False
         self.setDisabled(False)
         self.saveAct.setEnabled(False)
         self.saveAsAct.setEnabled(True)
+        self._updateWindowTitle()
 
     def loadFile(self, fileName):
         fileDir, _ = os.path.split(fileName)
@@ -377,7 +377,7 @@ class QConfigWindow(QMainWindow):
                                       QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
         return answer
 
-    def handleException(self, cls, exc, tb):
+    def _handleException(self, cls, exc, tb):
         print("\n".join(traceback.format_exception(cls, exc, tb)), file=sys.stderr)
         excmsg = QMessageBox(self)
         excmsg.setWindowTitle("Error")
