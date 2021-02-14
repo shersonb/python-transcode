@@ -489,7 +489,9 @@ class Track(abc.ABC):
             else:
                 frames = self.source.iterFrames()
 
-        return frames
+        for frame in frames:
+            if duration is not None and frame.pts*frame.time_base < duration:
+                yield frame
 
     def openencoder(self, duration=None, logfile=None, **kwargs):
         frames = self._iterFrames(duration, logfile)
