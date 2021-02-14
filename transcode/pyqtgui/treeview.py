@@ -1,6 +1,8 @@
-from PyQt5.QtWidgets import QTreeView, QMenu
+from PyQt5.QtWidgets import QTreeView, QMenu, QMessageBox
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal, QRect
 import gc
+import traceback
+import sys
 
 class TreeView(QTreeView):
     contentsModified = pyqtSignal()
@@ -136,3 +138,14 @@ class TreeView(QTreeView):
                             self.contentsModified)
 
                     self.setItemDelegateForColumn(k, delegate)
+
+    def _handleException(self, cls, exc, tb):
+        print("\n".join(traceback.format_exception(cls, exc, tb)), file=sys.stderr)
+        excmsg = QMessageBox(self)
+        excmsg.setWindowTitle("Error")
+        excmsg.setText("An exception was encountered\n\n%s" %
+                       "".join(traceback.format_exception(cls, exc, tb)))
+        excmsg.setStandardButtons(QMessageBox.Ok)
+        excmsg.setIcon(QMessageBox.Critical)
+        excmsg.exec_()
+
