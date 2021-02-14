@@ -32,6 +32,8 @@ class ZoneDlg(QFilterConfig):
         self.addAction(self.toggleZoneAct)
 
     def _createControls(self):
+        self.setWindowTitle(self.title)
+
         layout = QVBoxLayout(self)
         self.setLayout(layout)
 
