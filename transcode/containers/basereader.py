@@ -185,9 +185,9 @@ class Track(object):
                 endpts = None
 
         elif whence == "seconds":
-            if start/self.time_base >= self.pts[0]:
+            if start/self.time_base + 0.01 >= self.pts[0]:
                 startindex = self.frameIndexFromPts(
-                    start/self.time_base, "-" if self.type is "audio" else "+")
+                    start/self.time_base + 0.01, "-" if self.type is "audio" else "+")
 
             else:
                 startindex = 0
@@ -195,7 +195,7 @@ class Track(object):
             startpts = start/self.time_base
 
             try:
-                endindex = end and self.frameIndexFromPts(end/self.time_base)
+                endindex = end and self.frameIndexFromPts(end/self.time_base + 0.01)
                 endpts = end and self.pts[endindex]
 
             except IndexError:
@@ -396,6 +396,9 @@ class Track(object):
 
     @property
     def duration(self):
+        if self.type == "audio":
+            return (self.pts[0] + self.pts.size*self.defaultDuration)*self.time_base
+
         return (self.pts[-1] + self.durations[-1])*self.time_base
 
     @property
