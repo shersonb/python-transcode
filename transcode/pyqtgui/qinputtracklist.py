@@ -474,7 +474,7 @@ class QInputTrackList(QTreeView):
             #event.accept()
 
     def addFile(self, row_id=-1):
-        if row_id < 0:
+        if row_id < 0 or row_id is False:
             row_id = self.model().rowCount(QModelIndex())
 
         allExts = []
