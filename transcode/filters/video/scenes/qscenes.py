@@ -11,7 +11,7 @@ from numpy import isnan, arange, array
 from ..base import BaseVideoFilter
 from . import Scenes, AnalysisThread
 from ...base import BaseFilter
-from transcode.containers.basewriter import Track
+from transcode.containers.basereader import Track
 from transcode.pyqtgui.qzones import ZoneDlg
 from transcode.pyqtgui.qframetablecolumn import ZoneCol
 from more_itertools import windowed
@@ -73,15 +73,6 @@ class BaseSceneCol(ZoneCol, QObject):
         menu = ZoneCol.createContextMenu(self, table, index, obj)
         menu.addSeparator()
 
-        #checkallselected = QAction("&Check all selected", table,
-                                   #triggered=partial(self.checkSelected, table=table, check=True))
-        #uncheckallselected = QAction("&Uncheck all selected", table,
-                                     #triggered=partial(self.checkSelected, table=table, check=False))
-
-        #menu.addAction(checkallselected)
-        #menu.addAction(uncheckallselected)
-        #menu.addSeparator()
-
         idx = table.indexAt(QPoint(0, 0))
 
         j = table.model().data(idx, Qt.UserRole)
@@ -121,8 +112,13 @@ class BaseSceneCol(ZoneCol, QObject):
         autoscenes = QAction("A&utoscenes", table,
                              triggered=partial(self.autoScenes, table=table))
 
-        if self.filter.stats is None or self.filter.stats.shape[0] < self.filter.source.framecount - 1 \
-                or isnan(self.filter.stats[self.filter.prev.cumulativeIndexReverseMap[1:] - 1]).any():
+        if (self.filter.stats is None
+            or self.filter.stats.shape[0] < self.filter.source.framecount - 1
+            or (
+                isinstance(self.filter.prev, BaseFilter)
+                and isnan(self.filter.stats[self.filter.prev.cumulativeIndexReverseMap[1:] - 1]).any()
+                )
+            ):
             autoscenes.setDisabled(True)
 
         keyscenes = QAction("Scenes from &Key Frames", table, triggered=partial(
@@ -144,27 +140,9 @@ class BaseSceneCol(ZoneCol, QObject):
         dlg.setFilter(self.filter, True)
         dlg.setZone(zone)
         dlg.settingsApplied.connect(table.contentsModified)
-        #dlg.contentsModified.connect(table.contentsModified)
         dlg.zoneChanged.connect(partial(self.scrollTableToZone, table))
         dlg.slider.slider.setValue(self.filter.cumulativeIndexMap[index.row()])
         dlg.exec_()
-
-    #def checkSelected(self, table, check=True):
-        #sm = table.selectionModel()
-        #selected = {table.model().data(idx, Qt.UserRole)
-                    #for idx in sm.selectedIndexes()}
-
-        #for k in selected:
-            #if table.isRowHidden(k):
-                #continue
-
-            #if check and k not in self.filter.zone_indices:
-                #self.filter.insertZoneAt(k)
-            ## and zone is self.filter[0]:
-            #elif not check and k in self.filter.zone_indices:
-                #self.filter.removeZoneAt(k)
-
-        #table.contentsModified.emit()
 
     def autoScenes(self, table):
         if len(self.filter) <= 1 or \
