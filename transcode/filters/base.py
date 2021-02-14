@@ -121,28 +121,10 @@ class BaseFilter(object):
         if isinstance(value, BaseFilter):
             value.addMonitor(self)
 
-        if isinstance(oldsource, BaseFilter) and oldsource not in (self._prev, self._source):
+        if isinstance(oldsource, BaseFilter) and oldsource is not self._prev:
             oldsource.removeMonitor(self)
 
         return value
-
-    @property
-    def prev(self):
-        if self.parent is not None:
-            return self._prev or self._source or self.parent.prev
-
-        return self._prev or self._source
-
-    @prev.setter
-    def prev(self, value):
-        oldprev = self._prev
-        self._prev = value
-
-        if isinstance(value, BaseFilter):
-            value.addMonitor(self)
-
-        if isinstance(oldprev, BaseFilter) and oldprev not in (self._prev, self._source):
-            oldprev.removeMonitor(self)
 
     @WeakRefProperty
     def prev(self, value):
@@ -161,13 +143,12 @@ class BaseFilter(object):
 
     @prev.setter
     def prev(self, value):
-        oldprev = self._prev
-        self._prev = value
+        oldprev = self._prev() if isinstance(self._prev, weakref.ref) else None
 
         if isinstance(value, BaseFilter):
             value.addMonitor(self)
 
-        if isinstance(oldprev, BaseFilter) and oldprev not in (self._prev, self._source):
+        if isinstance(oldprev, BaseFilter) and oldprev is not self._source:
             oldprev.removeMonitor(self)
 
         return value
@@ -547,6 +528,7 @@ class FilterChain(llist, BaseFilter):
         self._exchange_new_old(oldstart, newstart, oldend, newend)
 
     def __delitem__(self, index):
+        item = self[index]
         oldstart, oldend = self._get_start_end()
         super().__delitem__(index)
         newstart, newend = self._get_start_end()
@@ -576,30 +558,6 @@ class FilterChain(llist, BaseFilter):
         super().clear()
         self._exchange_new_old(oldstart, None, oldend, None)
 
-
-    @property
-    def source(self):
-        if isinstance(self.parent, FilterChain):
-            return self.parent.prev
-
-        return self._source
-
-    @source.setter
-    def source(self, value):
-        if isinstance(self.parent, FilterChain):
-            raise ValueError(
-                f"'source' property is read-only for FilterChain members.")
-
-        oldsource = self._source
-        self._source = value
-
-        if isinstance(value, BaseFilter) and len(self):
-            value.addMonitor(self.start)
-
-        if isinstance(oldsource, BaseFilter) and \
-            oldsource not in (self._prev, self._source) and \
-                len(self):
-            oldsource.removeMonitor(self.start)
 
     @WeakRefProperty
     def source(self, value):
