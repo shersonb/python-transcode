@@ -35,6 +35,10 @@ class Fps(BaseVideoFilter):
         return arange(0, self.prev.framecount/float(self.rate), 1/float(self.rate))
 
     @cached
+    def pts(self):
+        return self._calc_pts()
+
+    @cached
     def duration(self):
         return self.framecount/float(self.rate)
 
@@ -43,6 +47,7 @@ class Fps(BaseVideoFilter):
             index = self.prev.frameIndexFromPts(frame.pts)
             frame.pts = self.pts[index]
             yield frame
+
 
     @staticmethod
     def QtDlgClass():

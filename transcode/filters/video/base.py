@@ -36,7 +36,14 @@ class BaseVideoFilter(BaseFilter):
 
     @cached
     def pts(self):
-        return numpy.int0(self.pts_time/float(self.time_base))
+        return self._prev_pts()
+
+    def _calc_pts(self):
+        return numpy.int0(self.pts_time/float(self.time_base) + 0.0001)
+
+    def _prev_pts(self):
+        if self.prev is not None:
+            return self.prev.pts
 
     @property
     def defaultDuration(self):

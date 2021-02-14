@@ -878,6 +878,10 @@ class ZonedPullup(zoned.ZonedFilter):
         del self.defaultDuration
         super().reset_cache(start, end, reset_children)
 
+    @cached
+    def pts(self):
+        return self._calc_pts()
+
     def QtTableColumns(self):
         from .qpullup import (FrameRateCheckCol, FrameRateCol, TCPatternCol, TCPatternOffsetCol,
                             YBlendCheckCol, UVBlendCheckCol, FrameRateECol, FrameRateOCol)

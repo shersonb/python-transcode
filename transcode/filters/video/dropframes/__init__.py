@@ -122,6 +122,10 @@ class DropFrames(BaseVideoFilter, set):
         return numpy.concatenate([[t0], t0 + self.pts_duration.cumsum()[:-1]])
 
     @cached
+    def pts(self):
+        return self._calc_pts()
+
+    @cached
     def pts_duration(self):
         durations = numpy.diff(numpy.concatenate(
             [self.prev.pts_time, [self.prev.duration]]))

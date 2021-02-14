@@ -1,5 +1,6 @@
 from .. import zoned
 from ..base import BaseVideoFilter
+from ...base import BaseFilter
 from transcode.util import cached, numpify
 from itertools import count
 import numpy
@@ -264,6 +265,10 @@ class Scenes(zoned.ZonedFilter):
         for zone in self:
             zone.reset_cache()
 
+    @cached
+    def pts(self):
+        return self._calc_pts()
+
     def __next__(self):
         pass
 
@@ -382,16 +387,24 @@ class AnalysisThread(threading.Thread):
                 newstats[:H, :W] = self.scenes.stats
                 self.scenes.stats = newstats
 
-            start = self.scenes.prev.cumulativeIndexReverseMap[self._start + 1]
+            if isinstance(self.scenes.prev, BaseFilter):
+                start = self.scenes.prev.cumulativeIndexReverseMap[self._start + 1]
 
-            if self._end >= self.scenes.prev.framecount:
+            else:
+                start = self._start
+
+            if self._end >= self.scenes.prev.framecount or not isinstance(self.scenes.prev, BaseFilter):
                 end = self.scenes.source.framecount
 
             else:
                 end = self.scenes.prev.cumulativeIndexReverseMap[self._end]
 
             for m in range(start, end):
-                n = self.scenes.prev.cumulativeIndexMap[m]
+                if isinstance(self.scenes.prev, BaseFilter):
+                    n = self.scenes.prev.cumulativeIndexMap[m]
+
+                else:
+                    n = m
 
                 if n > 0:
                     self.scenes.stats[m-1] = stats.get_metrics(
