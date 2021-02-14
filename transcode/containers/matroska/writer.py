@@ -761,7 +761,7 @@ class MatroskaWriter(basewriter.BaseWriter):
         while UID in existingUIDs:
             UID = random.randint(1, 2**64 - 1)
 
-        return self.trackclass(source, filters, encoder, name=language, language=language, trackUID=UID)
+        return self.trackclass(source, filters, encoder, name=name, language=language, trackUID=UID)
 
     def loadOverhead(self):
         super().loadOverhead()
