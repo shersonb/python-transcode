@@ -145,8 +145,10 @@ class QOutputConfig(QWidget):
 
     def isModified(self):
         self._modified = True
-        self.targetSizeSpinBox.setMinimum(self.output_file.minimumSize()/1024**2)
         self.contentsModified.emit()
+
+    def _resetMinimumSize(self):
+        self.targetSizeSpinBox.setMinimum(self.output_file.minimumSize()/1024**2)
 
     def notModified(self):
         self._modified = False
@@ -160,6 +162,7 @@ class QOutputConfig(QWidget):
 
         if output_file is not None:
             self.trackTable.setOutputFile(output_file)
+            self.trackTable.contentsModified.connect(self._resetMinimumSize)
 
             self.titleEdit.blockSignals(True)
             self.titleEdit.setText(output_file.title or "")
@@ -180,7 +183,8 @@ class QOutputConfig(QWidget):
             if output_file.targetsize:
                 output_file.loadOverhead()
                 self.targetSizeSpinBox.blockSignals(True)
-                self.targetSizeSpinBox.setMinimum(output_file.minimumSize()/1024**2)
+                #self.targetSizeSpinBox.setMinimum(output_file.minimumSize()/1024**2)
+                self._resetMinimumSize()
                 self.targetSizeSpinBox.setValue(output_file.targetsize/1024**2)
                 self.targetSizeSpinBox.blockSignals(False)
 
@@ -217,7 +221,8 @@ class QOutputConfig(QWidget):
         if dlg is not None:
             dlg.settingsApplied.connect(self.contentsModified)
             dlg.exec_()
-            self.targetSizeSpinBox.setMinimum(self.output_file.minimumSize()/1024**2)
+            self._resetMinimumSize()
+            #self.targetSizeSpinBox.setMinimum(self.output_file.minimumSize()/1024**2)
 
 
 class QOutputConfigDlg(QDialog):
