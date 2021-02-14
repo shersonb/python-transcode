@@ -276,14 +276,16 @@ class llist(collections.UserList):
 
     def __delitem__(self, index):
         item = self[index]
+        prev = item.prev
+        next = item.next
+        item.next = item.prev = item.parent = None
 
         if (index % len(self)) > 0:
-            self[index - 1].next = item.next
+            prev.next = next
 
         if 0 <= (index % len(self)) < len(self) - 1:
-            self[index + 1].prev = item.prev
+            next.prev = prev
 
-        item.next = item.prev = item.parent = None
         super().__delitem__(index)
 
     def __setitem__(self, index, item):
