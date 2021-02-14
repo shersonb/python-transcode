@@ -335,7 +335,12 @@ class EditionEntry(llist):
         else:
             print(f"Edition Entry {formatUID(self.UID)}", file=logfile)
 
-        return matroska.chapters.EditionEntry(self.UID, self.hidden, self.default, [chapter.prepare(logfile) for chapter in self], self.ordered)
+        return matroska.chapters.EditionEntry(
+            editionUID=self.UID,
+            editionFlagHidden=self.hidden,
+            editionFlagDefault=self.default,
+            chapterAtoms=[chapter.prepare(logfile) for chapter in self],
+            editionFlagOrdered=self.ordered)
 
 
 class Editions(ChildList):
