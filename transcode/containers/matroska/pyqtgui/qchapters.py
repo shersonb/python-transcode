@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QTreeView, QMenu, QAction, QMessageBox, QWidget, QHBoxLayout,
                              QFileIconProvider, QVBoxLayout, QLabel, QSpinBox, QTimeEdit,
                              QDialog, QPushButton, QItemDelegate, QMenu, QWidgetAction,
-                             QToolButton)
+                             QToolButton, QCheckBox)
 from PyQt5.QtCore import Qt, QModelIndex, QTime, QFileInfo, pyqtSignal, QSize
 from transcode.pyqtgui.qitemmodel import Node, ChildNodes, NoChildren, QItemModel
 from ..chapters import ChapterAtom, ChapterDisplay, EditionEntry, Editions
@@ -387,14 +387,21 @@ class BaseColumn(object):
             edindex = index.parent().parent()
             chapindex = index.parent()
 
+        else:
+            edrow = chrow = disprow = -1
+            edindex = chapindex = index
+
         menu = QMenu(table)
 
         insertEdition = QAction("Insert Edition Entry before", table,
                                 triggered=partial(table.addEdition, row=edrow))
+        insertEdition.setEnabled(index.isValid())
         menu.addAction(insertEdition)
+
 
         insertEditionAfter = QAction("Insert Edition Entry after", table,
                                      triggered=partial(table.addEdition, row=edrow+1))
+        insertEditionAfter.setEnabled(index.isValid())
         menu.addAction(insertEditionAfter)
 
         addEdition = QAction("Add Edition Entry at end", table,
@@ -439,7 +446,16 @@ class BaseColumn(object):
                                                       row=table.model().rowCount(chapindex), parent=chapindex))
         menu.addAction(addChapterDisplay)
 
-        if isinstance(obj, EditionEntry):
+
+        if not index.isValid():
+            insertChapter.setEnabled(False)
+            insertChapterAfter.setEnabled(False)
+            addChapter.setEnabled(False)
+            addChapterDisplay.setEnabled(False)
+            insertChapterDisplay.setEnabled(False)
+            insertChapterDisplayAfter.setEnabled(False)
+
+        elif isinstance(obj, EditionEntry):
             insertChapter.setEnabled(False)
             insertChapterAfter.setEnabled(False)
             addChapterDisplay.setEnabled(False)
@@ -734,7 +750,7 @@ class StartCol(BaseColumn):
 
             m, s = divmod(pts/10**9, 60)
             h, m = divmod(int(m), 60)
-            return f"{h}:{m:02d}:{s:012.9f}"
+            return f"{h}:{m:02d}:{s:012.9f} ({n})"
 
         return ""
 
@@ -848,6 +864,43 @@ class UIDCol(BaseColumn):
         model.dataChanged.emit(QModelIndex(), QModelIndex())
 
 
+class NewEditionDlg(QDialog):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setWindowTitle("New Edition Entry")
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        label = QLabel("Chapters:", self)
+        self.chapterSpinBox = QSpinBox(self)
+        self.chapterSpinBox.setMaximum(999)
+        self.chapterSpinBox.setSpecialValueText("None")
+        self.chapterSpinBox.valueChanged.connect(self._handleValueChanged)
+
+        hlayout = QHBoxLayout()
+        hlayout.addWidget(label)
+        hlayout.addWidget(self.chapterSpinBox)
+        layout.addLayout(hlayout)
+
+        self.withDisplays = QCheckBox("Create ChapterDisplay entries", self)
+        layout.addWidget(self.withDisplays)
+
+        self.okayBtn = QPushButton("&OK", self)
+        self.okayBtn.clicked.connect(self.accept)
+        self.closeBtn = QPushButton("&Cancel", self)
+        self.closeBtn.clicked.connect(self.reject)
+
+        hlayout = QHBoxLayout()
+        hlayout.addStretch()
+        hlayout.addWidget(self.okayBtn)
+        hlayout.addWidget(self.closeBtn)
+        layout.addLayout(hlayout)
+
+    def _handleValueChanged(self, value):
+        self.withDisplays.setEnabled(bool(value))
+
+
 class QChapterTree(QTreeView):
     contentsModified = pyqtSignal()
 
@@ -923,22 +976,43 @@ class QChapterTree(QTreeView):
             self.deleteSelected()
 
     def addEdition(self, row=-1):
-        if row == -1:
-            row = self.model().rowCount()
+        dlg = NewEditionDlg(self)
 
-        existingUIDs = set()
+        if dlg.exec_():
+            if row == -1:
+                row = self.model().rowCount()
 
-        for edition in self.editions:
-            existingUIDs.add(edition.UID)
+            existingUIDs = set()
+            existingChapterUIDs = set()
 
-        UID = random.randint(1, 2**64 - 1)
+            for edition in self.editions:
+                existingUIDs.add(edition.UID)
 
-        while UID in existingUIDs:
+                for atom in edition:
+                    existingChapterUIDs.add(atom.UID)
+
             UID = random.randint(1, 2**64 - 1)
 
-        edition = EditionEntry(UID=UID)
-        self.model().insertRow(row, edition)
-        self.setCurrentIndex(parent.child(row, 0))
+            while UID in existingUIDs:
+                UID = random.randint(1, 2**64 - 1)
+
+            edition = EditionEntry(UID=UID)
+
+            for k in range(1, dlg.chapterSpinBox.value() + 1):
+                UID = random.randint(1, 2**64 - 1)
+
+                while UID in existingChapterUIDs:
+                    UID = random.randint(1, 2**64 - 1)
+
+                atom = ChapterAtom(UID, 0)
+                edition.append(atom)
+                existingChapterUIDs.add(UID)
+
+                if dlg.withDisplays.checkState():
+                    atom.displays.append(ChapterDisplay(f"Chapter {k}"))
+
+            self.model().insertRow(row, edition)
+            self.setCurrentIndex(self.model().index(row, 0))
 
     def addChapter(self, row=-1, parent=QModelIndex()):
         if row == -1:
