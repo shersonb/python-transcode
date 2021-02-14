@@ -1,13 +1,15 @@
 from .qframetable import FrameTable
 from .qimageview import QMultiImageView
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QBoxLayout,
-                             QGridLayout, QLabel, QSplitter, QTreeView, QMessageBox)
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QBoxLayout, QMenu, QAction,
+                             QFileDialog, QGridLayout, QLabel, QSplitter, QTreeView, QMessageBox)
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QModelIndex, Qt, QTime
 from PyQt5.QtGui import QFont
 from .qitemmodel import QItemModel, Node, ChildNodes, NoChildren
 from transcode.filters.video import filters
 from transcode.filters.video.base import BaseVideoFilter
-from transcode.filters.base import FilterChain
+from transcode.filters.base import BaseFilter, FilterChain
+from transcode.config.ebml.filterchains import FilterElement, FilterChainElement, FilterChains
+from transcode.config.obj import FilterList
 from .qfilterconfig import QFilterConfig
 from .qframeselect import QFrameSelect
 import sys
@@ -15,6 +17,8 @@ import traceback
 from fractions import Fraction as QQ
 from .qavailablefilters import QAvailableFilters
 from .treeview import TreeView as QTreeView
+from functools import partial
+from copy import deepcopy
 
 
 class CurrentFiltersModel(QItemModel):
@@ -117,6 +121,50 @@ class CurrentFiltersCol(object):
 
         return f"{mod}.{cls}"
 
+    def contextmenu(self, index, obj):
+        return partial(self.createContextMenu, obj=obj, index=index)
+
+    def createContextMenu(self, table, index, obj):
+        menu = QMenu(table)
+        selected = table.selectedIndexes()
+        current = table.currentIndex()
+        filters = [item.data(Qt.UserRole) for item in selected]
+        filter = current.data(Qt.UserRole)
+
+        configurefilter = QAction("Configure Filter...",
+                        table, triggered=partial(table.configureFilter, filter))
+
+        configurefilter.setDisabled(isinstance(filter, BaseFilter) and filter.hasQtDlg())
+
+        importfilters = QAction("Import Filter(s)...",
+                        table, triggered=table.importFilters)
+
+        exportfilters = QAction("Export Selected Filter(s)...",
+                        table, triggered=partial(table.exportFilters, filters))
+
+        exportfilters.setEnabled(len(filters) > 0)
+
+        exportfilterchain = QAction("Export Filterchain...",
+                        table, triggered=table.exportFilterChain)
+
+        menu.addAction(configurefilter)
+        menu.addAction(importfilters)
+        menu.addAction(exportfilters)
+        menu.addAction(exportfilterchain)
+
+        delete = QAction("Delete selected...",
+                         table, triggered=partial(table.askDeleteSelected))
+
+
+        if len(selected) == 0:
+            delete.setDisabled(True)
+
+        menu.addAction(delete)
+
+
+        return menu
+
+
 
 class CurrentFiltersListView(QTreeView):
     contentsModified = pyqtSignal()
@@ -131,6 +179,7 @@ class CurrentFiltersListView(QTreeView):
         self.setAcceptDrops(True)
         self.setIndentation(0)
         self.setHeaderHidden(True)
+        self.setSelectionBehavior(QTreeView.SelectRows)
         self.setFilters(None)
 
     def setFilters(self, filters):
@@ -178,7 +227,7 @@ class CurrentFiltersListView(QTreeView):
 
     def askDeleteSelected(self):
         answer = QMessageBox.question(
-            self, "Delete tracks", "Do you wish to delete the selected tracks? All encoder and settings associated with selected tracks will be lost!", QMessageBox.Yes | QMessageBox.No)
+            self, "Delete filters", "Do you wish to delete the selected filters? All encoder and settings associated with selected filters will be lost!", QMessageBox.Yes | QMessageBox.No)
 
         if answer == QMessageBox.Yes:
             self.deleteSelected()
@@ -213,6 +262,63 @@ class CurrentFiltersListView(QTreeView):
                 excmsg.setStandardButtons(QMessageBox.Ok)
                 excmsg.setIcon(QMessageBox.Critical)
                 excmsg.exec_()
+
+    def exportFilters(self, filters):
+        fl = FilterList(deepcopy(filters))
+        filefilters = "Filters (*.filters *.filters.gz *.filters.bz2 *.filters.xz)"
+
+        defaultname = "untitled.filters.xz"
+        fileName, _ = QFileDialog.getSaveFileName(self, "Save File",
+                                                  defaultname, filefilters)
+
+        if fileName:
+            try:
+                FilterChains.save(fl, fileName)
+
+            except:
+                self._handleException(*sys.exc_info())
+
+    def exportFilterChain(self):
+        filefilters = "Filterchains (*.filterchain *.filterchain.gz *.filterchain.bz2 *.filterchain.xz)"
+
+        defaultname = "untitled.filterchain.xz"
+        fileName, _ = QFileDialog.getSaveFileName(self, "Save File",
+                                                  defaultname, filefilters)
+
+        if fileName:
+            try:
+                FilterChainElement.save(self.filters, fileName)
+
+            except:
+                self._handleException(*sys.exc_info())
+
+    def importFilters(self):
+        model = self.model()
+        filefilters = "Filters (*.filters *.filters.gz *.filters.bz2 *.filters.xz)"
+
+        defaultname = "untitled.filters.xz"
+        fileName, _ = QFileDialog.getOpenFileName(self, "Save File",
+                                                  defaultname, filefilters)
+
+        if fileName:
+            try:
+                filters = FilterChains.load(fileName)
+
+            except:
+                self._handleException(*sys.exc_info())
+
+            for filter in filters:
+                model.appendRow(filter, QModelIndex())
+
+    #def _handleException(self, cls, exc, tb):
+        #print("\n".join(traceback.format_exception(cls, exc, tb)), file=sys.stderr)
+        #excmsg = QMessageBox(self)
+        #excmsg.setWindowTitle("Error")
+        #excmsg.setText("An exception was encountered\n\n%s" %
+                       #"".join(traceback.format_exception(cls, exc, tb)))
+        #excmsg.setStandardButtons(QMessageBox.Ok)
+        #excmsg.setIcon(QMessageBox.Critical)
+        #excmsg.exec_()
 
 
 class QCurrentFilters(QWidget):
