@@ -17,6 +17,7 @@ from .basereader import BaseReader
 from .basereader import Track as InputTrack
 from ..filters.base import BaseFilter
 from ..encoders import vencoders, sencoders, aencoders
+from transcode.avarrays import toNDArray, toAFrame
 
 
 class TrackStats(EBMLNDArray):
@@ -481,6 +482,8 @@ class Track(abc.ABC):
             else:
                 frames = self.filters.iterFrames()
 
+            rate = self.filters.rate
+
         elif source is not None:
             if duration is not None:
                 frames = self.source.iterFrames(
@@ -489,12 +492,38 @@ class Track(abc.ABC):
             else:
                 frames = self.source.iterFrames()
 
-        for frame in frames:
-            if duration is not None and frame.pts*frame.time_base < duration:
+            rate = self.source.rate
+
+        if self.type == "audio":
+            samples = 0
+            N = int(rate*duration + 0.5)
+
+            for frame in frames:
+                if samples + frame.samples == N:
+                    yield frame
+                    break
+
+                elif samples + frame.samples > N:
+                    pts = frame.pts
+                    time_base = frame.time_base
+                    A = toNDArray(frame)
+                    frame = toAFrame(A[:N - samples], frame.layout.name)
+                    frame.pts = pts
+                    frame.time_base = time_base
+                    frame.rate = rate
+                    yield frame
+                    break
+
                 yield frame
+                samples += frame.samples
+
+        else:
+            for frame in frames:
+                if duration is not None and frame.pts*frame.time_base < duration:
+                    yield frame
 
     def openencoder(self, duration=None, logfile=None, **kwargs):
-        frames = self._iterFrames(duration, logfile)
+        frames = self._iterFrames(duration - self.delay, logfile)
         print(f"    Codec: {self.codec}", file=logfile)
 
         if self.type == "video":
@@ -528,6 +557,9 @@ class Track(abc.ABC):
     @property
     def framecount(self):
         if isinstance(self.pts, numpy.ndarray):
+            if self.encoder is not None and self.codec == "libfdk_aac":
+                return len(self.pts) + 2
+
             return len(self.pts)
 
     @property
