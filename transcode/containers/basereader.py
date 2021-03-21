@@ -396,7 +396,7 @@ class Track(object):
 
     @property
     def duration(self):
-        if self.type == "audio":
+        if self.type == "audio" and self.defaultDuration is not None:
             return (self.pts[0] + self.pts.size*self.defaultDuration)*self.time_base
 
         return (self.pts[-1] + self.durations[-1])*self.time_base
