@@ -1,8 +1,11 @@
 from .qoutputtracklist import OutputTrackList
+from transcode.containers.basewriter import BaseWriter
+
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
                              QLineEdit, QFileDialog, QDialog, QCheckBox, QDoubleSpinBox)
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QIcon, QPainter, QColor
+
 import os
 
 
@@ -156,6 +159,17 @@ class QOutputConfig(QWidget):
     def modified(self):
         return self._modified
 
+    def updateOutputPath(self):
+        self.fileEdit.blockSignals(True)
+
+        if isinstance(self.output_file, BaseWriter) and self.output_file.outputpathrel:
+            self.fileEdit.setText(self.output_file.outputpathrel or "")
+
+        else:
+            self.fileEdit.setText("")
+
+        self.fileEdit.blockSignals(False)
+
     def setOutputFile(self, output_file=None):
         self.notModified()
         self.output_file = output_file
@@ -168,9 +182,7 @@ class QOutputConfig(QWidget):
             self.titleEdit.setText(output_file.title or "")
             self.titleEdit.blockSignals(False)
 
-            self.fileEdit.blockSignals(True)
-            self.fileEdit.setText(output_file.outputpathrel or "")
-            self.fileEdit.blockSignals(False)
+            self.updateOutputPath()
 
             self.targetSizeCheckBox.blockSignals(True)
             self.targetSizeCheckBox.setTristate(False)

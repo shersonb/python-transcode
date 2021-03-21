@@ -14,6 +14,7 @@ import threading
 from transcode.config import Config
 from transcode.config.ebml import ConfigElement
 from transcode.filters import filters
+from transcode.containers.basewriter import BaseWriter
 import os
 import sys
 import types
@@ -354,6 +355,7 @@ class QConfigWindow(QMainWindow):
         self.saveAct.setEnabled(False)
         self.saveAsAct.setEnabled(True)
         self._updateWindowTitle()
+        self.configWidget.outputConfig.updateOutputPath()
 
     def loadFile(self, fileName):
         fileDir, _ = os.path.split(fileName)
