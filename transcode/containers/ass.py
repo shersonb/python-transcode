@@ -18,8 +18,6 @@ class Track(basereader.Track):
 
     def __setstate__(self, state):
         self.index = state.get("index")
-        self.sizes = state.get("sizes")
-        self.durations = state.get("durations")
         super().__setstate__(state)
 
     @property
@@ -89,6 +87,35 @@ class Track(basereader.Track):
 
         return islice(self.container.assfile.events, start, end)
 
+    @property
+    def pts(self):
+        return numpy.int0([event.start.total_seconds()*self.time_base.denominator/self.time_base.numerator
+                           for event in self.container.assfile.events])
+
+    @pts.setter
+    def pts(self, value):
+        pass
+
+    @property
+    def sizes(self):
+        fields = [field for field in self.container.assfile.events.field_order if field not in (
+            "Start", "End")]
+        return numpy.int0([len(f"{k+1},{event.dump(fields)}".encode("utf8"))
+                           for k, event in enumerate(self.container.assfile.events)])
+
+    @sizes.setter
+    def sizes(self, value):
+        pass
+
+    @property
+    def durations(self):
+        return numpy.int0([(event.end.total_seconds() - event.start.total_seconds())*self.time_base.denominator/self.time_base.numerator
+                           for event in self.container.assfile.events])
+
+    @durations.setter
+    def durations(self, value):
+        pass
+
 
 class SubstationAlphaReader(basereader.BaseReader):
     trackclass = Track
@@ -105,23 +132,8 @@ class SubstationAlphaReader(basereader.BaseReader):
         self.scan()
 
     def scan(self, notifystart=None, notifyprogress=None, notifyfinish=None):
-        fields = [field for field in self.assfile.events.field_order if field not in (
-            "Start", "End")]
         track = self.tracks[0]
-        pts = []
-        durations = []
-        sizes = []
-
-        for event in self.assfile.events:
-            pts.append(int(event.start.total_seconds()/self.time_base))
-            durations.append(
-                int((event.end - event.start).total_seconds()/self.time_base))
-            sizes.append(len(event.dump(fields).encode("utf8")))
-
         track.index = None
-        track.pts = numpy.array(pts)
-        track.sizes = numpy.array(sizes)
-        track.durations = numpy.array(durations)
 
     @property
     def time_base(self):
