@@ -623,6 +623,7 @@ class OutputTrackList(QTreeView):
 
         self.setIndentation(0)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.setSelectionMode(QTreeView.ExtendedSelection)
         self.setOutputFile(None)
 
     def dragMoveEvent(self, event):
