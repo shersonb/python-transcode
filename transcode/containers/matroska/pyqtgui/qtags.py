@@ -12,18 +12,22 @@ from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QRegExpValidator
 
 from transcode.pyqtgui.qitemmodel import QItemModel, Node, ChildNodes
 from transcode.pyqtgui.treeview import TreeView as QTreeView
-from ..tags import Tag, Tags, SimpleTag
 from transcode.pyqtgui.qlangselect import LanguageDelegate, LANGUAGES
+
+from ..tags import Tag, Tags, SimpleTag
 from titlecase import titlecase
 from functools import partial
 
 from ..chapters import Editions, EditionEntry, ChapterAtom
-from ...basewriter import TrackList, Track
+from ...basewriter import TrackList, Track, BaseWriter
 from ..attachments import Attachments, AttachedFile
+
 from .qtargetselection import QTargetSelection
+from transcode.config.obj import Config
 import traceback
 import xml.dom.minidom
 from itertools import count
+import os
 
 
 class VScrollArea(QScrollArea):
@@ -1222,8 +1226,19 @@ class QTagTree(QTreeView):
     def importTags(self):
         model = self.model()
         filters = "Matroska Tags (*.xml)"
+
+
+        if (isinstance(self.tags, Tags)
+            and isinstance(self.tags.parent, BaseWriter)
+            and isinstance(self.tags.parent.config, Config)):
+            path = os.path.abspath(self.tags.parent.config.workingdir)
+            print("P", path)
+
+        else:
+            path = None
+
         fileName, _ = QFileDialog.getOpenFileName(self, "Import Matroska Tags...",
-                                                  None, filters)
+                                                  path, filters)
 
         if fileName:
             try:
@@ -1244,9 +1259,17 @@ class QTagTree(QTreeView):
         sm = self.selectionModel()
         selected = [index.data(Qt.UserRole) for index in sm.selectedRows()]
 
+        if (isinstance(self.tags, Tags)
+            and isinstance(self.tags.parent, BaseWriter)
+            and isinstance(self.tags.parent.config, Config)):
+            path = os.path.abspath(self.tags.parent.config.workingdir)
+
+        else:
+            path = None
+
         filters = "Matroska Tags (*.xml)"
         fileName, _ = QFileDialog.getSaveFileName(self, "Export Matroska Tags...",
-                                                  None, filters)
+                                                  path, filters)
 
         if fileName:
             try:

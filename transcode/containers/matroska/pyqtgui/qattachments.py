@@ -22,6 +22,10 @@ from ..attachments import Attachments, AttachedFile, AttachmentRef
 from matroska.attachments import AttachedFile as InputAttachedFile
 from ..reader import MatroskaReader
 from ...basereader import BaseReader
+from ...basewriter import BaseWriter
+
+from transcode.config.obj import Config
+
 import pathlib
 import os
 import random
@@ -667,11 +671,18 @@ class QAttachmentTree(QTreeView):
                     removed.update(node.descendants)
 
     def addFromFile(self):
-        workingdir = self.attachments.parent.config.workingdir
+        if (isinstance(self.attachments, Attachments)
+            and isinstance(self.attachments.parent, BaseWriter)
+            and isinstance(self.attachments.parent.config, Config)):
+            path = os.path.abspath(self.attachments.parent.config.workingdir)
+
+        else:
+            path = None
+
         existingUIDs = {attachment.UID for attachment in self.attachments}
         filters = "All image files (*.jpg *.png *.);;All files (*)"
         fileNames, _ = QFileDialog.getOpenFileNames(self, "Add attachments...",
-                                                    QDir.currentPath(), filters)
+                                                    path, filters)
         newfiles = []
 
         for fileName in fileNames:

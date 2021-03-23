@@ -8,6 +8,7 @@ from .qitemmodel import QItemModel, Node, ChildNodes
 from .treeview import TreeView as QTreeView
 from transcode.containers.basereader import BaseReader, Track
 from transcode.containers import readers
+from transcode.config.obj import Config, InputFileList
 from functools import partial
 
 import sys
@@ -434,7 +435,6 @@ class QInputTrackList(QTreeView):
             root = InputFilesRoot(input_files)
             model = InputFileModel(root, cols)
             self.setModel(model)
-            #model.dataChanged.connect(self.contentsModified)
 
             for k, col in enumerate(cols):
                 if hasattr(col, "width"):
@@ -459,21 +459,14 @@ class QInputTrackList(QTreeView):
         if answer == QMessageBox.Yes:
             self.deleteSelected()
 
-    #def dragMoveEvent(self, event):
-        #super().dragMoveEvent(event)
-
-        #if event.keyboardModifiers() == Qt.NoModifier:
-            #if event.source() is self:
-                ##Internal MOVE
-                #event.setDropAction(Qt.MoveAction)
-
-            #else:
-                ##Everything else is assumed to be COPY
-                #event.setDropAction(Qt.CopyAction)
-
-            #event.accept()
-
     def addFile(self, row_id=-1):
+        if (isinstance(self.input_files, InputFileList)
+            and isinstance(self.input_files.config, Config)):
+            path = os.path.abspath(self.input_files.config.workingdir)
+
+        else:
+            path = None
+
         if row_id < 0 or row_id is False:
             row_id = self.model().rowCount(QModelIndex())
 
@@ -488,7 +481,7 @@ class QInputTrackList(QTreeView):
         filters.insert(0, f"All supported files ({' '.join(allExts)})")
 
         fileNames, _ = QFileDialog.getOpenFileNames(self, "Open File(s)",
-                                                  None, ";;".join(filters))
+                                                  path, ";;".join(filters))
 
         if fileNames:
             newfiles = []

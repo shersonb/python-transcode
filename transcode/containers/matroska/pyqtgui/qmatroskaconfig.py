@@ -100,14 +100,8 @@ class QMatroskaConfigDlg(QDialog):
                     self.output_file.chapters or Editions(),
                 ), memo)
 
-            #self.tags = (self.output_file.tags or Tags()).copy()
             self.tags.parent = self.output_file
-
-            #self.attachments = (
-                #self.output_file.attachments or Attachments()).copy()
             self.attachments.parent = self.output_file
-
-            #self.editions = (self.output_file.chapters or Editions()).copy()
             self.editions.parent = self.output_file
 
             self.setWindowTitle(
