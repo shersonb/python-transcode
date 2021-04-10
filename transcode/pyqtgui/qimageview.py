@@ -335,7 +335,7 @@ class QMultiImageView(QWidget):
                             whence="framenumber"
                         ),
                         n - 2 + len(frames)):
-                    frames.append(frame.to_image().toqpixmap())
+                    frames.append(frame.to_image().convert("RGBA").toqpixmap())
 
             except:
                 print(traceback.format_exc(), file=sys.stderr)
