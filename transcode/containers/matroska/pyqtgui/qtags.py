@@ -1232,7 +1232,6 @@ class QTagTree(QTreeView):
             and isinstance(self.tags.parent, BaseWriter)
             and isinstance(self.tags.parent.config, Config)):
             path = os.path.abspath(self.tags.parent.config.workingdir)
-            print("P", path)
 
         else:
             path = None
