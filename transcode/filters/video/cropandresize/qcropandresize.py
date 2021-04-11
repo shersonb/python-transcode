@@ -345,7 +345,7 @@ class CropDlg(QFilterConfig):
         if self.filtercopy.prev is not None:
             frame = next(self.filtercopy.prev.iterFrames(n, whence="framenumber"))
             im = frame.to_image()
-            pixmap = im.toqpixmap()
+            pixmap = im.convert("RGBA").toqpixmap()
             self.cropWidget.setFrame(pixmap)
             self.cropWidget.resize(pixmap.size())
 

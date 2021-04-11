@@ -120,7 +120,7 @@ class QHSLAdjDlg(QFilterConfig):
         if self.filtercopy.prev is not None:
             frame = next(self.filtercopy.iterFrames(n, whence="framenumber"))
             im = frame.to_image()
-            pixmap = im.toqpixmap()
+            pixmap = im.convert("RGBA").toqpixmap()
             self.imageView.setFrame(pixmap)
             #self.imageView.resize(pixmap.size())
 

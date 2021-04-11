@@ -264,7 +264,7 @@ class QSlice(QFilterConfig):
                 return
 
             im = frame.to_image()
-            pixmap = im.toqpixmap()
+            pixmap = im.convert("RGBA").toqpixmap()
             self.startImageView.setFrame(pixmap)
 
     def updateEndImage(self):
@@ -283,7 +283,7 @@ class QSlice(QFilterConfig):
                     return
 
                 im = frame.to_image()
-                pixmap = im.toqpixmap()
+                pixmap = im.convert("RGBA").toqpixmap()
                 self.endImageView.setFrame(pixmap)
 
             else:

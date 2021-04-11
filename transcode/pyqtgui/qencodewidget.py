@@ -295,7 +295,7 @@ class QEncodeDialog(QDialog):
                             bytesio = io.BytesIO()
                             bytesio.write(attachment.fileData)
                             bytesio.seek(0)
-                            qim = Image.open(bytesio).toqpixmap()
+                            qim = Image.open(bytesio).convert("RGBA").toqpixmap()
                             icon = QIcon(qim)
                             self.setWindowIcon(icon)
                             bytesio.close()
@@ -464,7 +464,7 @@ class QEncodeDialog(QDialog):
 
     def setFrame(self, frame):
         im = frame.to_image()
-        pix = im.toqpixmap()
+        pix = im.convert("RGBA").toqpixmap()
         self.imageWindow.setFrame(pix)
 
     def keyPressEvent(self, event):

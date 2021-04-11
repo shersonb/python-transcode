@@ -267,7 +267,7 @@ class QVideoPreview(QWidget):
         except:
             return
 
-        self.imageView.setFrame(frame.to_image().toqpixmap())
+        self.imageView.setFrame(frame.to_image().convert("RGBA").toqpixmap())
         self.frameChanged.emit(n, t)
 
 

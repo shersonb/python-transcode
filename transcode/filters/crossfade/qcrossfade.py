@@ -102,7 +102,7 @@ class QCrossFade(QFilterConfig):
             return
 
         im = frame.to_image()
-        pixmap = im.toqpixmap()
+        pixmap = im.convert("RGBA").toqpixmap()
         self.imageView.setFrame(pixmap)
 
     def createNewFilterInstance(self):
