@@ -391,7 +391,7 @@ class OutputCodecCol(BaseOutputTrackCol):
 
         elif track.source is not None:
             try:
-                c = av.codec.Codec(track.source.codec, "w")
+                c = av.codec.Codec(track.source.codec, "r")
                 return f"{c.long_name} ({track.source.codec}, copy)"
 
             except:
