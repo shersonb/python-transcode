@@ -82,14 +82,13 @@ with open(f"{config.configstem}-{args.n}.log", "a") as logfile:
                 args.file, f"{args.file}-backup-{T.tm_year:04d}.{T.tm_mon:02d}.{T.tm_mday:02d}-{T.tm_hour:02d}.{T.tm_min:02d}.{T.tm_sec:02d}")
             ConfigElement.save(config, args.file)
 
-    else:
-        if len(args.p) == 0:
-            args.p.append(0)
+    elif len(args.p) == 0:
+        args.p.append(0)
 
-        for k, pass_ in enumerate(args.p):
-            dlg = transcode.pyqtgui.qencodewidget.QEncodeDialog(
-                outfile, pass_=pass_, logfile=logfile)
-            dlg.autoClose.setChecked(k < len(args.p) - 1 or args.q)
+    for k, pass_ in enumerate(args.p):
+        dlg = transcode.pyqtgui.qencodewidget.QEncodeDialog(
+            outfile, pass_=pass_, logfile=logfile)
+        dlg.autoClose.setChecked(k < len(args.p) - 1 or args.q)
 
-            if not dlg.exec_():
-                sys.exit(1)
+        if not dlg.exec_():
+            sys.exit(1)
