@@ -195,12 +195,9 @@ class QOutputConfig(QWidget):
             if output_file.targetsize:
                 output_file.loadOverhead()
                 self.targetSizeSpinBox.blockSignals(True)
-                #self.targetSizeSpinBox.setMinimum(output_file.minimumSize()/1024**2)
                 self._resetMinimumSize()
                 self.targetSizeSpinBox.setValue(output_file.targetsize/1024**2)
                 self.targetSizeSpinBox.blockSignals(False)
-
-            self.browseBtn.setEnabled(True)
 
             self.settingsBtn.setEnabled(output_file.QtDlgClass() is not None)
             self.settingsBtn.setText(f"{output_file.fmtname} Options...")
@@ -219,13 +216,13 @@ class QOutputConfig(QWidget):
             self.settingsBtn.setEnabled(False)
             self.settingsBtn.setText("Options...")
 
-            self.browseBtn.setEnabled(False)
-
             self.targetSizeCheckBox.blockSignals(True)
             self.targetSizeCheckBox.setTristate(True)
             self.targetSizeCheckBox.setCheckState(1)
             self.targetSizeCheckBox.blockSignals(False)
             self.targetSizeSpinBox.setHidden(True)
+
+        self.setEnabled(output_file is not None)
 
     def configureContainer(self):
         dlg = self.output_file.QtDlg(self)
