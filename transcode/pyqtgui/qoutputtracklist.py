@@ -541,7 +541,6 @@ class OutputFileNode(Node):
 
     def dropChildren(self, model, parent, items, row, action):
         if action == Qt.CopyAction:
-            #K = count(row)
             newtracks = []
 
             for item in items:
@@ -550,19 +549,16 @@ class OutputFileNode(Node):
                         newtrack = self.value.createTrack(track,
                                                          name=track.name, language=track.language)
 
-                        #model.insertRow(next(K), newtrack, parent)
                         newtracks.append(newtrack)
 
                 elif isinstance(item.value, BaseFilter):
                     newtrack = self.value.createTrack(item.value)
-                    #model.insertRow(next(K), newtrack, parent)
                     newtracks.append(newtrack)
 
                 else:
                     newtrack = self.value.createTrack(item.value,
                                                      name=item.value.name, language=item.value.language)
 
-                    #model.insertRow(next(K), newtrack, parent)
                     newtracks.append(newtrack)
 
             model.insertRows(row, newtracks, parent)
