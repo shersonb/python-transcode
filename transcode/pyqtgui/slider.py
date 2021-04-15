@@ -113,7 +113,12 @@ class Slider(QSlider):
             x = self.value()
 
             if event.modifiers() & Qt.ShiftModifier and self._snapValues:
-                snapIndex = len([n for n in self._snapValues if n < x])
+                if dn < 0:
+                    snapIndex = len([n for n in self._snapValues if n < x])
+
+                else:
+                    snapIndex = len([n for n in self._snapValues if n <= x]) - 1
+
                 newSnapIndex = max(
                     0, min(snapIndex + int(dn), len(self._snapValues) - 1))
                 value = self._snapValues[newSnapIndex]
