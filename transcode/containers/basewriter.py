@@ -18,6 +18,7 @@ from .basereader import Track as InputTrack
 from ..filters.base import BaseFilter
 from ..encoders import vencoders, sencoders, aencoders
 from transcode.avarrays import toNDArray, toAFrame
+import socket
 
 
 class TrackStats(EBMLNDArray):
@@ -945,6 +946,7 @@ class BaseWriter(abc.ABC):
 
                 strftime = time.strftime("%A, %B %-d, %Y, %-I:%M:%S %P %Z")
                 print(f"*** Transcode started: {strftime} ***", file=logfile)
+                print(f"User/host: {os.getlogin()}@{socket.gethostname()}", file=logfile)
 
                 self._transcode_started.set()
 
