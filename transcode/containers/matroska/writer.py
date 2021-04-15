@@ -743,7 +743,7 @@ class MatroskaWriter(basewriter.BaseWriter):
 
         return exceptions
 
-    def createTrack(self, source, filters=None, encoder=None, name=None, language=None):
+    def createTrack(self, source, encoder=None, filters=None, name=None, language=None):
         if name is None and hasattr(source, "name"):
             name = source.name
 
@@ -761,7 +761,7 @@ class MatroskaWriter(basewriter.BaseWriter):
         while UID in existingUIDs:
             UID = random.randint(1, 2**64 - 1)
 
-        return self.trackclass(source, filters, encoder, name=name, language=language, trackUID=UID)
+        return self.trackclass(source, encoder, filters, name=name, language=language, trackUID=UID)
 
     def loadOverhead(self):
         super().loadOverhead()
