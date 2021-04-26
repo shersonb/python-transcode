@@ -262,7 +262,7 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                 if end is not None and self.endpts is not None and packet.pts*packet.time_base >= min(self.endpts, self.startpts + end*packet.time_base):
                     break
 
-                elif self.endpts is not None and packet.pts*packet.time_base >= self.endpts:
+                elif self.endpts is not None and packet.pts*packet.time_base >= self.endpts - 10**-9:
                     break
 
                 elif end is not None and packet.pts*packet.time_base >= self.startpts + end*packet.time_base:
