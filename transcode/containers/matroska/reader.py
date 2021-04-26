@@ -13,6 +13,7 @@ codecs = {
     "A_EAC3": "eac3",
     "A_AAC": "aac",
     "A_DTS": "dts",
+    "A_TRUEHD": "truehd",
     "V_MS/VFW/FOURCC": "vc1",
     "S_TEXT/ASS": "ass",
     "S_VOBSUB": "dvdsub",
@@ -165,6 +166,7 @@ class Track(basereader.Track):
 
         elif whence == "framenumber":
             startpts = self.pts[start]
+            start = self.keyIndexFromPts(startpts)
 
         start_pts, startClusterPosition, startBlockPosition = self.index[start]
         packets = self.container.demux(startClusterPosition=startClusterPosition,
