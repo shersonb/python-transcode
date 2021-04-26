@@ -237,7 +237,7 @@ class AvailableAttachmentsSelection(QDialog):
                 with io.BytesIO() as b:
                     b.write(b"".join(selected.fileData))
                     b.seek(0)
-                    im = Image.open(b).copy()
+                    im = Image.open(b).convert("RGBA")
 
             except:
                 self.previewWidget.hide()
@@ -783,11 +783,11 @@ class QAttachmentsWidget(QWidget):
                     with io.BytesIO() as b:
                         b.write(b"".join(selected.source.attachment.fileData))
                         b.seek(0)
-                        im = Image.open(b).copy()
+                        im = Image.open(b).convert("RGBA")
 
 
                 else:
-                    im = Image.open(selected.source)
+                    im = Image.open(selected.source).convert("RGBA")
 
             except:
                 self.previewWidget.hide()
