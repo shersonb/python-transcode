@@ -54,6 +54,7 @@ def _AFrameToNDArray(frame):
     if frame.format.is_planar:
         return numpy.vstack(arrays).transpose()
 
+    array = numpy.vstack(arrays)
     return array.reshape(frame.samples, nb_channels)
 
 
