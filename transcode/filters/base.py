@@ -684,6 +684,14 @@ class FilterChain(llist, BaseFilter):
             return self.prev.layout
 
     @property
+    def channels(self):
+        if self.end is not None:
+            return self.end.channels
+
+        if self.prev is not None:
+            return self.prev.channels
+
+    @property
     def rate(self):
         if self.end is not None:
             return self.end.rate
