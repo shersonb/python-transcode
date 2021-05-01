@@ -1108,6 +1108,14 @@ class BaseWriter(abc.ABC):
                 iterators.append(track._prepare(
                     duration=self.duration, notifyencode=notifyvencode, logfile=logfile, **encoder_override))
 
+            elif track.type == "video" and track.encoder is not None:
+                stats = f"{self.config.configstem}-{self.file_index}.{track.track_index:d}-{track.encoder.codec}-multipass.log"
+                self._files.add(stats)
+
+                encoder_override.update(pass_=pass_, stats=stats)
+                iterators.append(track._prepare(
+                    duration=self.duration, notifyencode=notifyvencode, logfile=logfile, **encoder_override))
+
             else:
                 iterators.append(track._prepare(
                     duration=self.duration, logfile=logfile, **encoder_override))
