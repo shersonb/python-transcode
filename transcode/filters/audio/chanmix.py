@@ -42,6 +42,14 @@ class ChannelMix(BaseAudioFilter):
                 yield frame
 
     @property
+    def matrix(self):
+        return self._matrix
+
+    @matrix.setter
+    def matrix(self, value):
+        self._matrix = numpy.array(value)
+
+    @property
     def format(self):
         return "fltp"
 
