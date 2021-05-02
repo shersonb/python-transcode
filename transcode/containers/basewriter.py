@@ -288,6 +288,7 @@ class Track(abc.ABC):
             packets = self.openpackets(duration=duration, logfile=logfile)
 
         self._prepareentry(packets=packets, logfile=logfile)
+        packets = WorkaheadIterator(packets, 6)
 
         if self.encoder:
             return self._iterPackets(packets, logfile=logfile)
@@ -1114,7 +1115,7 @@ class BaseWriter(abc.ABC):
 
                 encoder_override.update(pass_=pass_, stats=stats)
                 iterators.append(track._prepare(
-                    duration=self.duration, notifyencode=notifyvencode, logfile=logfile, **encoder_override))
+                    duration=self.duration, logfile=logfile, **encoder_override))
 
             else:
                 iterators.append(track._prepare(
