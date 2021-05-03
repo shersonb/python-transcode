@@ -104,8 +104,9 @@ class QOutputConfig(QWidget):
         self.isModified()
 
     def setTargetSize(self, value):
-        self.output_file.targetsize = value*1024**2
-        self.isModified()
+        if self.targetSizeCheckBox.checkState():
+            self.output_file.targetsize = value*1024**2
+            self.isModified()
 
     def setTargetSizeMode(self, flag):
         self.targetSizeSpinBox.setVisible(flag)
