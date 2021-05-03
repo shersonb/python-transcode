@@ -21,4 +21,4 @@ class KeyFrameCol(BaseColumn):
             return True
 
     def checkstate(self, index, obj):
-        return obj in self.forcekeyframes
+        return 2 if obj in self.forcekeyframes else 0
