@@ -501,6 +501,8 @@ class Track(abc.ABC):
             N = int(rate*duration + 0.5)
 
             for frame in frames:
+                self.container._checkpause()
+
                 if samples + frame.samples == N:
                     yield frame
                     break
@@ -521,6 +523,8 @@ class Track(abc.ABC):
 
         else:
             for frame in frames:
+                self.container._checkpause()
+
                 if duration is not None and frame.pts*frame.time_base < duration:
                     yield frame
 
@@ -1089,15 +1093,8 @@ class BaseWriter(abc.ABC):
                 print(
                     f"Applying bitrate adjustment: {self.newoverhead['bitrateAdj']:+,d} kbps", file=logfile)
 
-            vencoder_override.update(bitrate=bitrate)
-
-        if pass_ == 1:
-            vencoder_override.update(crf=22)
-
-        if pass_:
-            stats = f"{self.config.configstem}-{self.file_index}.{self.vtrack.track_index:d}-{self.vtrack.encoder.codec}-multipass.log"
-            vencoder_override.update(pass_=pass_, stats=stats)
-            self._files.add(stats)
+        else:
+            bitrate = None
 
         iterators = []
 
@@ -1105,21 +1102,22 @@ class BaseWriter(abc.ABC):
             encoder_override = encoder_override or {}
 
             if track is self.vtrack:
-                encoder_override.update(vencoder_override)
-                iterators.append(track._prepare(
-                    duration=self.duration, notifyencode=notifyvencode, logfile=logfile, **encoder_override))
+                if notifyvencode is not None:
+                    encoder_override.update(notifyencode=notifyvencode)
 
-            elif track.type == "video" and track.encoder is not None:
+                if bitrate is not None:
+                    encoder_override.update(bitrate=bitrate)
+
+            if track.encoder is not None and track.codec in ("libx265", "libx264") and pass_:
                 stats = f"{self.config.configstem}-{self.file_index}.{track.track_index:d}-{track.encoder.codec}-multipass.log"
                 self._files.add(stats)
-
                 encoder_override.update(pass_=pass_, stats=stats)
-                iterators.append(track._prepare(
-                    duration=self.duration, logfile=logfile, **encoder_override))
 
-            else:
-                iterators.append(track._prepare(
-                    duration=self.duration, logfile=logfile, **encoder_override))
+                if pass_ == 1 and track.codec == "libx265":
+                    vencoder_override.update(crf=22)
+
+            iterators.append(track._prepare(
+                duration=self.duration, logfile=logfile, **encoder_override))
 
         if logfile:
             logfile.flush()
