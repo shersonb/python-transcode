@@ -389,12 +389,17 @@ class WorkaheadIterator(object):
 
     def _readIterator(self):
         try:
-            for item in self._iterator:
+            while True:
                 with self._lock:
+                    item = next(self._iterator)
+
                     if self._stopped:
                         break
 
                 self._queue.put(item)
+
+        except StopIteration:
+            pass
 
         except BaseException as exc:
             self._queue.put(exc)
@@ -423,6 +428,7 @@ class WorkaheadIterator(object):
     def close(self):
         with self._lock:
             self._stopped = True
+            self._iterator.close()
 
         try:
             self._queue.get(timeout=0)
