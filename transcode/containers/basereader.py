@@ -313,6 +313,9 @@ class Track(object):
             if i >= len(frames):
                 break
 
+            if isinstance(frames[i], BaseException):
+                raise frames[i]
+
             (A, fmt, pict_type, pts) = frames[i]
             frame = VideoFrame.from_ndarray(A, fmt)
             frame.pts = pts
@@ -359,6 +362,9 @@ class Track(object):
                         frame.pict_type = 0
 
                     with c:
+                        if frame.format.name == "nv12":
+                            frame = frame.reformat(format="yuv420p")
+
                         frames.append(
                             (frame.to_ndarray(), frame.format.name, frame.pict_type.name, frame.pts))
                         c.notifyAll()
@@ -378,6 +384,9 @@ class Track(object):
                     frame.pict_type = 0
 
                 with c:
+                    if frame.format.name == "nv12":
+                        frame = frame.reformat(format="yuv420p")
+
                     frames.append(
                         (frame.to_ndarray(), frame.format.name, frame.pict_type.name, frame.pts))
                     c.notifyAll()
@@ -385,7 +394,12 @@ class Track(object):
                 if last_pts is not None and pts >= last_pts:
                     return
 
+        except Exception as exc:
+            frames.append(exc)
+            c.notifyAll()
+
         finally:
+            decoder.extradata = b""
             decoder.close()
 
             with c:
