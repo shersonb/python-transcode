@@ -487,17 +487,21 @@ class QEncodeDialog(QDialog):
                 and pkt.track_index == self.output_file.vtrack.track_index):
             k = self.trackinfo[pkt.track_index].packetsreceived
 
-            if self.vhist is not None and self.vhist.ndim:
-                if len(self.vhist) >= 2:
-                    self.graph.addPoints(
-                        [(k, self.vhist[-2, k]), (k, self.vhist[-1, k]), (k, size)])
+            try:
+                if self.vhist is not None and self.vhist.ndim:
+                    if len(self.vhist) >= 2:
+                        self.graph.addPoints(
+                            [(k, self.vhist[-2, k]), (k, self.vhist[-1, k]), (k, size)])
 
-                elif len(self.vhist) == 1:
-                    self.graph.addPoints(
-                        [(k, self.vhist[-1, k]), (k, size)])
+                    elif len(self.vhist) == 1:
+                        self.graph.addPoints(
+                            [(k, self.vhist[-1, k]), (k, size)])
 
-            else:
-                self.graph.addPoints([(k, size)])
+                else:
+                    self.graph.addPoints([(k, size)])
+
+            except IndexError:
+                pass
 
         self.trackinfo[pkt.track_index].newPacket(pkt, size)
         self.totalinfo.newPacket(pkt, size)
