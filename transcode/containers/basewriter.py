@@ -909,10 +909,12 @@ class BaseWriter(abc.ABC):
                 ready_to_mux, key=lambda packet: packet.pts*packet.time_base)
             k = packets.index(packet)
             packets[k] = None
-            yield packet
+
+            if packet is not None and len(packet.data):
+                yield packet
 
         for packet in ready_to_mux:
-            if packet is not None:
+            if packet is not None and len(packet.data):
                 yield packet
 
     def _closepackets(self, iterators, logfile=None):

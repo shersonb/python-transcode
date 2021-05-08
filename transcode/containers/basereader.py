@@ -233,6 +233,9 @@ class Track(object):
             framesdelivered = 0
 
             for packet in packets:
+                if len(packet.data) == 0:
+                    continue
+
                 avpacket = av.Packet(packet.data)
                 avpacket.pts = packet.pts
                 avpacket.time_base = self.time_base
@@ -347,6 +350,9 @@ class Track(object):
                 decoder.extradata = self.extradata
 
             for packet in packets:
+                if len(packet.data) == 0:
+                    continue
+
                 avpacket = av.Packet(packet.data)
                 avpacket.pts = packet.pts
                 avpacket.time_base = self.time_base
