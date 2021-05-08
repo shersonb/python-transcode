@@ -171,22 +171,14 @@ class Track(basereader.Track):
         start_pts, startClusterPosition, startBlockPosition = self.index[start]
         packets = self.container.demux(startClusterPosition=startClusterPosition,
                                        startBlockPosition=startBlockPosition, trackNumber=self.trackNumber)
-        pkts_list = []
+        keyframeseen = False
 
         for packet in packets:
-            if packet.keyframe:
-                if packet.pts > startpts:
-                    for pkt in pkts_list:
-                        yield pkt
+            if packet.keyframe and packet.pts >= startpts:
+                keyframeseen = True
 
-                pkts_list.clear()
-                pkts_list.append(packet)
-
-            elif len(pkts_list):
-                pkts_list.append(packet)
-
-        for pkt in pkts_list:
-            yield pkt
+            if keyframeseen or len(packet.data) == 0:
+                yield packet
 
     @property
     def time_base(self):
@@ -278,7 +270,7 @@ class MatroskaReader(basereader.BaseReader):
     def time_base(self):
         return QQ(1, 10**9)
 
-    def demux(self, startClusterPosition=None, startBlockPosition=None, trackNumber=None):
+    def demux(self, startClusterPosition=0, startBlockPosition=0, trackNumber=None):
         track_index = [track.trackNumber for track in self.tracks].index(
             trackNumber)
 
