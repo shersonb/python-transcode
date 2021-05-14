@@ -26,57 +26,141 @@ outfile = config.output_files[args.n]
 
 app = QApplication(sys.argv)
 
+
+class VideoFrameAnalysis(object):
+    def __init__(self, track, logfile=None):
+        self.track = track
+        self.logfile = logfile
+        self.inputIframes = set()
+        self.outputIframes = set()
+
+    def notifyencode(self, frame):
+        if frame.pict_type == "I":
+            k = self.track.frameIndexFromPts(frame.pts)
+            self.inputIframes.add(k)
+
+    def notifymux(self, packet):
+        if packet.keyframe:
+            k = self.track.frameIndexFromPts(packet.pts)
+            self.outputIframes.add(k)
+
+    def alterconfig(self):
+        diff = self.inputIframes.difference(self.outputIframes)
+        modified = False
+
+        if len(diff):
+            print(
+                f"Warning: [Track {self.track.track_index}] The following are in 'inputIframes' but not 'outputIframes': {sorted(diff)}", file=self.logfile)
+
+            if self.track.filters is None:
+                kf = KeyFrames()
+                self.track.filters = FilterChain([kf], prev=self.track.source)
+
+            elif len(self.track.filters) and isinstance(self.track.filters[-1], KeyFrames):
+                kf = self.track.filters[-1]
+
+            else:
+                kf = KeyFrames()
+                self.track.filters.append(kf)
+
+            Newkeyframes = set()
+
+            for k in diff:
+                try:
+                    prev = max({j for j in self.inputIframes if j < k})
+
+                except:
+                    prev = 0
+
+                newkeyframes = set()
+
+                try:
+                    minkeyint = self.track.encoder.min_keyint
+
+                except AttributeError:
+                    minkeyint = 6
+
+                for j in range(k - minkeyint, prev + minkeyint - 1, -minkeyint):
+                    newkeyframes.add(j)
+
+                    for i in range(j, j - minkeyint, -1):
+                        if i in self.outputIframes:
+                            break
+
+                    else:
+                        break
+
+                else:
+                    break
+
+                for j in newkeyframes:
+                    n = self.track.filters.reverseIndexMap[j]
+                    kf.add(int(n))
+                    modified = True
+
+                Newkeyframes.update(newkeyframes)
+
+            if len(Newkeyframes):
+                print(
+                    f"Adding Forced Key Frames to configuration: {sorted(Newkeyframes)}", file=logfile)
+
+            return modified
+
+        return modified
+
+
 with open(f"{config.configstem}-{args.n}.log", "a") as logfile:
     if args.k:
-        statsfile = f"{config.configstem}-{outfile.file_index}.{outfile.vtrack.track_index:d}-{outfile.vtrack.encoder.codec}-multipass.log"
-        encoder_overrides = [None]*outfile.vtrack.track_index + \
-            [{"pass_": 1, "slow-firstpass": False, "crf": 28, "stats": statsfile}]
+        encoder_overrides = []
+        notifyvencode = None
+        vanalyses = []
+
+        for k, track in enumerate(outfile.tracks):
+            if track.encoder is None or track.codec not in ("libx265", "libx264"):
+                encoder_overrides.append(None)
+                continue
+
+            statsfile = f"{config.configstem}-{outfile.file_index}.{track.track_index:d}-{track.encoder.codec}-multipass.log"
+            override = {"pass_": 1,
+                        "slow-firstpass": False, "stats": statsfile}
+            encoder_overrides.append(override)
+
+            if track.codec == "libx265":
+                override["crf"] = 28
+
+            else:
+                override["bitrate"] = 1000
+
+            analysis = VideoFrameAnalysis(track, logfile)
+            vanalyses.append(analysis)
+
+            if track is outfile.vtrack:
+                notifyvencode = analysis.notifyencode
+
+            else:
+                override["notifyencode"] = analysis.notifyencode
 
         inputIframes = set()
         outputIframes = set()
 
-        def notifyvencode(frame):
-            if frame.pict_type == "I":
-                k = outfile.vtrack.frameIndexFromPts(frame.pts)
-                inputIframes.add(k)
-
         def notifymux(packet):
-            if packet.track_index == outfile.vtrack.track_index and packet.keyframe:
-                k = outfile.vtrack.frameIndexFromPts(packet.pts)
-                outputIframes.add(k)
+            for analysis in vanalyses:
+                if packet.track_index == analysis.track.track_index:
+                    analysis.notifymux(packet)
 
         dlg = transcode.pyqtgui.qencodewidget.QEncodeDialog(
             outfile, encoderoverrides=encoder_overrides, logfile=logfile)
         dlg.packetreceived.connect(notifymux)
-        dlg.framesenttoencoder.connect(notifyvencode)
+
+        if notifyvencode is not None:
+            dlg.framesenttoencoder.connect(notifyvencode)
+
         dlg.autoClose.setChecked(True)
 
         if not dlg.exec_():
             sys.exit(1)
 
-        diff = inputIframes.difference(outputIframes)
-
-        if len(diff):
-            print("Warning: The following are in 'inputIframes' but not 'outputIframes': %s" % sorted(
-                diff), file=logfile)
-            print("Adding Forced Key Frames to configuration.", file=logfile)
-
-            if outfile.vtrack.filters is None:
-                kf = KeyFrames()
-                outfile.vtrack.filters = FilterChain(
-                    [kf], prev=outfile.vtrack.source)
-
-            elif len(outfile.vtrack.filters) and isinstance(outfile.vtrack.filters[-1], KeyFrames):
-                kf = outfile.vtrack.filters[-1]
-
-            else:
-                kf = KeyFrames()
-                outfile.vtrack.filters.append(kf)
-
-            for k in diff:
-                n = outfile.vtrack.filters.reverseIndexMap[k - 6]
-                kf.add(int(n))
-
+        if any([analysis.alterconfig() for analysis in vanalyses]):
             T = time.localtime()
             os.rename(
                 args.file, f"{args.file}-backup-{T.tm_year:04d}.{T.tm_mon:02d}.{T.tm_mday:02d}-{T.tm_hour:02d}.{T.tm_min:02d}.{T.tm_sec:02d}")
