@@ -21,40 +21,6 @@ from functools import partial
 import faulthandler
 faulthandler.enable()
 
-# class QHexSpinBox(QDoubleSpinBox):
-# def __init__(self, *args, **kwargs):
-#super(QHexSpinBox, self).__init__(*args, **kwargs)
-#regex = QRegExp("0x[0-9A-Fa-f]{1,16}")
-# regex.setCaseSensitivity(Qt.CaseInsensitive)
-#self._validator = QRegExpValidator(regex, self)
-# self.setPrefix("0x")
-#self.setMaximum(16**16 - 1)
-
-# def validate(self, text, pos):
-# return self._validator.validate(text, pos)
-
-# def valueFromText(self, text):
-# return int(text, 16)
-
-# def textFromValue(self, value):
-#value = int(value)
-# return f"{value:016x}"
-
-# class UIDDelegate(QItemDelegate):
-# def createEditor(self, parent, option, index):
-#editor = QHexSpinBox(parent)
-# editor.setMinimum(1)
-# return editor
-
-# def setEditorData(self, editor, index):
-# editor.setValue(index.data(Qt.EditRole))
-
-# def setModelData(self, editor, model, index):
-#model.setData(index, editor.value(), Qt.EditRole)
-
-# def updateEditorGeometry(self, editor, option, index):
-# editor.setGeometry(option.rect)
-
 
 class LacingDelegate(QItemDelegate):
     def createEditor(self, parent, option, index):
