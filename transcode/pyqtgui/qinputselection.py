@@ -376,10 +376,10 @@ class InputDelegate(QItemDelegate):
         self.filters = filters
 
     def createEditor(self, parent, option, index):
-        filter = index.data(Qt.UserRole)
+        item = index.data(Qt.UserRole)
 
         try:
-            filter.source
+            item.source
 
         except AttributeError:
             return
@@ -389,20 +389,21 @@ class InputDelegate(QItemDelegate):
         return editor
 
     def setEditorData(self, editor, index):
-        filter = index.data(Qt.UserRole)
+        item = index.data(Qt.UserRole)
 
-        if isinstance(filter.source, Track) and filter.source.container in self.input_files:
-            file_index = self.input_files.index(filter.source.container)
-            track_index = filter.source.track_index
+        if isinstance(item.source, Track) and item.source.container in self.input_files:
+            file_index = self.input_files.index(item.source.container)
+            track_index = item.source.track_index
             editor.setCurrentIndex(editor.model().index(
                 1, 0).child(file_index, 0).child(track_index, 0))
 
-        elif filter.source in self.filters:
-            filter_index = self.filters.index(filter.source)
+        elif item.source in self.filters:
+            filter_index = self.filters.index(item.source)
             editor.setCurrentIndex(
                 editor.model().index(2, 0).child(filter_index, 0))
 
-        editor.setSelectFunc(filter.isValidSource)
+        if isinstance(item, BaseFilter):
+            editor.setSelectFunc(item.isValidSource)
 
     def setModelData(self, editor, model, index):
         model.setData(index, editor.currentData(), Qt.EditRole)
