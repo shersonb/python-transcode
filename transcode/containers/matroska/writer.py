@@ -8,6 +8,7 @@ from collections import OrderedDict
 from numpy import (array, int0, unique, searchsorted, concatenate, sort,
                    diff, insert, zeros, ones, log2, concatenate)
 from ..basereader import BaseReader
+from ..basereader import Track as InputTrack
 from .attachments import AttachmentRef
 from .uid import formatUID
 import random
@@ -292,7 +293,7 @@ class Track(basewriter.Track):
             Dsizes = Hsizes + Psizes
             overhead = (1 + int0(log2(Dsizes + 1)/7 + 1) + Hsizes).sum()
 
-        else:
+        elif self.durations is not None:
             durations = self.durations[:self.framecount]
 
             if self.defaultDuration:
@@ -314,6 +315,9 @@ class Track(basewriter.Track):
             BlockGroupPayloadSizes = BlockOverheadSizes + sizes + BlockDurationSizes
             BlockGroupOverheadSizes = 1 + int0(log2(BlockGroupPayloadSizes + 1)/7 + 1) + BlockDurationSizes
             overhead = BlockOverheadSizes.sum() + BlockGroupOverheadSizes[isNotDefaultDuration].sum()
+
+        else:
+            overhead = 0
 
         if self.encoder:
             if self.codec in ("libx265", "libx264", "hevc", "h264"):
@@ -761,7 +765,26 @@ class MatroskaWriter(basewriter.BaseWriter):
         while UID in existingUIDs:
             UID = random.randint(1, 2**64 - 1)
 
-        return self.trackclass(source, encoder, filters, name=name, language=language, trackUID=UID)
+        codec = (encoder.codec if encoder is not None
+                 else source.codec if isinstance(source, InputTrack)
+                 else None)
+
+        if codec == "ac3":
+            maxInLace = 8
+
+        elif codec in ("libfdk_aac", "aac"):
+            maxInLace = 12
+
+        else:
+            maxInLace = 1
+
+        if codec == "pgssub":
+            compression = 0
+
+        else:
+            compression = None
+
+        return self.trackclass(source, encoder, filters, name=name, language=language, trackUID=UID, maxInLace=maxInLace, compression=compression)
 
     def loadOverhead(self):
         super().loadOverhead()
