@@ -6,6 +6,8 @@ import sys
 
 class TreeView(QTreeView):
     contentsModified = pyqtSignal()
+    _deletetitle = "Delete items"
+    _deletemsg = "Do you wish to delete the selected items?"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -14,6 +16,8 @@ class TreeView(QTreeView):
         self.setMinimumHeight(160)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.openContextMenu)
+        self.setSelectionBehavior(QTreeView.SelectRows)
+        self.setSelectionMode(QTreeView.ExtendedSelection)
 
     def _getDropAction(self, event):
         supp = self.model().supportedDropActions()
@@ -101,6 +105,30 @@ class TreeView(QTreeView):
         if isinstance(menu, QMenu):
             menu.exec_(self.viewport().mapToGlobal(pos))
 
+    def keyPressEvent(self, event):
+        key = event.key()
+        modifiers = event.modifiers()
+        idx = self.currentIndex()
+        row = idx.row()
+        col = idx.column()
+        model = self.model()
+
+        selected = sorted(idx.row()
+                          for idx in self.selectionModel().selectedRows())
+
+        if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
+            self.askDeleteSelected()
+
+        super().keyPressEvent(event)
+
+    def askDeleteSelected(self):
+        answer = QMessageBox.question(
+            self, self._deletetitle, self._deletemsg,
+            QMessageBox.Yes | QMessageBox.No)
+
+        if answer == QMessageBox.Yes:
+            self.deleteSelected()
+
     def deleteSelected(self):
         model = self.model()
         sm = self.selectionModel()
@@ -116,6 +144,9 @@ class TreeView(QTreeView):
 
                 if node.descendants is not None:
                     removed.update(node.descendants)
+
+        del removed
+        gc.collect()
 
     def setModel(self, model):
         super().setModel(model)

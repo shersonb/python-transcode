@@ -413,6 +413,9 @@ class InputFileNode(Node):
 
 class QInputTrackList(QTreeView):
     contentsModified = pyqtSignal()
+    _deletetitle = "Confirm delete input file(s)"
+    _deletemsg = "Do you wish to delete the selected input file(s)? "\
+                                "All references to selected file(s) will be broken."
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -442,22 +445,6 @@ class QInputTrackList(QTreeView):
 
         else:
             self.setModel(QItemModel(Node(None), []))
-
-    def askDeleteSelected(self):
-        model = self.model()
-        selected = {model.getNode(index)
-                    for index in self.selectedIndexes()}
-
-        if len(selected) == 1:
-            answer = QMessageBox.question(self, "Confirm delete input file",
-                                          "Do you wish to delete the selected input file?", QMessageBox.Yes | QMessageBox.No)
-
-        elif len(selected) > 1:
-            answer = QMessageBox.question(self, "Confirm delete input files",
-                                          "Do you wish to delete the selected input files?", QMessageBox.Yes | QMessageBox.No)
-
-        if answer == QMessageBox.Yes:
-            self.deleteSelected()
 
     def addFile(self, row_id=-1):
         if (isinstance(self.input_files, InputFileList)

@@ -601,6 +601,8 @@ class OutputTrackNodes(ChildNodes):
 
 class OutputTrackList(QTreeView):
     contentsModified = pyqtSignal()
+    _deletetitle = "Delete track(s)"
+    _deletemsg = "Do you wish to delete the selected track(s)? All settings, filters, and encoders associated with selected track(s) will be lost!"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -676,29 +678,6 @@ class OutputTrackList(QTreeView):
                 if (self.model().flags(idx) & Qt.ItemIsEditable):
                     self.openPersistentEditor(
                         self.model().index(newindex.row(), j))
-
-    def keyPressEvent(self, event):
-        key = event.key()
-        modifiers = event.modifiers()
-        idx = self.currentIndex()
-        row = idx.row()
-        col = idx.column()
-        model = self.model()
-
-        selected = sorted(idx.row()
-                          for idx in self.selectionModel().selectedRows())
-
-        if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
-            self.askDeleteSelected()
-
-        super().keyPressEvent(event)
-
-    def askDeleteSelected(self):
-        answer = QMessageBox.question(
-            self, "Delete tracks", "Do you wish to delete the selected tracks? All encoder and settings associated with selected tracks will be lost!", QMessageBox.Yes | QMessageBox.No)
-
-        if answer == QMessageBox.Yes:
-            self.deleteSelected()
 
     def configureEncoder(self, encoder):
         dlg = encoder.QtDlg(self)

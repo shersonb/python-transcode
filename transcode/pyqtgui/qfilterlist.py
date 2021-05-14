@@ -1,5 +1,5 @@
 from PyQt5.QtCore import (Qt, pyqtSignal)
-from PyQt5.QtWidgets import (QTreeView, QMenu)
+from PyQt5.QtWidgets import QMenu
 from .treeview import TreeView as QTreeView
 from .qitemmodel import QItemModel, Node
 import sys
@@ -18,6 +18,9 @@ class EditableSourceCol(SourceCol):
 
 class QFilterList(QTreeView):
     contentsModified = pyqtSignal()
+    _deletetitle = "Confirm delete filter(s)"
+    _deletemsg = "Do you wish to delete the selected filter(s)? "\
+        "All references to selected filter(s) will be broken."
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
