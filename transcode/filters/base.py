@@ -81,28 +81,6 @@ class BaseFilter(object):
         if i in self._monitors and self._monitors[i]() is mon:
             del self._monitors[i]
 
-    @property
-    def source(self):
-        if isinstance(self.parent, FilterChain):
-            return self.parent.prev
-
-        return self._source
-
-    @source.setter
-    def source(self, value):
-        if isinstance(self.parent, FilterChain):
-            raise ValueError(
-                f"'source' property is read-only for FilterChain members.")
-
-        oldsource = self._source
-        self._source = value
-
-        if isinstance(value, BaseFilter):
-            value.addMonitor(self)
-
-        if isinstance(oldsource, BaseFilter) and oldsource not in (self._prev, self._source):
-            oldsource.removeMonitor(self)
-
     @WeakRefProperty
     def source(self, value):
         if isinstance(self.parent, FilterChain):
