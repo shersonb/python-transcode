@@ -576,21 +576,30 @@ class Track(abc.ABC):
         elif self.encoder and self.filters:
             return numpy.int0(self.filters.durations*float(self.filters.time_base/self.time_base))
 
-        return numpy.int0(self.source.durations*float(self.source.time_base/self.time_base))
+        if (hasattr(self.source, "durations")
+                and self.source.durations is not None
+                and self.source.time_base is not None
+                and self.time_base is not None):
+            return numpy.int0(self.source.durations*float(self.source.time_base/self.time_base))
 
     @property
     def pts(self):
         if self.type == "audio":
-            pts = numpy.int0(numpy.arange(self.delay/self.time_base, min(self.duration,
+            pts = numpy.int0(numpy.arange(self.delay/self.time_base, min(self.duration + self.delay,
                                                                          self.container.duration)/self.time_base, self.defaultDuration, dtype=numpy.float64))
 
         elif self.encoder and self.filters:
             pts = numpy.int0(self.filters.pts *
                              float(self.filters.time_base/self.time_base))
 
-        else:
+        elif (self.source is not None
+              and self.source.time_base is not None
+              and self.time_base is not None):
             pts = numpy.int0(
                 self.source.pts*float(self.source.time_base/self.time_base))
+
+        else:
+            return numpy.zeros((0,), dtype=numpy.int0)
 
         try:
             n = search(pts, self.container.duration/self.time_base, dir="+")
@@ -643,7 +652,6 @@ class Track(abc.ABC):
 
         if self.filters is not None:
             exceptions.extend(exc for f in self.filters for exc in f.validate())
-
 
         return exceptions
 
@@ -1116,7 +1124,7 @@ class BaseWriter(abc.ABC):
                 encoder_override.update(pass_=pass_, stats=stats)
 
                 if pass_ == 1 and track.codec == "libx265":
-                    vencoder_override.update(crf=22)
+                    encoder_override.update(crf=22)
 
             iterators.append(track._prepare(
                 duration=self.duration, logfile=logfile, **encoder_override))
@@ -1138,7 +1146,15 @@ class BaseWriter(abc.ABC):
             return self.vtrack.duration + self.vtrack.delay
 
         elif len(self.tracks):
-            return max([track.duration + track.delay for track in self.tracks])
+            duration = 0
+
+            for track in self.tracks:
+                if track.duration is None:
+                    return 0
+
+                duration = max(duration, track.duration + track.delay)
+
+            return duration
 
         return 0
 
