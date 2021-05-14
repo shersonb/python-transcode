@@ -5,9 +5,10 @@ from PyQt5.QtWidgets import (QHBoxLayout, QAbstractItemView, QMessageBox, QPushB
 from PyQt5.QtGui import QFont, QIcon, QBrush
 
 from .qitemmodel import QItemModel, Node, ChildNodes, NoChildren
-
+from .qinputselection import InputDelegate
 from .qlangselect import LanguageDelegate, LANGUAGES
 from .treeview import TreeView as QTreeView
+
 from transcode.containers.basereader import BaseReader
 from transcode.containers.basereader import Track as InputTrack
 from transcode.containers.basewriter import Track as OutputTrack
@@ -21,6 +22,7 @@ from functools import partial
 from itertools import count
 from collections import OrderedDict
 import sys
+from transcode.encoders import encoders
 
 
 class BaseOutputTrackCol(object):
@@ -312,9 +314,16 @@ class TitleCol(BaseOutputTrackCol):
         elif track.type == "subtitle":
             return f"{self.output_file.tracks.index(track)}: Subtitle"
 
-        return f"{self.output_file.tracks.index(track)}: {track}"
+        return f"{self.output_file.tracks.index(track)}: Unknown"
 
-    tooltip = display
+    def tooltip(self, index, track):
+        tt = self.display(index, track)
+        val = track.validate()
+
+        if len(val):
+            tt = f"{tt}\n{chr(10).join(map(str, val))}"
+
+        return tt
 
     def icon(self, index, track):
         if len(track.validate()):
@@ -333,6 +342,10 @@ class TitleCol(BaseOutputTrackCol):
 class MapCol(BaseOutputTrackCol):
     width = 72
     headerdisplay = "Source"
+    flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsEditable
+
+    def __init__(self, input_files, filters, output_file):
+        super().__init__(input_files, filters, output_file, "source")
 
     def display(self, index, track):
         if isinstance(track.source, InputTrack):
@@ -347,6 +360,8 @@ class MapCol(BaseOutputTrackCol):
 
     tooltip = display
 
+    def itemDelegate(self, parent):
+        return InputDelegate(self.filters.config.input_files, self.filters, parent)
 
 class OutputLangCol(BaseOutputTrackCol):
     width = 120
@@ -388,6 +403,9 @@ class OutputCodecCol(BaseOutputTrackCol):
 
             except:
                 return f"Unknown ({encoder.codec})"
+
+        elif isinstance(track.source, BaseFilter):
+            return "An encoder must be selected for this track!"
 
         elif track.source is not None:
             try:
@@ -546,18 +564,23 @@ class OutputFileNode(Node):
             for item in items:
                 if isinstance(item.value, BaseReader):
                     for track in item.value.tracks:
+                        encoder = self.autoselectEncoder(track)
                         newtrack = self.value.createTrack(track,
-                                                         name=track.name, language=track.language)
+                                                         name=track.name, language=track.language,
+                                                         encoder=encoder)
 
                         newtracks.append(newtrack)
 
                 elif isinstance(item.value, BaseFilter):
-                    newtrack = self.value.createTrack(item.value)
+                    encoder = self.autoselectEncoder(item.value)
+                    newtrack = self.value.createTrack(item.value, encoder=encoder)
                     newtracks.append(newtrack)
 
                 else:
+                    encoder = self.autoselectEncoder(item.value)
                     newtrack = self.value.createTrack(item.value,
-                                                     name=item.value.name, language=item.value.language)
+                                                     name=item.value.name, language=item.value.language,
+                                                     encoder=encoder)
 
                     newtracks.append(newtrack)
 
@@ -574,6 +597,36 @@ class OutputFileNode(Node):
                     j += 1
 
         return True
+
+    @staticmethod
+    def autoselectEncoder(track):
+        if track.type == "video":
+            if track.height >= 800:
+                return encoders.get("libx265")(
+                    preset="veryslow", aq_motion=True, aq_mode=2,
+                    aq_strength=2.8, qg_size=64, frame_threads=2,
+                    numa_pools="8", wpp=True, pme=True, keyint=240,
+                    min_keyint=6)
+
+            return encoders.get("libx265")(
+                preset="veryslow", aq_motion=True, aq_mode=2,
+                aq_strength=2.8, qg_size=64, frame_threads=2,
+                numa_pools="4", wpp=True, pme=True, keyint=240,
+                min_keyint=6)
+
+        elif ((isinstance(track, BaseFilter) and track.type == "audio")
+              or track.codec in ("dts", "truehd")):
+            if track.channels == 8:
+                return encoders.get("libfdk_aac")(bitrate=840)
+
+            elif track.channels == 6:
+                return encoders.get("ac3")(bitrate=640)
+
+            if track.channels == 2:
+                return encoders.get("ac3")(bitrate=224)
+
+            else:
+                return encoders.get("ac3")(bitrate=128)
 
     def canDropItems(self, model, parent, items, action):
         return self.canDropChildren(model, parent, items, len(self.children), action)
