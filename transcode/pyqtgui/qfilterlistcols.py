@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QMenu, QAction
 from functools import partial
 from ..filters.base import BaseFilter
 from transcode.containers.basereader import Track
+import numpy
 
 
 class BaseFilterCol(object):
@@ -159,6 +160,9 @@ class OptionsCol(BaseFilterCol):
             elif isinstance(value, BaseFilter) and value in self.filters:
                 filter_index = self.filters.index(value)
                 optlist.append(f"{key}=filters:{filter_index}")
+
+            elif isinstance(value, numpy.ndarray):
+                optlist.append(f"{key}={value}".replace("\n", " "))
 
             elif isinstance(value, float):
                 optlist.append(f"{key}={value:.9f}")
