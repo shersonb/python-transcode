@@ -118,8 +118,14 @@ class libx265EncoderContext(EncoderContext):
         self._encoder.open()
         self._isopen = True
 
-        while len(self._packets) == 0:
-            self._sendframe()
+        try:
+            while len(self._packets) == 0:
+                self._sendframe()
+
+        except:
+            self.stop()
+            self.close()
+            raise
 
         packet = self._packets[0]
 
