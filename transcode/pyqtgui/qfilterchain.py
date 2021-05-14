@@ -378,10 +378,16 @@ class VFrameView(QWidget):
                 self.outputPreviewWindow.framesource is not None:
             inputDar = self.inputPreviewWindow.dar
             outputDar = self.outputPreviewWindow.dar
-            ratio = QQ(inputDar, outputDar)
 
-            self.layout().setColumnStretch(0, ratio.numerator)
-            self.layout().setColumnStretch(1, ratio.denominator)
+            if isinstance(inputDar, (QQ, int)) and isinstance(outputDar, (QQ, int)):
+                ratio = QQ(inputDar, outputDar)
+                self.layout().setColumnStretch(0, ratio.numerator)
+                self.layout().setColumnStretch(1, ratio.denominator)
+
+            else:
+                ratio = inputDar/outputDar
+                self.layout().setColumnStretch(0, int(1000*ratio))
+                self.layout().setColumnStretch(1, 1000)
 
     def setInputSource(self, source):
         self.inputPreviewWindow.setFrameSource(source)
