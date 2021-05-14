@@ -555,7 +555,9 @@ class UIDCol(BaseColumn):
     def selectRandomUID(self, obj, model):
         UID = random.randint(1, 2**64 - 1)
 
-        existingUIDs = {attachment.UID for attachment in self.attachments if attachment is not obj}
+        existingUIDs = {attachment.UID
+                        for attachment in self.attachments
+                        if attachment is not obj}
 
         while UID in existingUIDs:
             UID = random.randint(1, 2**64 - 1)
