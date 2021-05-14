@@ -593,6 +593,8 @@ class QFilterChain(QFilterConfig):
         self.currentFilters.listView.contentsModified.connect(self.isModified)
 
         self.vFilterEdit = VFilterEdit(self)
+        self.vFilterEdit.contentsModified.connect(
+            self.currentFilters.listView.viewport().update)
         self.vFilterEdit.contentsModified.connect(self.isModified)
 
         self.vFilterEdit.hide()
