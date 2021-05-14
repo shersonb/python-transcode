@@ -78,14 +78,19 @@ class Scene(zoned.Zone):
 
     @cached
     def duration(self):
-        if self.next is None:
+        if (self.next is None
+                and self.parent is not None
+                and self.parent.prev is not None
+                and self.parent.prev.duration is not None
+                and self.parent.prev_pts_time is not None):
             return self.parent.prev.duration - self.parent.prev_pts_time[self.prev_start]
-        else:
+
+        elif self.next is not None and self.next.start_pts_time is not None:
             return self.next.start_pts_time - self.start_pts_time
 
     @cached
     def pts_time_local(self):
-        if self.parent is None:
+        if self.parent is None or self.parent.prev_pts_time is None:
             return
 
         if not self.parent.fixpts:
@@ -280,19 +285,40 @@ class Scenes(zoned.ZonedFilter):
     @BaseVideoFilter.pts_time.getter
     def pts_time(self):
         if self.fixpts:
-            return numpy.concatenate([zone.pts_time for zone in self])
+            A = [zone.pts_time for zone in self]
+
+            for a in A:
+                if (isinstance(a, numpy.ndarray) and a.size) or bool(a):
+                    return numpy.concatenate(A)
+
+            return numpy.zeros((0,))
+
         return self.prev.pts_time
 
     @BaseVideoFilter.indexMap.getter
     def indexMap(self):
         if self.fixpts:
-            return numpy.concatenate([zone.indexMap for zone in self])
+            A = [zone.indexMap for zone in self]
+
+            for a in A:
+                if (isinstance(a, numpy.ndarray) and a.size) or bool(a):
+                    return numpy.concatenate(A)
+
+            return numpy.zeros((0,), dtype=numpy.int0)
+
         return numpy.arange(self.prev.framecount)
 
     @BaseVideoFilter.reverseIndexMap.getter
     def reverseIndexMap(self):
         if self.fixpts:
-            return numpy.concatenate([zone.reverseIndexMap for zone in self])
+            A = [zone.reverseIndexMap for zone in self]
+
+            for a in A:
+                if (isinstance(a, numpy.ndarray) and a.size) or bool(a):
+                    return numpy.concatenate(A)
+
+            return numpy.zeros((0,), dtype=numpy.int0)
+
         return numpy.arange(self.prev.framecount)
 
     @property

@@ -39,7 +39,8 @@ class BaseVideoFilter(BaseFilter):
         return self._prev_pts()
 
     def _calc_pts(self):
-        return numpy.int0(self.pts_time/float(self.time_base) + 0.0001)
+        if self.time_base is not None:
+            return numpy.int0(self.pts_time/float(self.time_base) + 0.0001)
 
     def _prev_pts(self):
         if self.prev is not None:
@@ -123,7 +124,7 @@ class BaseVideoFilter(BaseFilter):
 
     @cached
     def framecount(self):
-        if self.prev is not None:
+        if self.prev is not None and self.prev.framecount is not None:
             for k in count(self.prev.framecount - 1, -1):
                 n = self.indexMap[k]
                 if n not in (None, -1):
@@ -142,7 +143,8 @@ class BaseVideoFilter(BaseFilter):
 
     @cached
     def durations(self):
-        return numpy.ones(self.framecount, dtype=numpy.int0)*int(self.defaultDuration)
+        if self.framecount is not None and self.defaultDuration is not None:
+            return numpy.ones(self.framecount, dtype=numpy.int0)*int(self.defaultDuration)
 
     def frameIndexFromPts(self, pts, dir="+"):
         return search(self.pts, pts, dir)
@@ -152,11 +154,14 @@ class BaseVideoFilter(BaseFilter):
 
     @cached
     def cumulativeIndexMap(self):
-        if hasattr(self.prev, "cumulativeIndexMap"):
+        if hasattr(self.prev, "cumulativeIndexMap") and self.prev.cumulativeIndexMap is not None:
             n = self.prev.cumulativeIndexMap
 
-        else:
+        elif self.prev is not None and self.prev.framecount is not None:
             n = numpy.arange(self.prev.framecount)
+
+        else:
+            return
 
         nonneg = n >= 0
         results = -numpy.ones(n.shape, dtype=numpy.int0)
@@ -167,17 +172,20 @@ class BaseVideoFilter(BaseFilter):
     @cached
     def cumulativeIndexReverseMap(self):
         n = self.reverseIndexMap
-        if hasattr(self.prev, "cumulativeIndexReverseMap"):
+        if hasattr(self.prev, "cumulativeIndexReverseMap") and self.prev.cumulativeIndexReverseMap is not None:
             n = self.prev.cumulativeIndexReverseMap[n]
+
         return n
 
     @cached
     def indexMap(self):
-        return numpy.arange(self.prev.framecount)
+        if self.prev is not None and self.prev.framecount is not None:
+            return numpy.arange(self.prev.framecount)
 
     @cached
     def reverseIndexMap(self):
-        return numpy.arange(self.prev.framecount)
+        if self.prev is not None and self.prev.framecount is not None:
+            return numpy.arange(self.prev.framecount)
 
     @indexMap.deleter
     def indexMap(self):

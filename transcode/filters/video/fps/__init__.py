@@ -32,7 +32,8 @@ class Fps(BaseVideoFilter):
 
     @cached
     def pts_time(self):
-        return arange(0, self.prev.framecount/float(self.rate), 1/float(self.rate))
+        if self.prev is not None:
+            return arange(0, self.prev.framecount/float(self.rate), 1/float(self.rate))
 
     @cached
     def pts(self):
@@ -40,7 +41,8 @@ class Fps(BaseVideoFilter):
 
     @cached
     def duration(self):
-        return self.framecount/float(self.rate)
+        if self.framecount is not None:
+            return self.framecount/float(self.rate)
 
     def _processFrames(self, iterable):
         for frame in iterable:

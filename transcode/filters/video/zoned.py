@@ -149,7 +149,8 @@ class Zone(object):
         if self.parent is None:
             return self.src_start
 
-        if hasattr(self.parent.prev, "indexMap"):
+        if (hasattr(self.parent.prev, "cumulativeIndexMap")
+                and self.parent.prev.cumulativeIndexMap is not None):
             if self.src_start >= len(self.parent.prev.cumulativeIndexMap):
                 return self.parent.prev.framecount
 
@@ -664,7 +665,15 @@ class ZonedFilter(llist, BaseVideoFilter):
 
     @cached
     def duration(self):
-        return sum([zone.duration for zone in self])
+        duration = 0
+
+        for zone in self:
+            if zone.duration is None:
+                return
+
+            duration += zone.duration
+
+        return duration
 
     @staticmethod
     def QtDlgClass():
