@@ -1,24 +1,29 @@
 from PyQt5.QtWidgets import (QTreeView, QMenu, QAction, QMessageBox, QWidget, QHBoxLayout,
                              QFileIconProvider, QVBoxLayout, QLabel, QSpinBox, QTimeEdit,
                              QDialog, QPushButton, QItemDelegate, QMenu, QWidgetAction,
-                             QToolButton, QCheckBox)
+                             QToolButton, QCheckBox, QFileDialog)
 from PyQt5.QtCore import Qt, QModelIndex, QTime, QFileInfo, pyqtSignal, QSize
 from transcode.pyqtgui.qitemmodel import Node, ChildNodes, NoChildren, QItemModel
 from ..chapters import ChapterAtom, ChapterDisplay, EditionEntry, Editions
 from functools import partial
 import random
+import os
 from .quidspinbox import UIDDelegate
+from transcode.config.obj import Config
 from transcode.pyqtgui.qimageview import QImageView
 from transcode.pyqtgui.slider import Slider
 from transcode.pyqtgui.qtimeselect import QTimeSelect
 from transcode.pyqtgui.treeview import TreeView as QTreeView
 from transcode.filters.video.scenes import Scenes
 from ..reader import MatroskaReader
+from ...basewriter import BaseWriter
+
 from matroska.chapters import EditionEntry as InputEditionEntry
 from matroska.chapters import ChapterAtom as InputChapterAtom
 from matroska.chapters import ChapterDisplay as InputChapterDisplay
 from transcode.containers.basereader import BaseReader, Track
 from transcode.filters.base import BaseFilter
+import xml.dom.minidom
 
 icons = QFileIconProvider()
 
@@ -476,6 +481,16 @@ class BaseColumn(object):
 
         menu.addAction(removeSelected)
 
+        menu.addSeparator()
+
+        importChapters = QAction("&Import chapters...", table,
+                             triggered=table.importChapters)
+
+        exportChapters = QAction("&Export selected chapters...", table,
+                             triggered=table.exportChapters)
+
+        menu.addAction(importChapters)
+        menu.addAction(exportChapters)
         return menu
 
     def flags(self, index, obj):
@@ -1131,6 +1146,63 @@ class QChapterTree(QTreeView):
                 neweditions.append(self.importEdition(edition))
 
             model.insertRows(model.rowCount(), neweditions, QModelIndex())
+
+    def importChapters(self):
+        model = self.model()
+        filters = "Matroska Chapters (*.xml)"
+
+
+        if (isinstance(self.editions, Editions)
+            and isinstance(self.editions.parent, BaseWriter)
+            and isinstance(self.editions.parent.config, Config)):
+            path = os.path.abspath(self.editions.parent.config.workingdir)
+
+        else:
+            path = None
+
+        fileName, _ = QFileDialog.getOpenFileName(self, "Import Matroska Chapters...",
+                                                  path, filters)
+
+        if fileName:
+            try:
+                f = open(fileName, "r")
+                x = xml.dom.minidom.parse(f)
+                tags = Editions.fromXml(x, self.editions.parent)
+
+                for tag in tags:
+                    model.insertRow(model.rowCount(), tag)
+
+                f.close()
+
+            except:
+                self.handleException(*sys.exc_info())
+
+    def exportChapters(self):
+        model = self.model()
+        sm = self.selectionModel()
+        selected = [index.data(Qt.UserRole) for index in sm.selectedRows()]
+
+        if (isinstance(self.editions, Editions)
+            and isinstance(self.editions.parent, BaseWriter)
+            and isinstance(self.editions.parent.config, Config)):
+            path = os.path.abspath(self.editions.parent.config.workingdir)
+
+        else:
+            path = None
+
+        filters = "Matroska Chapters (*.xml)"
+        fileName, _ = QFileDialog.getSaveFileName(self, "Export Matroska Chapters...",
+                                                  path, filters)
+
+        if fileName:
+            try:
+                x = model.root.value.toXml(selected)
+                f = open(fileName, "w")
+                print(x.toprettyxml(indent="    "), file=f)
+                f.close()
+
+            except:
+                self.handleException(*sys.exc_info())
 
 
 class FrameSelectWidget(QWidget):
