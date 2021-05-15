@@ -41,7 +41,7 @@ setup(
         'bin/qtranscode-config'
     ],
     install_requires=[
-        'ebml', 'matroska', 'titlecase', 'ass', 'av', 'parallel',
+        'ebml', 'matroska', 'titlecase', 'ass', 'av', 'ciqueue',
         'numpy', 'scipy', 'lzma', 'Pillow', 'xml', 'json',
         'regex', 'itertools', 'more_itertools', 'scenedetect'
     ],

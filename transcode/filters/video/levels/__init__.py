@@ -8,7 +8,7 @@ import sys
 from scipy.signal import fftconvolve
 from collections import OrderedDict
 from itertools import islice
-import parallel
+import transcode.parmap as parallel
 import threading
 
 
