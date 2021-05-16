@@ -420,3 +420,8 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
                     exceptions.append(IncompatibleSource(f"Sources have different sample durations: '{self.source1.duration}' and '{self.source2.duration}'.", self))
 
         return exceptions
+
+    @property
+    def keyframes(self):
+        if self.source1 is not None and self.source2 is not None:
+            return set.union(self.source1.keyframes, self.source2.keyframes)
