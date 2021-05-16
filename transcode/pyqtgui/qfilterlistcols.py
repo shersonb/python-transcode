@@ -5,6 +5,7 @@ from functools import partial
 from ..filters.base import BaseFilter
 from transcode.containers.basereader import Track
 import numpy
+from fractions import Fraction as QQ
 
 
 class BaseFilterCol(object):
@@ -231,7 +232,7 @@ class DurationCol(BaseFilterCol):
         super().__init__(filters, "format")
 
     def display(self, index, obj):
-        if isinstance(obj.duration, (int, float)):
+        if isinstance(obj.duration, (int, float, QQ)):
             m, s = divmod(obj.duration, 60)
             h, m = divmod(int(m), 60)
-            return f"{h}:{m:02d}:{s:012.9f}"
+            return f"{h}:{m:02d}:{float(s):012.9f}"
