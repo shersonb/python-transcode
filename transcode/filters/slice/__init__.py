@@ -5,6 +5,7 @@ import numpy
 from itertools import count
 from transcode.util import cached
 from transcode.avarrays import toNDArray, toAFrame
+import regex
 
 
 class Slice(BaseVideoFilter, BaseAudioFilter):
@@ -252,10 +253,13 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
     def iterPackets(self, start=0, end=None, whence="pts"):
         if whence == "seconds":
             packets = self.prev.iterPackets(self.startpts + start, whence)
+            N = count(self.frameIndexFromPtsTime(start, "+"))
 
         elif whence == "pts":
             packets = self.prev.iterPackets(
                 int(self.startpts/self.prev.time_base + 0.5) + start, whence)
+
+            N = count(self.frameIndexFromPts(start, "+"))
 
         for packet in packets:
             if whence == "pts":
@@ -279,6 +283,13 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                     break
 
             packet.pts -= int(self.startpts/self.time_base + 0.5)
+
+            if self.type != "video" and packet.pts*packet.time_base < start:
+                continue
+
+            if self.source.codec == "ass":
+                match, = regex.findall(b"\\d,(.+)", packet.data)
+                packet.data = str(next(N)).encode("utf8") + b"," + match
 
             if packet.duration:
                 packet.duration = int(

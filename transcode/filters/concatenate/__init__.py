@@ -8,6 +8,7 @@ from ...util import cached, SourceError, IncompatibleSource, BrokenReference
 from fractions import Fraction as QQ
 from copy import deepcopy
 import weakref
+import regex
 
 
 def tryweakref(obj):
@@ -255,8 +256,16 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
             whence = "seconds"
 
         N = 0
-        K = count(start)
         T = 0
+
+        if whence == "pts":
+            K = count(self.frameIndexFromPts(start, "+"))
+
+        elif whence == "seconds":
+            K = count(self.frameIndexFromPtsTime(start, "+"))
+
+        else:
+            K = count(start)
 
         for segment in self:
             if whence == "packetnumber":
@@ -339,6 +348,11 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                         packet.duration*packet.time_base/self.time_base + 0.5)
 
                 packet.time_base = self.time_base
+
+                if self[0].source.codec == "ass":
+                    match, = regex.findall(b"\\d,(.+)", packet.data)
+                    packet.data = str(next(K)).encode("utf8") + b"," + match
+
                 yield packet
 
             N += segment.framecount
