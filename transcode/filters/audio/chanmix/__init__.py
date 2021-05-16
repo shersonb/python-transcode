@@ -1,13 +1,17 @@
 #!/usr/bin/python
-from .base import BaseAudioFilter
-from ...avarrays import toNDArray, toAFrame, aconvert
+from ..base import BaseAudioFilter
+from transcode.avarrays import toNDArray, toAFrame, aconvert
 import numpy
+import av
 
+
+# TODO: Automatic matrix selection when changing output layout.
+# Validation to check matrix with source and layout.
 
 class ChannelMix(BaseAudioFilter):
     __name__ = "Channel Mixer"
 
-    def __init__(self, matrix=None, layout=None, prev=None, next=None, parent=None):
+    def __init__(self, matrix=[], layout=None, prev=None, next=None, parent=None):
         self.matrix = numpy.array(matrix)
         self.layout = layout
         super().__init__(prev=prev, next=next)
@@ -68,6 +72,18 @@ class ChannelMix(BaseAudioFilter):
     def layout(self, value):
         self._layout = value
 
+        if hasattr(self, "parent") and self.source is not None:
+            avlayout = av.AudioLayout(value)
+            srclayout = av.AudioLayout(self.source.layout)
+
+            if self.matrix.shape[0] > len(avlayout.channels):
+                self.matrix = self.matrix[:len(avlayout.channels)]
+
+            elif self.matrix.shape[0] < len(avlayout.channels):
+                self.matrix = numpy.concatenate(
+                    (self.matrix,
+                     numpy.zeros((len(avlayout.channels) - self.matrix.shape[0], self.matrix.shape[1]))))
+
     def __getstate__(self):
         state = super().__getstate__()
 
@@ -80,8 +96,32 @@ class ChannelMix(BaseAudioFilter):
         return state
 
     def __setstate__(self, state):
+        # super().__setstate__(state)
+
         if state.get("matrix") is not None:
-            self.matrix = numpy.array(state.get("matrix"))
+            self._matrix = numpy.array(state.get("matrix"))
 
         self._layout = state.get("layout")
-        super().__setstate__(state)
+        self.name = state.get("name")
+        BaseAudioFilter.source.__set__(self, state.get("source"))
+
+    @property
+    def source(self):
+        return BaseAudioFilter.source.__get__(self, type(self))
+
+    @source.setter
+    def source(self, value):
+        if value is not None:
+            if self._layout is None:
+                self._layout = value.layout
+                self._matrix = numpy.identity(value.channels)
+
+            else:
+                pass
+
+            BaseAudioFilter.source.__set__(self, value)
+
+    @classmethod
+    def QtDlgClass(self):
+        from .qchanmix import ChanMixDlg
+        return ChanMixDlg

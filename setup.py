@@ -13,6 +13,7 @@ setup(
         'transcode.config.ebml',
         'transcode.filters',
         'transcode.filters.audio',
+        'transcode.filters.audio.chanmix',
         'transcode.filters.video',
         'transcode.filters.video.cropandresize',
         'transcode.filters.video.dropframes',
