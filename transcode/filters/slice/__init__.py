@@ -48,7 +48,7 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
             kf.update(k - self.prev_start for k in prev.keyframes if self.prev_start <= k < self.prev_end)
 
         if self.firstframekey:
-            kf.update(0)
+            kf.add(0)
 
         return kf
 
