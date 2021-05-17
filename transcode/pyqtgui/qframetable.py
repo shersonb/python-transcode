@@ -187,7 +187,7 @@ class FrameTable(QTableView):
                 try:
                     model.setData(selected, None, role=Qt.EditRole)
 
-                except:
+                except Exception:
                     pass
 
             model.blockSignals(False)
@@ -205,7 +205,7 @@ class FrameTable(QTableView):
                 try:
                     self.model().setData(current, text)
 
-                except:
+                except Exception:
                     print(traceback.format_exc(), file=sys.stderr)
 
         return super().keyPressEvent(event)

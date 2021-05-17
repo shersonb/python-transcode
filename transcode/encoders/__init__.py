@@ -14,7 +14,7 @@ for codec in sorted(av.codecs_available):
     try:
         c = av.codec.Codec(codec, "w")
 
-    except:
+    except Exception:
         pass
 
     else:

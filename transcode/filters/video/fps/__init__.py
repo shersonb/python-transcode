@@ -56,4 +56,3 @@ class Fps(BaseVideoFilter):
         from .qfps import FpsDlg
         return FpsDlg
 
-

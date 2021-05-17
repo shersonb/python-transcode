@@ -207,7 +207,7 @@ class QItemModel(QAbstractItemModel):
         try:
             return func(*args, **kwargs)
 
-        except:
+        except Exception:
             print(traceback.format_exc(), file=sys.stderr)
             return "ERR"
 
@@ -460,7 +460,7 @@ class QItemModel(QAbstractItemModel):
             data.setData("application/x-qabstractitemmodeldatalist",
                          ";".join(cookies).encode("utf8"))
 
-        except:
+        except Exception:
             pass
 
         return data
@@ -612,7 +612,7 @@ class QIntegerModel(QAbstractItemModel):
         try:
             return func(*args, **kwargs)
 
-        except:
+        except Exception:
             print(traceback.format_exc(), file=sys.stderr)
             return "ERR"
 

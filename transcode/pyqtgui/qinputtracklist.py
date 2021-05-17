@@ -169,7 +169,7 @@ class InputTypeCol(BaseInputCol):
             try:
                 codec_long = av.Codec(codec, "r").long_name
 
-            except:
+            except Exception:
                 codec_long = "Unknown"
 
             return f"{codec_long} ({codec})"
@@ -190,7 +190,7 @@ class InputTypeCol(BaseInputCol):
             try:
                 codec_long = av.Codec(codec, "r").long_name
 
-            except:
+            except Exception:
                 codec_long = "Unknown"
 
             return f"{codec_long} ({codec})"

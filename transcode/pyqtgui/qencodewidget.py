@@ -69,7 +69,7 @@ class Graph(QWidget):
             self.A = numpy.concatenate(
                 (self.A, numpy.moveaxis([points], 0, 1)), axis=1)
 
-        except:
+        except Exception:
             return
 
         self.repaint()
@@ -301,10 +301,10 @@ class QEncodeDialog(QDialog):
                             bytesio.close()
                             break
 
-                    except:
+                    except Exception:
                         pass
 
-        except:
+        except Exception:
             pass
 
         fonthead = QFont("DejaVu Serif", 10, QFont.Bold, italic=True)

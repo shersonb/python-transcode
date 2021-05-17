@@ -265,7 +265,7 @@ class Tag(object):
         try:
             self.typeValue = int(state.get("typeValue"))
 
-        except:
+        except ValueError:
             pass
 
         self.type = state.get("type")

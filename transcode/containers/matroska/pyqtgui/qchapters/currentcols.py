@@ -39,7 +39,7 @@ class BaseColumn(object):
             try:
                 setattr(obj, self.attrname, data)
 
-            except:
+            except Exception:
                 return False
 
             return True

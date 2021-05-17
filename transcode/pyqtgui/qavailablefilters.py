@@ -60,5 +60,3 @@ class QAvailableFilters(QWidget):
 
     def setAvailableFilters(self, filters):
         self.listView.setAvailableFilters(filters)
-
-

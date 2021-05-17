@@ -7,7 +7,7 @@ import regex
 class QTimeSelect(QDoubleSpinBox):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        regex = QRegExp("\d:\d{1,2}:\d{1,2}(?:\.\d{0,9})")
+        regex = QRegExp(r"\d:\d{1,2}:\d{1,2}(?:\.\d{0,9})")
         regex.setCaseSensitivity(Qt.CaseInsensitive)
         self._validator = QRegExpValidator(regex)
         self.setDecimals(9)

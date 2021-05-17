@@ -184,7 +184,7 @@ class EncoderConfig(object):
             try:
                 codecobj = av.Codec(self.codec, "w")
 
-            except:
+            except Exception:
                 return
 
             self._descriptor = codecobj.descriptor

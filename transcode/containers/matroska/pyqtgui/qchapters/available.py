@@ -254,5 +254,3 @@ class AvailableEditionsSelection(QDialog):
         self.selectionTree.selectionModel().selectionChanged.connect(
             self.handleSelectionChanged)
         self.okayBtn.setEnabled(len(self.selectionTree.selectedIndexes()) > 0)
-
-

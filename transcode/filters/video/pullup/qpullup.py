@@ -107,10 +107,10 @@ class FrameRateDelegate(QItemDelegate):
     def setModelData(self, editor, model, index):
         value = editor.text()
 
-        if regex.match("^\d+/\d+$", value):
+        if regex.match(r"^\d+/\d+$", value):
             value = QQ(value)
 
-        elif regex.match("^\d+$", value):
+        elif regex.match(r"^\d+$", value):
             value = int(value)
 
         else:
@@ -354,7 +354,7 @@ class TCPatternCol(BaseFrameRateCol):
             try:
                 zone.pulldown = value
 
-            except:
+            except Exception:
                 return False
 
             return True

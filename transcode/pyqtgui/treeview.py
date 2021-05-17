@@ -167,12 +167,11 @@ class TreeView(QTreeView):
                     self.setItemDelegateForColumn(k, delegate)
 
     def _handleException(self, cls, exc, tb):
-        print("\n".join(traceback.format_exception(cls, exc, tb)),
-              file=sys.stderr)
+        print("".join(traceback.format_exception(cls, exc, tb)),
+              file=sys.stderr, end="")
         excmsg = QMessageBox(self)
-        excmsg.setWindowTitle("Error")
-        excmsg.setText("An exception was encountered\n\n%s" %
-                       "".join(traceback.format_exception(cls, exc, tb)))
+        excmsg.setWindowTitle(cls.__name__)
+        excmsg.setText(str(exc))
         excmsg.setStandardButtons(QMessageBox.Ok)
         excmsg.setIcon(QMessageBox.Critical)
         excmsg.exec_()

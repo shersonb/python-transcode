@@ -323,19 +323,8 @@ class QChapterTree(QTreeView):
 
                 f.close()
 
-            except:
+            except Exception:
                 self._handleException(*sys.exc_info())
-
-    # TODO: Move _handleException to parent class.
-
-    def _handleException(self, cls, exc, tb):
-        print("".join(traceback.format_exception(cls, exc, tb)), file=sys.stderr)
-        excmsg = QMessageBox(self)
-        excmsg.setWindowTitle(cls.__name__)
-        excmsg.setText(str(exc))
-        excmsg.setStandardButtons(QMessageBox.Ok)
-        excmsg.setIcon(QMessageBox.Critical)
-        excmsg.exec_()
 
     def exportChapters(self):
         model = self.model()
@@ -361,7 +350,5 @@ class QChapterTree(QTreeView):
                 print(x.toprettyxml(indent="    "), file=f)
                 f.close()
 
-            except:
-                self.handleException(*sys.exc_info())
-
-
+            except Exception:
+                self._handleException(*sys.exc_info())

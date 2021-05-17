@@ -238,7 +238,7 @@ class QImageView(QWidget):
             try:
                 self._painthook(self, event, painter)
 
-            except:
+            except Exception:
                 traceback.print_exc(file=sys.stderr)
 
     def contextMenuEvent(self, event):
@@ -337,7 +337,7 @@ class QMultiImageView(QWidget):
                         n - 2 + len(frames)):
                     frames.append(frame.to_image().convert("RGBA").toqpixmap())
 
-            except:
+            except Exception:
                 print(traceback.format_exc(), file=sys.stderr)
 
             frames.extend([emptyframe]*(5 - len(frames)))

@@ -253,7 +253,7 @@ class CurrentFiltersListView(QTreeView):
                 dlg.settingsApplied.connect(self.contentsModified)
                 dlg.exec_()
 
-            except:
+            except Exception:
                 (cls, exc, tb) = sys.exc_info()
                 excmsg = QMessageBox(self)
                 excmsg.setWindowTitle("Error")
@@ -275,7 +275,7 @@ class CurrentFiltersListView(QTreeView):
             try:
                 FilterChains.save(fl, fileName)
 
-            except:
+            except Exception:
                 self._handleException(*sys.exc_info())
 
     def exportFilterChain(self):
@@ -289,7 +289,7 @@ class CurrentFiltersListView(QTreeView):
             try:
                 FilterChainElement.save(self.filters, fileName)
 
-            except:
+            except Exception:
                 self._handleException(*sys.exc_info())
 
     def importFilters(self):
@@ -304,7 +304,7 @@ class CurrentFiltersListView(QTreeView):
             try:
                 filters = FilterChains.load(fileName)
 
-            except:
+            except Exception:
                 self._handleException(*sys.exc_info())
 
             for filter in filters:
@@ -623,19 +623,19 @@ class QFilterChain(QFilterConfig):
         try:
             self.currentFilters.listView.filterMoved.disconnect()
 
-        except:
+        except Exception:
             pass
 
         try:
             self.currentFilters.listView.filterRemoved.disconnect()
 
-        except:
+        except Exception:
             pass
 
         try:
             self.currentFilters.listView.filterInserted.disconnect()
 
-        except:
+        except Exception:
             pass
 
         if flag:
@@ -658,5 +658,3 @@ class QFilterChain(QFilterConfig):
             self.vFilterEdit.setFilters(self.filtercopy)
 
         self.setVideoMode(self.filtercopy.type == "video")
-
-

@@ -15,7 +15,7 @@ def tryweakref(obj):
     try:
         return weakref.ref(obj)
 
-    except:
+    except Exception:
         obj
 
 class Concatenate(BaseVideoFilter, BaseAudioFilter):

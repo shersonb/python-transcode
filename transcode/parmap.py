@@ -12,7 +12,7 @@ class ThreadPool(object):
             T.daemon = True
             T.start()
             self._threadPool.append(T)
-        
+
     def _run(self):
         while True:
             try:
@@ -114,4 +114,3 @@ class map(object):
 
         self._queueOfQueues.put(q)
         return y
-

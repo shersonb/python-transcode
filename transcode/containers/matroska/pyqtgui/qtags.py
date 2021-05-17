@@ -1017,10 +1017,10 @@ class TargetsCol(BaseColumn):
             tracks, editions, chapters, attachments = data
 
             modified = (
-                set(x.UID for x in editions) != set(x.UID for x in obj.editions) or 
-                set(x.UID for x in chapters) != set(x.UID for x in obj.chapters) or 
-                set(x.trackUID for x in tracks) != set(x.trackUID for x in obj.tracks) or 
-                set(x.UID for x in attachments) != set(x.UID for x in obj.attachments)
+                set(x.UID for x in editions) != set(x.UID for x in obj.editions)
+                or set(x.UID for x in chapters) != set(x.UID for x in obj.chapters)
+                or set(x.trackUID for x in tracks) != set(x.trackUID for x in obj.tracks)
+                or set(x.UID for x in attachments) != set(x.UID for x in obj.attachments)
                 )
 
             if modified:
@@ -1250,8 +1250,8 @@ class QTagTree(QTreeView):
 
                 f.close()
 
-            except:
-                self.handleException(*sys.exc_info())
+            except Exception:
+                self._handleException(*sys.exc_info())
 
     def exportTags(self):
         model = self.model()
@@ -1277,18 +1277,8 @@ class QTagTree(QTreeView):
                 print(x.toprettyxml(indent="    "), file=f)
                 f.close()
 
-            except:
-                self.handleException(*sys.exc_info())
-
-    def handleException(self, cls, exc, tb):
-        print(traceback.format_exception(cls, exc, tb), file=sys.stderr)
-        excmsg = QMessageBox(self)
-        excmsg.setWindowTitle("Error")
-        excmsg.setText("An exception was encountered\n\n%s" %
-                       "".join(traceback.format_exception(cls, exc, tb)))
-        excmsg.setStandardButtons(QMessageBox.Ok)
-        excmsg.setIcon(QMessageBox.Critical)
-        excmsg.exec_()
+            except Exception:
+                self._handleException(*sys.exc_info())
 
 
 class QTagsWidget(QWidget):

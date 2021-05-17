@@ -122,7 +122,7 @@ class libx265EncoderContext(EncoderContext):
             while len(self._packets) == 0:
                 self._sendframe()
 
-        except:
+        except Exception:
             self.stop()
             self.close()
             raise
@@ -208,14 +208,14 @@ class libx265EncoderContext(EncoderContext):
         try:
             f = open(stats, "rb")
 
-        except:
+        except Exception:
             return
 
         try:
             g = lzma.LZMAFile(backupstats, "wb", preset=9 |
                               lzma.PRESET_EXTREME)
 
-        except:
+        except Exception:
             f.close()
             return
 

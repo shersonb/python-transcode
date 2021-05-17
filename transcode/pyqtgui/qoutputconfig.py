@@ -266,4 +266,3 @@ class QOutputConfigDlg(QDialog):
     def updateTitle(self):
         self.setWindowTitle(
             f"Configure — {self.widget._output_file_copy.title} [{self.widget._output_file_copy.outputpathrel}]")
-

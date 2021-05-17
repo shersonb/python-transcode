@@ -587,7 +587,7 @@ class Zone(zoned.Zone):
                 try:
                     frame.pts = self.pts[k - self.dest_start]
 
-                except:
+                except Exception:
                     raise
 
                 yield frame

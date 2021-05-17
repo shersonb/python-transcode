@@ -379,7 +379,7 @@ class BaseFilter(object):
                 try:
                     end = self.frameIndexFromPts(end)
 
-                except:
+                except Exception:
                     end = None
 
         prev_start = self.reverseIndexMap[start]

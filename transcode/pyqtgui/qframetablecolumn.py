@@ -290,7 +290,8 @@ class NewTimeStampCol(BaseColumn):
         try:
             if self.filter.cumulativeIndexMap[index.row()] >= 0:
                 return QColor()
-        except:
+
+        except Exception:
             return QColor(160, 160, 160)
 
         return QColor(160, 160, 160)
@@ -309,7 +310,7 @@ class NewFrameNumberCol(BaseColumn):
             try:
                 n = self.filter.cumulativeIndexMap[index]
 
-            except:
+            except Exception:
                 return "ERR"
 
             if n is not None and n >= 0:
@@ -322,7 +323,7 @@ class NewFrameNumberCol(BaseColumn):
             if self.filter.cumulativeIndexMap[index.row()] >= 0:
                 return QColor()
 
-        except:
+        except Exception:
             return QColor(160, 160, 160)
 
         return QColor(160, 160, 160)

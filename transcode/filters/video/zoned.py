@@ -445,7 +445,7 @@ class ZonedFilter(llist, BaseVideoFilter):
                 try:
                     end = self.frameIndexFromPts(end)
 
-                except:
+                except Exception:
                     end = None
 
         if whence == "seconds":
@@ -455,7 +455,7 @@ class ZonedFilter(llist, BaseVideoFilter):
                 try:
                     end = self.frameIndexFromPts(end/self.time_base)
 
-                except:
+                except Exception:
                     end = None
 
         J, start_zone = self.zoneAtNew(start)
@@ -682,4 +682,3 @@ class ZonedFilter(llist, BaseVideoFilter):
 
     def __repr__(self):
         return f"<{self.__class__.__name__} filter ({len(self)} zones) at 0x{id(self):012x}>"
-

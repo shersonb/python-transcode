@@ -118,13 +118,13 @@ class ChanMixDlg(QFilterConfig):
             try:
                 srclayout = av.AudioLayout(self.filtercopy.source.layout)
 
-            except:
+            except Exception:
                 return
 
             try:
                 destlayout = av.AudioLayout(self.destLayout.currentData())
 
-            except:
+            except Exception:
                 return
 
             self.filtercopy.layout = self.destLayout.currentData()
@@ -137,14 +137,14 @@ class ChanMixDlg(QFilterConfig):
             try:
                 srclayout = av.AudioLayout(self.filtercopy.source.layout)
 
-            except:
+            except Exception:
                 return
 
             if self.filtercopy.layout:
                 try:
                     destlayout = av.AudioLayout(self.filtercopy.layout)
 
-                except:
+                except Exception:
                     return
 
                 self.destLayout.blockSignals(True)
@@ -158,7 +158,7 @@ class ChanMixDlg(QFilterConfig):
                 try:
                     destlayout = srclayout
 
-                except:
+                except Exception:
                     return
 
                 self.destLayout.blockSignals(True)

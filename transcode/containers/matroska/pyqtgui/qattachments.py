@@ -239,7 +239,7 @@ class AvailableAttachmentsSelection(QDialog):
                     b.seek(0)
                     im = Image.open(b).convert("RGBA")
 
-            except:
+            except Exception:
                 self.previewWidget.hide()
                 return
 
@@ -268,8 +268,6 @@ class AttachmentModel(QItemModel):
     def dropItems(self, items, action, row, column, parent):
         if row == -1:
             row = self.rowCount(parent)
-
-        node = self.getNode(parent)
 
         j = 0
 
@@ -395,7 +393,7 @@ class BaseColumn(object):
         try:
             setattr(obj, self.attrname, data)
 
-        except:
+        except Exception:
             return False
 
         return True
@@ -791,7 +789,7 @@ class QAttachmentsWidget(QWidget):
                 else:
                     im = Image.open(selected.source).convert("RGBA")
 
-            except:
+            except Exception:
                 self.previewWidget.hide()
                 return
 

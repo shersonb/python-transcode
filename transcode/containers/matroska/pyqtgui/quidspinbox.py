@@ -6,7 +6,7 @@ from PyQt5.QtGui import QRegExpValidator
 class QHexLineEdit(QLineEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        regex = QRegExp("(?:[0-9a-f]\s?){1,15}[0-9a-f]")
+        regex = QRegExp(r"(?:[0-9a-f]\s?){1,15}[0-9a-f]")
         regex.setCaseSensitivity(Qt.CaseInsensitive)
         self.setValidator(QRegExpValidator(regex))
 

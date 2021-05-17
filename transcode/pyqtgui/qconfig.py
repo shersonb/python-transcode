@@ -306,7 +306,7 @@ class QConfigWindow(QMainWindow):
                 try:
                     os.rename(fileName, backup)
 
-                except:
+                except Exception:
                     backup = None
 
             else:

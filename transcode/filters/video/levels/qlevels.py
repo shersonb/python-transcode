@@ -406,7 +406,7 @@ class QLevels(ZoneDlg):
         try:
             self.updateColors()
 
-        except:
+        except Exception:
             for line in traceback.format_exception(*sys.exc_info()):
                 print(line, file=sys.stderr, end="")
 

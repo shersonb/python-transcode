@@ -217,7 +217,7 @@ class BaseVideoFilter(BaseFilter):
                 try:
                     end = self.frameIndexFromPts(end)
 
-                except:
+                except Exception:
                     end = None
 
         elif whence == "seconds":
@@ -227,7 +227,7 @@ class BaseVideoFilter(BaseFilter):
                 try:
                     end = self.frameIndexFromPts(end/self.time_base)
 
-                except:
+                except Exception:
                     end = None
 
         prev_start = self.reverseIndexMap[start]

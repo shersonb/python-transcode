@@ -201,9 +201,3 @@ class QOutputFiles(QWidget):
 
     def setOutputFiles(self, output_files):
         self.outputFileList.setOutputFiles(output_files)
-
-    #def paintEvent(self, event):
-        #painter = QPainter(self)
-        #rect = self.rect()
-        #painter.fillRect(rect, QColor(64, 255, 64))
-

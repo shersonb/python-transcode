@@ -137,11 +137,9 @@ class QCodecSelection(QWidget):
 
         else:
             common_encoders = ["libx265", "libx264", "mpeg2video",
-                               "dca", "ac3",
-                               "libfdk_aac", "aac", "mp3", "flac",
-                               "ass", "srt"]
+                               "dca", "ac3", "libfdk_aac", "aac",
+                               "mp3", "flac", "ass", "srt"]
 
-            
             encoders = OrderedDict()
             encoders.update(vencoders)
             encoders.update(aencoders)
@@ -235,7 +233,6 @@ class CodecDelegate(QItemDelegate):
         editor.setEncoderSelection(encoder)
 
     def setModelData(self, editor, model, index):
-        track = index.data(Qt.UserRole)
         encoder = editor.encoderSelection()
         model.setData(index, encoder, Qt.EditRole)
 
@@ -283,7 +280,7 @@ class FiltersDelegate(QItemDelegate):
         editor.setFilters(filters)
 
     def setModelData(self, editor, model, index):
-        track = index.data(Qt.UserRole)
+
         filters = editor.filters()
         model.setData(index, filters, Qt.EditRole)
 
@@ -363,6 +360,7 @@ class MapCol(BaseOutputTrackCol):
     def itemDelegate(self, parent):
         return InputDelegate(self.filters.config.input_files, self.filters, parent)
 
+
 class OutputLangCol(BaseOutputTrackCol):
     width = 120
     headerdisplay = "Language"
@@ -401,7 +399,7 @@ class OutputCodecCol(BaseOutputTrackCol):
                 c = av.codec.Codec(encoder.codec, "w")
                 return f"{c.long_name} ({encoder.codec})"
 
-            except:
+            except Exception:
                 return f"Unknown ({encoder.codec})"
 
         elif isinstance(track.source, BaseFilter):
@@ -412,7 +410,7 @@ class OutputCodecCol(BaseOutputTrackCol):
                 c = av.codec.Codec(track.source.codec, "r")
                 return f"{c.long_name} ({track.source.codec}, copy)"
 
-            except:
+            except Exception:
                 return f"Unknown ({track.source.codec}, copy)"
 
     tooltip = display
@@ -662,15 +660,14 @@ class OutputTrackList(QTreeView):
         self.setFont(QFont("DejaVu Serif", 8))
         self.setMinimumWidth(640)
 
-        #self.setEditTriggers(QTreeView.SelectedClicked |
-                             #QTreeView.EditKeyPressed)
+        # self.setEditTriggers(QTreeView.SelectedClicked |
+                            # QTreeView.EditKeyPressed)
 
         self.setDragDropMode(QTreeView.DragDrop)
         self.setDefaultDropAction(Qt.MoveAction)
         self.setDragEnabled(True)
         self.setDragDropOverwriteMode(False)
         self.setDropIndicatorShown(True)
-        # self.viewport().setAcceptDrops(True)
 
         self.setIndentation(0)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -756,7 +753,7 @@ class OutputTrackList(QTreeView):
             try:
                 FilterChainElement.save(track.filters, fileName)
 
-            except:
+            except Exception:
                 self._handleException(*sys.exc_info())
 
     def importFilterChain(self, track):
@@ -770,7 +767,7 @@ class OutputTrackList(QTreeView):
             try:
                 filters = FilterChainElement.load(fileName)
 
-            except:
+            except Exception:
                 self._handleException(*sys.exc_info())
 
             if not track.filters or QMessageBox.question(

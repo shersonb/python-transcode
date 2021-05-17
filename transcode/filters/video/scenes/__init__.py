@@ -45,7 +45,7 @@ class Scene(zoned.Zone):
             try:
                 return float(self.parent.prev.pts_time[self.prev_start])
 
-            except:
+            except Exception:
                 return
 
         if self.parent is not None and self.parent.prev_pts_time is not None and self.parent.src_pts_time is not None:
@@ -157,7 +157,8 @@ class Scene(zoned.Zone):
             try:
                 if self.parent.fixpts:
                     frame.pts = self.pts[j - self.dest_start]
-            except:
+
+            except Exception:
                 raise
 
             yield frame

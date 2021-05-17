@@ -135,7 +135,7 @@ class NameCol(BaseColumn):
 
     def display(self, index, obj):
         segment_index = list(self.filter).index(obj)
-        
+
         if isinstance(obj, Track) and obj.container in self.input_files:
             container_index = self.input_files.index(obj.container)
             return f"{segment_index}: input:{container_index}:{obj.track_index}"
@@ -264,7 +264,7 @@ class QVideoPreview(QWidget):
         try:
             frame = next(self._source.iterFrames(n, whence="framenumber"))
 
-        except:
+        except Exception:
             return
 
         self.imageView.setFrame(frame.to_image().convert("RGBA").toqpixmap())
@@ -278,7 +278,6 @@ class QConcatenate(QFilterConfig):
     def _createControls(self):
         self.setMinimumWidth(720)
         layout = QVBoxLayout()
-        #layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
         self.outersplitter = QSplitter(Qt.Vertical, self)
@@ -403,7 +402,7 @@ class QConcatenate(QFilterConfig):
             try:
                 k = sum(segment.framecount for segment in self.filtercopy[:current.row()])
 
-            except:
+            except Exception:
                 return
 
             self.segmentsList.selectionModel().blockSignals(True)
@@ -460,7 +459,7 @@ class QConcatenate(QFilterConfig):
                 elif framesBeforeMoved + framesMoved <= k < framesBeforeInsertion + framesMoved:
                     self.preview.frameSelection.slider.setValue(k - framesMoved)
 
-            except:
+            except Exception:
                 pass
 
             finally:
@@ -477,7 +476,7 @@ class QConcatenate(QFilterConfig):
                     framesBeforeInsertion = sum(segment.framecount for segment in self.filtercopy[:first])
                     framesInserted = sum(segment.framecount for segment in self.filtercopy[first:last+1])
 
-                except:
+                except Exception:
                     return
 
                 if k >= framesBeforeInsertion:

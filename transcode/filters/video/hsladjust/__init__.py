@@ -128,5 +128,3 @@ class HSLAdjust(BaseVideoFilter):
     def QtDlgClass():
         from .qhsladjust import QHSLAdjDlg
         return QHSLAdjDlg
-
-

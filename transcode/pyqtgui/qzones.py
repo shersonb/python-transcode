@@ -528,4 +528,3 @@ class ZoneDlg(QFilterConfig):
         return QMessageBox.question(self, "Remove?",
                                     "Are you sure you wish to remove zone?",
                                     QMessageBox.Yes | QMessageBox.No)
-

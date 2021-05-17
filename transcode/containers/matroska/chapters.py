@@ -312,7 +312,7 @@ class ChapterAtom(object):
             chapterTimeEnd=self.timeEnd,
             chapterFlagHidden=self.hidden,
             chapterFlagEnabled=self.enabled,
-            chapterSegmentUID=self.segmentUID, 
+            chapterSegmentUID=self.segmentUID,
             chapterSegmentEditionUID=self.segmentEditionUID,
             chapterTrack=self.tracks,
             chapterDisplays=[

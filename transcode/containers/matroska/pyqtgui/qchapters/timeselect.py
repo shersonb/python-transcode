@@ -153,7 +153,7 @@ class FrameSelectWidget(QWidget):
                 try:
                     pts = self.filters.pts_time[m]
 
-                except:
+                except Exception:
                     pts = None
 
                 try:

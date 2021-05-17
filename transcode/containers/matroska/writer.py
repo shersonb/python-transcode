@@ -787,7 +787,7 @@ class MatroskaWriter(basewriter.BaseWriter):
             self.clusterPtsHist = ClusterPts.fromFile(clusterptsfile)
             clusterptsfile.close()
 
-        except:
+        except Exception:
             self.clusterPtsHist = ClusterPts([])
 
     def saveOverhead(self):
@@ -802,5 +802,5 @@ class MatroskaWriter(basewriter.BaseWriter):
                 self.clusterPtsHist.toFile(clusterptsfile)
                 clusterptsfile.close()
 
-            except:
+            except Exception:
                 pass

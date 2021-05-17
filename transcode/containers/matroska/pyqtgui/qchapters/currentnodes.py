@@ -58,4 +58,3 @@ class ChapterChildren(ChildNodes):
 class DisplayNode(NoChildren):
     pass
 
-
