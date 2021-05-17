@@ -461,6 +461,13 @@ class BaseFilter(object):
 
         return []
 
+    @property
+    def canIterPackets(self):
+        return (hasattr(self, "iterPackets")
+                and callable(self.iterPackets)
+                and hasattr(self.prev, "canIterPackets")
+                and self.prev.canIterPackets)
+
 
 class FilterChain(llist, BaseFilter):
     from copy import deepcopy as copy
@@ -743,13 +750,6 @@ class FilterChain(llist, BaseFilter):
 
         elif self.prev is not None:
             return self.prev.iterFrames(start, end, whence)
-
-    @property
-    def canIterPackets(self):
-        return (hasattr(self, "iterPackets")
-                and callable(self.iterPackets)
-                and hasattr(self.prev, "canIterPackets")
-                and self.prev.canIterPackets)
 
     @staticmethod
     def QtDlgClass():
