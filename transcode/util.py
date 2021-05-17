@@ -6,12 +6,18 @@ import threading
 import weakref
 from copy import deepcopy
 
+
 def search(array, value, dir="-"):
     """
-    Searches a sorted (ascending) array for a value, or if value is not found, will attempt to find closest value.
+    Searches a sorted (ascending) array for a value, or if value is not found,
+    will attempt to find closest value.
 
-    Specifying dir="-" finds index of greatest value in array less than  or equal to the given value.
-    Specifying dir="+" means find index of least value in array greater than or equal to the given value.
+    Specifying dir="-" finds index of greatest value in array less than
+    or equal to the given value.
+
+    Specifying dir="+" means find index of least value in array greater than
+    or equal to the given value.
+
     Specifying dir="*" means find index of value closest to the given value.
     """
 
@@ -60,6 +66,7 @@ def search(array, value, dir="-"):
         elif value == array[N]:
             return N
 
+
 def h(size):
     """Format 'size' (given in bytes) using KB, MB, GB, or TB as needed."""
     if abs(size) < 1024:
@@ -75,12 +82,17 @@ def h(size):
         return f"{size/1024**3:,.3f} GB"
 
     else:
-        """Seriously.... Who is going to encode a media file measuring in terabytes?"""
+        """
+        Seriously.... Who is going to encode a media file
+        measuring in terabytes?
+        """
         return f"{size/1024**4:,.3f} TB"
 
+
 class Packet(object):
-    def __init__(self, data, pts=None, duration=None, time_base=None, track_index=None,
-                 keyframe=False, invisible=False, discardable=False, referenceBlocks=None):
+    def __init__(self, data, pts=None, duration=None, time_base=None,
+                 track_index=None, keyframe=False, invisible=False,
+                 discardable=False, referenceBlocks=None):
         self.data = data
         self.pts = pts
         self.duration = duration
@@ -93,9 +105,12 @@ class Packet(object):
     @property
     def size(self):
         return len(self.data)
-    
+
     def __repr__(self):
-        return f"Packet(pts={self.pts}, duration={self.duration}, size={self.size}, keyframe={self.keyframe}, track_index={self.track_index})"
+        return (f"Packet(pts={self.pts}, duration={self.duration}, "
+                f"size={self.size}, keyframe={self.keyframe}, "
+                f"track_index={self.track_index})")
+
 
 class WeakRefProperty(object):
     def __init__(self, arg):
@@ -140,6 +155,7 @@ class WeakRefProperty(object):
         new.fset = func
         return new
 
+
 class ChildList(collections.UserList):
     from copy import deepcopy as copy
 
@@ -180,6 +196,7 @@ class ChildList(collections.UserList):
 
     def __getstate__(self):
         return
+
 
 class llist(collections.UserList):
     """Subclass of Python's 'list' with doubly-linked list behavior."""
@@ -320,6 +337,7 @@ class llist(collections.UserList):
         if len(self):
             return self[-1]
 
+
 class cached(property):
     def __init__(self, fget=None, fset=None, fdel=None, doc=None):
         self._attrname = f"_{fget.__name__}"
@@ -329,14 +347,16 @@ class cached(property):
         if inst is None:
             return self
 
-        if not hasattr(inst, self._attrname) or getattr(inst, self._attrname) is None:
+        if (not hasattr(inst, self._attrname)
+                or getattr(inst, self._attrname) is None):
             value = self.fget(inst)
             self.__set__(inst, value)
 
         return getattr(inst, self._attrname)
 
     def __delete__(self, inst):
-        if hasattr(inst, self._attrname) and getattr(inst, self._attrname) is None:
+        if (hasattr(inst, self._attrname)
+                and getattr(inst, self._attrname) is None):
             return
 
         if callable(self.fdel):
@@ -350,6 +370,7 @@ class cached(property):
 
         setattr(inst, self._attrname, value)
 
+
 def numpify(m, dtype=numpy.int0):
     if isinstance(m, (int, tuple, list, range, QQ)):
         return numpy.int0(m)
@@ -360,9 +381,11 @@ def numpify(m, dtype=numpy.int0):
     elif isinstance(m, numpy.ndarray) and m.dtype == dtype:
         return m
 
-    raise TypeError("Cannot convert value into a numpy object with dtype=%s." % dtype.__name__)
+    raise TypeError("Cannot convert value into a numpy object with "
+                    f"dtype={dtype.__name__}.")
 
-def applyState(obj, state=None, items=None, dictitems=None):
+
+def applyState(obj, state=None, items=None, dictitems=None, memo={}):
     if state is not None:
         obj.__setstate__(state)
 
@@ -376,6 +399,7 @@ def applyState(obj, state=None, items=None, dictitems=None):
     if dictitems is not None:
         for key, value in dictitems:
             obj[deepcopy(key, memo)] = deepcopy(value, memo)
+
 
 class WorkaheadIterator(object):
     def __init__(self, iterator, maxqueue=50):
@@ -417,7 +441,9 @@ class WorkaheadIterator(object):
 
         item = self._queue.get()
 
-        if isinstance(item, BaseException) or (isinstance(item, type) and issubclass(item, BaseException)):
+        if (isinstance(item, BaseException)
+                or (isinstance(item, type)
+                    and issubclass(item, BaseException))):
             with self._lock:
                 self._stopped = True
 
@@ -451,7 +477,6 @@ class WeakRefList(collections.UserList):
         except TypeError:
             return obj
 
-
     @staticmethod
     def _fromweakref(obj):
         if isinstance(obj, weakref.ref):
@@ -459,10 +484,8 @@ class WeakRefList(collections.UserList):
 
         return obj
 
-
     def __iter__(self):
         return map(self._fromweakref, self.data)
-
 
     def __reduce__(self):
         state = self.__getstate__()
@@ -513,7 +536,7 @@ class WeakRefList(collections.UserList):
                 del self[k]
                 return
 
-        raise ValueError(f"WeakRefList.remove(x): x not in list")
+        raise ValueError("WeakRefList.remove(x): x not in list")
 
     def clean(self):
         for ref in self.data.copy():
@@ -526,14 +549,18 @@ class ValidationException(BaseException):
         self.message = message
         self.obj = obj
 
+
 class SourceError(ValidationException):
     pass
+
 
 class BrokenReference(ValidationException):
     pass
 
+
 class IncompatibleSource(ValidationException):
     pass
+
 
 class FileMissingError(ValidationException):
     pass
@@ -545,5 +572,3 @@ class FileAccessDeniedError(ValidationException):
 
 class EncoderError(ValidationException):
     pass
-
-
