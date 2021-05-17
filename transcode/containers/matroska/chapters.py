@@ -6,6 +6,27 @@ from xml.dom.minidom import Document, Element, Text, DocumentType
 import regex
 
 
+def str2pts(data):
+    (h, m, s, ns), = regex.findall(r"^(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?$", data)
+
+    if ns is not None:
+        ns = int(ns)*10**(9-len(ns))
+
+    else:
+        ns = 0
+
+    s = int(s)
+    m = int(m)
+
+    if h is not None:
+        h = int(h)
+
+    else:
+        h = 0
+
+    return ((h*60 + m)*60 + s)*10**9 + ns
+
+
 class ChapterDisplay(object):
     from copy import deepcopy as copy
 
@@ -507,34 +528,14 @@ class ChapterAtom(object):
                 raise ValueError(
                     f"Unhandled subnode type ({subnode}).")
 
-        (h, m, s, ns), = regex.findall(r"^(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?$", data)
+        pts = str2pts(data)
+        n = self._mapPtsToSrcFrame(pts)
 
-        if ns is not None:
-            ns = int(ns)*10**(9-len(ns))
-
-        else:
-            ns = 0
-
-        s = int(s)
-        m = int(m)
-
-        if h is not None:
-            h = int(h)
-
-        else:
-            h = 0
-
-        pts = ((h*60 + m)*60 + s)*10**9 + ns
-
-        if (self.segment is not None
-                and self.segment.vtrack is not None
-                and self.segment.vtrack.pts is not None):
-            n = self.segment.vtrack.frameIndexFromPts(pts)
-
-            if self.segment.vtrack.filters:
-                n = self.segment.vtrack.filters.reverseIndexMap[n]
-
+        if n is not None:
             self.startFrame = n
+
+        else:
+            self.timeStart = pts
 
     def _handleEndNode(self, node):
         data = ""
@@ -551,30 +552,21 @@ class ChapterAtom(object):
                 raise ValueError(
                     f"Unhandled subnode type ({subnode}).")
 
-        (h, m, s, ns), = regex.findall(r"^(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?$", data)
+        pts = str2pts(data)
+        n = self._mapPtsToSrcFrame(pts)
 
-        if ns is not None:
-            ns = int(ns)*10**(9-len(ns))
-
-        else:
-            ns = 0
-
-        s = int(s)
-        m = int(m)
-
-        if h is not None:
-            h = int(h)
+        if n is not None:
+            self.endFrame = n
 
         else:
-            h = 0
+            self.timeEnd = pts
 
-        pts = ((h*60 + m)*60 + s)*10**9 + ns
-
+    def _mapPtsToSrcFrame(self, pts):
         if (self.segment is not None
                 and self.segment.vtrack is not None
                 and self.segment.vtrack.pts is not None):
             if pts > self.segment.vtrack.pts[-1]:
-                self.endFrame = self.segment.vtrack.framecount
+                return self.segment.vtrack.framecount
 
             else:
                 n = self.segment.vtrack.frameIndexFromPts(pts)
@@ -582,7 +574,7 @@ class ChapterAtom(object):
                 if self.segment.vtrack.filters:
                     n = self.segment.vtrack.filters.reverseIndexMap[n]
 
-                self.endFrame = n
+                return n
 
     def _handleHiddenNode(self, node):
         data = ""
