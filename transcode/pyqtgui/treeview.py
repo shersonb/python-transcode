@@ -1,8 +1,9 @@
 from PyQt5.QtWidgets import QTreeView, QMenu, QMessageBox
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal, QRect
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal
 import gc
 import traceback
 import sys
+
 
 class TreeView(QTreeView):
     contentsModified = pyqtSignal()
@@ -25,7 +26,9 @@ class TreeView(QTreeView):
         internaldrag = event.source() is self
         default = self.defaultDropAction()
 
-        if mod == Qt.NoModifier and supp & Qt.MoveAction and supp & Qt.CopyAction:
+        if (mod == Qt.NoModifier
+                and supp & Qt.MoveAction
+                and supp & Qt.CopyAction):
             if internaldrag:
                 return Qt.MoveAction
 
@@ -44,7 +47,6 @@ class TreeView(QTreeView):
     def dragMoveEvent(self, event):
         super().dragMoveEvent(event)
         action = self._getDropAction(event)
-        mimeData = event.mimeData()
 
         if self._canDrop(event):
             event.setDropAction(action)
@@ -54,8 +56,6 @@ class TreeView(QTreeView):
             event.ignore()
 
     def dropEvent(self, event):
-        action = self._getDropAction(event)
-
         if self._canDrop(event):
             self._drop(event)
 
@@ -84,7 +84,6 @@ class TreeView(QTreeView):
 
         return (mimeData, row, col, parent)
 
-
     def _canDrop(self, event):
         (data, row, column, parent) = self._getDropArgs(event)
         action = self._getDropAction(event)
@@ -109,14 +108,10 @@ class TreeView(QTreeView):
         key = event.key()
         modifiers = event.modifiers()
         idx = self.currentIndex()
-        row = idx.row()
-        col = idx.column()
-        model = self.model()
 
-        selected = sorted(idx.row()
-                          for idx in self.selectionModel().selectedRows())
-
-        if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
+        if (key == Qt.Key_Delete
+                and modifiers == Qt.NoModifier
+                and len(self.selectionModel().selectedRows())):
             self.askDeleteSelected()
 
         super().keyPressEvent(event)
@@ -163,15 +158,17 @@ class TreeView(QTreeView):
                 if hasattr(col, "itemDelegate") and callable(col.itemDelegate):
                     delegate = col.itemDelegate(self)
 
-                    if hasattr(delegate, "contentsModified") and \
-                            isinstance(delegate.contentsModified, pyqtBoundSignal):
+                    if (hasattr(delegate, "contentsModified")
+                        and isinstance(delegate.contentsModified,
+                                       pyqtBoundSignal)):
                         delegate.contentsModified.connect(
                             self.contentsModified)
 
                     self.setItemDelegateForColumn(k, delegate)
 
     def _handleException(self, cls, exc, tb):
-        print("\n".join(traceback.format_exception(cls, exc, tb)), file=sys.stderr)
+        print("\n".join(traceback.format_exception(cls, exc, tb)),
+              file=sys.stderr)
         excmsg = QMessageBox(self)
         excmsg.setWindowTitle("Error")
         excmsg.setText("An exception was encountered\n\n%s" %
@@ -179,4 +176,3 @@ class TreeView(QTreeView):
         excmsg.setStandardButtons(QMessageBox.Ok)
         excmsg.setIcon(QMessageBox.Critical)
         excmsg.exec_()
-
