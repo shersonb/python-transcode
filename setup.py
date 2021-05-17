@@ -29,6 +29,7 @@ setup(
         'transcode.containers',
         'transcode.containers.matroska',
         'transcode.containers.matroska.pyqtgui',
+        'transcode.containers.matroska.pyqtgui.chapters',
         'transcode.encoders',
         'transcode.encoders.audio',
         'transcode.encoders.video',
