@@ -730,15 +730,6 @@ class MatroskaWriter(basewriter.BaseWriter):
         from .pyqtgui.qmatroskaconfig import QMatroskaConfigDlg
         return QMatroskaConfigDlg
 
-    def removeDependency(self, dependency):
-        super().removeDependency(dependency)
-
-        if self.attachments and isinstance(dependency, BaseReader):
-            for attachment in list(self.attachments):
-                if isinstance(attachment.source, AttachmentRef):
-                    if attachment.source.source is dependency:
-                        self.attachments.remove(attachment)
- 
     def validate(self):
         exceptions = super().validate()
 

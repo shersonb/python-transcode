@@ -648,14 +648,6 @@ class Track(abc.ABC):
 
         return dep
 
-    def removeDependency(self, dependency):
-        if (isinstance(dependency, BaseReader)
-                and self.source in dependency.tracks):
-            self.source = None
-
-        elif isinstance(dependency, BaseFilter) and self.source is dependency:
-            self.source = None
-
     def validate(self):
         exceptions = []
 
@@ -1353,10 +1345,6 @@ class BaseWriter(abc.ABC):
     @property
     def dependencies(self):
         return set().union(*[track.dependencies for track in self.tracks])
-
-    def removeDependency(self, dependency):
-        for track in self.tracks:
-            track.removeDependency(dependency)
 
     def validate(self):
         exceptions = []

@@ -463,16 +463,6 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
         from .qconcatenate import QConcatenate
         return QConcatenate
 
-    def removeDependency(self, dependency):
-        for source in list(self.sources):
-            if isinstance(dependency, BaseReader) and source in dependency.tracks:
-                self.sources.remove(source)
-
-            elif isinstance(dependency, BaseFilter) and self.source is dependency:
-                self.sources.remove(source)
-
-        self.reset_cache()
-
     def validate(self):
         if len(self) == 0:
             return [SourceError("No sources provided.", self)]

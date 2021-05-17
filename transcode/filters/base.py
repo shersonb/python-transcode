@@ -452,13 +452,6 @@ class BaseFilter(object):
         dlg.setFilter(self)
         return dlg
 
-    def removeDependency(self, dependency):
-        if isinstance(dependency, BaseReader) and self.source in dependency.tracks:
-            self.source = None
-
-        elif isinstance(dependency, BaseFilter) and self.source is dependency:
-            self.source = None
-
     def __repr__(self):
         return f"<{self.__class__.__name__} filter at 0x{id(self):012x}>"
 

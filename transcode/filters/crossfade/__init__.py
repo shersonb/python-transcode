@@ -364,19 +364,6 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
         from .qcrossfade import QCrossFade
         return QCrossFade
 
-    def removeDependency(self, dependency):
-        if isinstance(dependency, BaseReader) and self.source1 in dependency.tracks:
-            self.source1 = None
-
-        elif isinstance(dependency, BaseFilter) and self.source1 is dependency:
-            self.source1 = None
-
-        if isinstance(dependency, BaseReader) and self.source2 in dependency.tracks:
-            self.source2 = None
-
-        elif isinstance(dependency, BaseFilter) and self.source2 is dependency:
-            self.source2 = None
-
     def validate(self):
         exceptions = []
 
