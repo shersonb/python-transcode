@@ -25,15 +25,17 @@ _aformats = {
 
 def _AFrameToNDArray(frame):
     """
-    A reimplementation of frame.to_ndarray that overcomes the segmentation fault that occurs
-    with 8-channel audio frames, and returns an array with shape (frame.samples, nb_channels).
+    A reimplementation of frame.to_ndarray that overcomes the segmentation
+    fault that occurs with 8-channel audio frames, and returns an array with
+    shape (frame.samples, nb_channels).
     """
 
     try:
         dtype = numpy.dtype(_aformat_dtypes[frame.format.name])
     except KeyError:
         raise ValueError(
-            "Conversion from {!r} format to numpy array is not supported.".format(frame.format.name))
+            ("Conversion from {!r} format to numpy array is not"
+                " supported.").format(frame.format.name))
 
     nb_channels = len(frame.layout.channels)
 
@@ -88,7 +90,8 @@ def toNDArray(frame):
 
     else:
         raise TypeError(
-            f"Expected AudioFrame or VideoFrame, got {frame.__class__.__name__} instead.")
+            "Expected AudioFrame or VideoFrame, got"
+            f" {frame.__class__.__name__} instead.")
 
 
 def toAFrame(array, layout=None):
@@ -97,7 +100,8 @@ def toAFrame(array, layout=None):
     """
 
     assert array.ndim == 1 or (
-        array.ndim == 2 and 1 <= array.shape[1] <= 8), "Arrays with nb_channels > 8 unsupported"
+        array.ndim == 2 and 1 <= array.shape[1] <= 8), "Arrays with"\
+        " nb_channels > 8 unsupported"
 
     if layout is None:
         if array.ndim <= 1 or array.shape[1] == 1:
@@ -126,7 +130,8 @@ def toAFrame(array, layout=None):
 
     nb_channels = len(AudioLayout(layout).channels)
     samples = array.shape[0]
-    assert array.shape[1] == nb_channels, f"Layout {layout} requires {nb_channels}, not {array.shape[1]}."
+    assert array.shape[1] == nb_channels, f"Layout {layout} requires"\
+        f" {nb_channels}, not {array.shape[1]}."
 
     # map numpy type to avcodec type
 
@@ -134,7 +139,8 @@ def toAFrame(array, layout=None):
         format = _aformats[array.dtype.str]
     except KeyError:
         raise ValueError(
-            f'Conversion from numpy array with dtype `{array.dtype.str}` is not yet supported')
+            f'Conversion from numpy array with dtype `{array.dtype.str}`"\
+                " is not yet supported')
 
     if AudioFormat(format).is_planar:
         array = array.transpose().copy("c")
@@ -153,12 +159,12 @@ def toAFrame(array, layout=None):
 
 
 def _YUVtoVFrame(Y, U, V, format=None):
-    assert Y.ndim == 2, f"Y.ndim must be 2."
-    assert U.ndim == 2, f"U.ndim must be 2."
-    assert V.ndim == 2, f"V.ndim must be 2."
-    assert Y.shape[0] % 2 == 0, f"Y.shape[0] must be even."
-    assert Y.shape[1] % 2 == 0, f"Y.shape[1] must be even."
-    assert U.shape == V.shape, f"V.shape must be equal to U.shape."
+    assert Y.ndim == 2, "Y.ndim must be 2."
+    assert U.ndim == 2, "U.ndim must be 2."
+    assert V.ndim == 2, "V.ndim must be 2."
+    assert Y.shape[0] % 2 == 0, "Y.shape[0] must be even."
+    assert Y.shape[1] % 2 == 0, "Y.shape[1] must be even."
+    assert U.shape == V.shape, "V.shape must be equal to U.shape."
 
     H, W = Y.shape
     h, w = U.shape
@@ -168,15 +174,17 @@ def _YUVtoVFrame(Y, U, V, format=None):
             format = "yuv420p"
 
         A = numpy.concatenate(
-            (Y.reshape(H*W), U.reshape(h*w), V.reshape(h*w))).reshape(3*H//2, W)
+            (Y.reshape(H*W), U.reshape(h*w),
+             V.reshape(h*w))).reshape(3*H//2, W)
         return VideoFrame.from_ndarray(A, format=format)
 
     elif h == H and 2*w == W:
         if format is None:
             format = "yuyv422"
 
-        UV = numpy.concatenate((U, V), axis=1).reshape(-1,
-                                                       2, w).swapaxes(1, 2).reshape(-1, W)
+        UV = numpy.concatenate(
+            (U, V), axis=1).reshape(
+                -1, 2, w).swapaxes(1, 2).reshape(-1, W)
         A = numpy.moveaxis((Y, UV), 0, 2)
         return VideoFrame.from_ndarray(A, format=format)
 
