@@ -5,19 +5,19 @@ import pathlib
 try:
     import lzma
 
-except:
+except ImportError:
     lzma = None
 
 try:
     import bz2
 
-except:
+except ImportError:
     bz2 = None
 
 try:
     import gzip
 
-except:
+except ImportError:
     gzip = None
 
 from ..obj import Config

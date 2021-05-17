@@ -9,19 +9,19 @@ import pathlib
 try:
     import lzma
 
-except:
+except ImportError:
     lzma = None
 
 try:
     import bz2
 
-except:
+except ImportError:
     bz2 = None
 
 try:
     import gzip
 
-except:
+except ImportError:
     gzip = None
 
 
@@ -186,14 +186,16 @@ class FilterElement(ebml.serialization.Object):
             return FilterChainElement.save(filter, path)
 
         path = pathlib.Path(path)
-        head = EBMLHead(docType="filter", docTypeReadVersion=1, docTypeVersion=1,
-                                  ebmlMaxIDLength=4, ebmlMaxSizeLength=8, ebmlReadVersion=1, ebmlVersion=1)
+        head = EBMLHead(docType="filter", docTypeReadVersion=1,
+                        docTypeVersion=1, ebmlMaxIDLength=4,
+                        ebmlMaxSizeLength=8, ebmlReadVersion=1,
+                        ebmlVersion=1)
 
         self = cls.fromObj(filter, environ={"module": filters})
 
         if lzma and path.suffix.upper() == ".XZ":
             file = lzma.LZMAFile(path, "w",
-                                    preset=9 | lzma.PRESET_EXTREME)
+                                 preset=9 | lzma.PRESET_EXTREME)
 
         elif bz2 and path.suffix.upper() == ".BZ2":
             file = bz2.BZ2File(path, "w", compresslevel=9)
@@ -208,7 +210,8 @@ class FilterElement(ebml.serialization.Object):
 
         if isinstance(self.options, ebml.serialization.StateDict):
             for item in list(self.options.items):
-                if isinstance(item.items[1], Ref):
+                if isinstance(item.items[1],
+                              ebml.serialization.Ref):
                     self.options.items.remove(item)
 
         head.toFile(file)
@@ -286,14 +289,16 @@ class FilterChainElement(ebml.serialization.Object):
     @classmethod
     def save(cls, filter, path):
         path = pathlib.Path(path)
-        head = EBMLHead(docType="filterchain", docTypeReadVersion=1, docTypeVersion=1,
-                                  ebmlMaxIDLength=4, ebmlMaxSizeLength=8, ebmlReadVersion=1, ebmlVersion=1)
+        head = EBMLHead(docType="filterchain", docTypeReadVersion=1,
+                        docTypeVersion=1, ebmlMaxIDLength=4,
+                        ebmlMaxSizeLength=8, ebmlReadVersion=1,
+                        ebmlVersion=1)
 
         self = cls.fromObj(filter, environ={"module": filters})
 
         if lzma and path.suffix.upper() == ".XZ":
             file = lzma.LZMAFile(path, "w",
-                                    preset=9 | lzma.PRESET_EXTREME)
+                                 preset=9 | lzma.PRESET_EXTREME)
 
         elif bz2 and path.suffix.upper() == ".BZ2":
             file = bz2.BZ2File(path, "w", compresslevel=9)
@@ -376,7 +381,8 @@ class FilterChains(ebml.serialization.List):
     _typeMap = {FilterChain: FilterChainElement,
                 Concatenate: ConcatenateElement, object: FilterElement}
     _typesByID = {FilterChainElement.ebmlID: FilterChainElement,
-                  FilterElement.ebmlID: FilterElement, ConcatenateElement.ebmlID: ConcatenateElement}
+                  FilterElement.ebmlID: FilterElement,
+                  ConcatenateElement.ebmlID: ConcatenateElement}
 
     @classmethod
     def _fromObj(cls, obj, environ, refs):
@@ -393,7 +399,8 @@ class FilterChains(ebml.serialization.List):
             childElement.objID = refs[id(child)] = ref
             childElements.append(childElement)
 
-        for childElement, (constructor, args, *more) in zip(childElements, reductions):
+        for (childElement, (constructor, args, *more))\
+                in zip(childElements, reductions):
             if len(more) == 1:
                 state, = more
                 subitems = dictitems = None
@@ -476,14 +483,16 @@ class FilterChains(ebml.serialization.List):
     @classmethod
     def save(cls, items, path):
         path = pathlib.Path(path)
-        head = EBMLHead(docType="filters", docTypeReadVersion=1, docTypeVersion=1,
-                                  ebmlMaxIDLength=4, ebmlMaxSizeLength=8, ebmlReadVersion=1, ebmlVersion=1)
+        head = EBMLHead(docType="filters", docTypeReadVersion=1,
+                        docTypeVersion=1, ebmlMaxIDLength=4,
+                        ebmlMaxSizeLength=8, ebmlReadVersion=1,
+                        ebmlVersion=1)
 
         self = cls.fromObj(items, environ={"module": filters})
 
         if lzma and path.suffix.upper() == ".XZ":
             file = lzma.LZMAFile(path, "w",
-                                    preset=9 | lzma.PRESET_EXTREME)
+                                 preset=9 | lzma.PRESET_EXTREME)
 
         elif bz2 and path.suffix.upper() == ".BZ2":
             file = bz2.BZ2File(path, "w", compresslevel=9)
@@ -501,7 +510,8 @@ class FilterChains(ebml.serialization.List):
         for filter in self.items:
             if isinstance(filter.options, ebml.serialization.StateDict):
                 for item in list(filter.options.items):
-                    if isinstance(item.items[1], ebml.serialization.Ref) and item.items[1].data not in objIDs:
+                    if (isinstance(item.items[1], ebml.serialization.Ref)
+                            and item.items[1].data not in objIDs):
                         filter.options.items.remove(item)
 
         head.toFile(file)
