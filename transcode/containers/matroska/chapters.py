@@ -233,28 +233,7 @@ class ChapterAtom(object):
     @property
     def timeStart(self):
         if self.startFrame is not None and self.segment:
-            vtrack = self.segment.vtrack
-
-            if vtrack is None:
-                for vtrack in self.segment.tracks:
-                    if vtrack.type == "video":
-                        break
-
-                else:
-                    return
-
-            if vtrack.filters is not None:
-                k = -1
-                n = self.startFrame
-
-                while k < 0:
-                    k = vtrack.filters.indexMap[n]
-                    n += 1
-
-            else:
-                k = self.startFrame
-
-            return vtrack.pts[k]
+            return self._mapSrcFrameToPts(self.startFrame)
 
         return self._timeStart
 
@@ -272,31 +251,7 @@ class ChapterAtom(object):
                 if self.endFrame is None:
                     return
 
-                vtrack = self.segment.vtrack
-
-                if vtrack is None:
-                    for vtrack in self.segment.tracks:
-                        if vtrack.type == "video":
-                            break
-
-                    else:
-                        return
-
-                if vtrack.filters:
-                    k = -1
-                    n = self.endFrame
-
-                    while k < 0:
-                        if n >= len(vtrack.filters.indexMap):
-                            return int(10**9*vtrack.duration)
-
-                        k = vtrack.filters.indexMap[n]
-                        n += 1
-
-                else:
-                    k = self.endFrame
-
-                return vtrack.pts[self.endFrame]
+                return self._mapSrcFrameToPts(self.endFrame)
 
             elif self.next:
                 return self.next.timeStart
@@ -575,6 +530,33 @@ class ChapterAtom(object):
                     n = self.segment.vtrack.filters.reverseIndexMap[n]
 
                 return n
+
+    def _mapSrcFrameToPts(self, n):
+        if self.segment is not None:
+            vtrack = self.segment.vtrack
+
+            if vtrack is None:
+                for vtrack in self.segment.tracks:
+                    if vtrack.type == "video":
+                        break
+
+                else:
+                    return
+
+            if vtrack.filters is not None:
+                k = -1
+
+                while k < 0:
+                    if n >= len(vtrack.filters.indexMap):
+                        return int(vtrack.filters.duration/vtrack.filters.time_base)
+
+                    k = vtrack.filters.indexMap[n]
+                    n += 1
+
+            else:
+                k = self.startFrame
+
+            return vtrack.pts[k]
 
     def _handleHiddenNode(self, node):
         data = ""
