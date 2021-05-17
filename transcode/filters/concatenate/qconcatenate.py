@@ -423,12 +423,12 @@ class QConcatenate(QFilterConfig):
 
                 if framesBeforeRemoval <= k < framesBeforeRemoval + framesRemoved:
                     self.preview.frameSelection.blockSignals(False)
-                    self.preview.frameSelection.slider.setValue(k + framesInserted)
+                    self.preview.frameSelection.slider.setValue(k + framesRemoved)
 
                 elif k >= framesBeforeRemoval + framesRemoved:
                     self.preview.frameSelection.slider.setValue(k - framesRemoved)
 
-            except:
+            except Exception:
                 pass
 
             finally:
