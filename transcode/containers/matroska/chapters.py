@@ -1,13 +1,14 @@
 import matroska.chapters
 from transcode.util import ChildList, llist
-from collections import OrderedDict, UserList
+from collections import OrderedDict
 from .uid import formatUID
 from xml.dom.minidom import Document, Element, Text, DocumentType
 import regex
 
 
 def str2pts(data):
-    (h, m, s, ns), = regex.findall(r"^(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?$", data)
+    (h, m, s, ns), = regex.findall(
+        r"^(?:(\d+):)?(\d+):(\d+)(?:\.(\d+))?$", data)
 
     if ns is not None:
         ns = int(ns)*10**(9-len(ns))
@@ -30,7 +31,8 @@ def str2pts(data):
 class ChapterDisplay(object):
     from copy import deepcopy as copy
 
-    def __init__(self, string, languages=["eng"], langIETF=[], countries=["us"], parent=None):
+    def __init__(self, string, languages=["eng"], langIETF=[],
+                 countries=["us"], parent=None):
         self.string = string
         self.languages = languages.copy()
         self.langIETF = langIETF.copy()
@@ -40,9 +42,11 @@ class ChapterDisplay(object):
     def prepare(self, logfile=None):
         print(f"        Name: {self.string}", file=logfile)
         print(
-            f"            Lanugages: {', '.join(self.languages)}", file=logfile)
+            f"            Lanugages: "
+            f"{', '.join(self.languages)}", file=logfile)
         print(
-            f"            Countries: {', '.join(self.countries)}", file=logfile)
+            f"            Countries: "
+            f"{', '.join(self.countries)}", file=logfile)
         return matroska.chapters.ChapterDisplay(self.string, self.languages,
                                                 self.langIETF, self.countries)
 
@@ -67,7 +71,8 @@ class ChapterDisplay(object):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of ChapterString found ({subsubnode.tagName}).")
+                    f"Unexpected subtag of ChapterString found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -80,7 +85,8 @@ class ChapterDisplay(object):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of ChapterLanguage found ({subsubnode.tagName}).")
+                    f"Unexpected subtag of ChapterLanguage found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -93,7 +99,8 @@ class ChapterDisplay(object):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of ChapterLanguageIETF found ({subsubnode.tagName}).")
+                    f"Unexpected subtag of ChapterLanguageIETF found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -106,7 +113,8 @@ class ChapterDisplay(object):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of ChapterCountry found ({subsubnode.tagName}).")
+                    f"Unexpected subtag of ChapterCountry found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -158,7 +166,7 @@ class ChapterDisplay(object):
         for node in xml.childNodes:
             if isinstance(node, Text):
                 if not regex.match(r"^\s*$", node.data, flags=regex.M):
-                    raise ValueError(f"Unexpected Data: {n}")
+                    raise ValueError(f"Unexpected Data: {node.data}")
 
             if isinstance(node, Element):
                 if node.tagName == "ChapterString":
@@ -175,7 +183,8 @@ class ChapterDisplay(object):
 
                 else:
                     raise ValueError(
-                        f"Unexpected subtag of {expected} found ({node.tagName}).")
+                        f"Unexpected subtag of {expected} found "
+                        f"({node.tagName}).")
 
         return self
 
@@ -183,8 +192,10 @@ class ChapterDisplay(object):
 class ChapterAtom(object):
     from copy import deepcopy as copy
 
-    def __init__(self, UID, startFrame=None, endFrame=None, timeStart=None, timeEnd=None, displays=[], hidden=False, enabled=True, segmentUID=None,
-                 segmentEditionUID=None, physicalEquiv=None, tracks=None, next=None, prev=None, parent=None):
+    def __init__(self, UID, startFrame=None, endFrame=None, timeStart=None,
+                 timeEnd=None, displays=[], hidden=False, enabled=True,
+                 segmentUID=None, segmentEditionUID=None, physicalEquiv=None,
+                 tracks=None, next=None, prev=None, parent=None):
         self.UID = UID
         self.startFrame = startFrame
         self.endFrame = endFrame
@@ -257,7 +268,8 @@ class ChapterAtom(object):
                 return self.next.timeStart
 
             elif self.segment and self.segment.vtrack:
-                return int(self.segment.vtrack.duration/self.segment.vtrack.time_base)
+                return int(self.segment.vtrack.duration
+                           / self.segment.vtrack.time_base)
 
         return self._timeEnd
 
@@ -304,7 +316,8 @@ class ChapterAtom(object):
         h1, m1 = divmod(m, 60)
 
         print(
-            f"    Chapter {self.parent.index(self) + 1}: {', '.join(flagstrings)}", file=logfile)
+            f"    Chapter {self.parent.index(self) + 1}: "
+            f"{', '.join(flagstrings)}", file=logfile)
 
         ebml = matroska.chapters.ChapterAtom(
             chapterUID=self.UID,
@@ -324,11 +337,13 @@ class ChapterAtom(object):
             s2 = ms/10**9
             h2, m2 = divmod(m, 60)
             print(
-                f"        Time: {h1}:{m1:02d}:{s1:06.3f} — {h2}:{m2:02d}:{s2:06.3f}", file=logfile)
+                f"        Time: {h1}:{m1:02d}:{s1:06.3f}"
+                f" — {h2}:{m2:02d}:{s2:06.3f}", file=logfile)
 
         else:
             print(
-                f"        Time: {h1}:{m1:02d}:{s1:06.3f} — ?:??:??.???", file=logfile)
+                f"        Time: {h1}:{m1:02d}:{s1:06.3f}"
+                f" — ?:??:??.???", file=logfile)
 
         return ebml
 
@@ -457,7 +472,8 @@ class ChapterAtom(object):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of ChapterString found ({subnode.tagName}).")
+                    f"Unexpected subtag of ChapterString found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -474,7 +490,8 @@ class ChapterAtom(object):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of ChapterTimeStart found ({subnode.tagName}).")
+                    f"Unexpected subtag of ChapterTimeStart found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -498,7 +515,8 @@ class ChapterAtom(object):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of ChapterTimeStart found ({subnode.tagName}).")
+                    f"Unexpected subtag of ChapterTimeStart found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -548,7 +566,8 @@ class ChapterAtom(object):
 
                 while k < 0:
                     if n >= len(vtrack.filters.indexMap):
-                        return int(vtrack.filters.duration/vtrack.filters.time_base)
+                        return int(vtrack.filters.duration
+                                   / vtrack.filters.time_base)
 
                     k = vtrack.filters.indexMap[n]
                     n += 1
@@ -564,7 +583,8 @@ class ChapterAtom(object):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of ChapterFlagHidden found ({subsubnode.tagName}).")
+                    f"Unexpected subtag of ChapterFlagHidden found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -577,13 +597,13 @@ class ChapterAtom(object):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of ChapterFlagEnabled found ({subsubnode.tagName}).")
+                    f"Unexpected subtag of ChapterFlagEnabled found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
 
         self.enabled = int(data.strip())
-
 
     def _handleDisplayNode(self, node):
         self.displays.append(ChapterDisplay.fromXml(node))
@@ -601,7 +621,7 @@ class ChapterAtom(object):
         for node in xml.childNodes:
             if isinstance(node, Text):
                 if not regex.match(r"^\s*$", node.data, flags=regex.M):
-                    raise ValueError(f"Unexpected Data: {n}")
+                    raise ValueError(f"Unexpected Data: {node.data}")
 
             if isinstance(node, Element):
                 if node.tagName == "ChapterUID":
@@ -624,13 +644,15 @@ class ChapterAtom(object):
 
                 else:
                     raise ValueError(
-                        f"Unexpected subtag of {expected} found ({node.tagName}).")
+                        f"Unexpected subtag of {expected} found "
+                        f"({node.tagName}).")
 
         return self
 
 
 class EditionEntry(llist):
-    def __init__(self, chapters=[], UID=None, hidden=False, default=False, ordered=False, parent=None):
+    def __init__(self, chapters=[], UID=None, hidden=False, default=False,
+                 ordered=False, parent=None):
         self.UID = UID
         self.hidden = hidden
         self.default = default
@@ -669,7 +691,8 @@ class EditionEntry(llist):
 
         if len(flagstrings):
             print(
-                f"Edition Entry {formatUID(self.UID)} ({', '.join(flagstrings)})", file=logfile)
+                f"Edition Entry {formatUID(self.UID)} "
+                f"({', '.join(flagstrings)})", file=logfile)
 
         else:
             print(f"Edition Entry {formatUID(self.UID)}", file=logfile)
@@ -719,7 +742,8 @@ class EditionEntry(llist):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of EditionUID found ({subnode.tagName}).")
+                    f"Unexpected subtag of EditionUID found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -736,7 +760,8 @@ class EditionEntry(llist):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of EditionFlagHidden found ({subsubnode.tagName}).")
+                    f"Unexpected subtag of EditionFlagHidden found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -749,7 +774,8 @@ class EditionEntry(llist):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of EditionFlagDefault found ({subsubnode.tagName}).")
+                    f"Unexpected subtag of EditionFlagDefault found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -762,7 +788,8 @@ class EditionEntry(llist):
         for subnode in node.childNodes:
             if isinstance(subnode, Element):
                 raise ValueError(
-                    f"Unexpected subtag of EditionFlagOrdered found ({subsubnode.tagName}).")
+                    f"Unexpected subtag of EditionFlagOrdered found "
+                    f"({subnode.tagName}).")
 
             elif isinstance(subnode, Text):
                 data += subnode.data
@@ -786,7 +813,7 @@ class EditionEntry(llist):
         for node in xml.childNodes:
             if isinstance(node, Text):
                 if not regex.match(r"^\s*$", node.data, flags=regex.M):
-                    raise ValueError(f"Unexpected Data: {n}")
+                    raise ValueError(f"Unexpected Data: {node.data}")
 
             if isinstance(node, Element):
                 if node.tagName == "EditionUID":
@@ -806,7 +833,8 @@ class EditionEntry(llist):
 
                 else:
                     raise ValueError(
-                        f"Unexpected subtag of {expected} found ({node.tagName}).")
+                        f"Unexpected subtag of {expected} found "
+                        f"({node.tagName}).")
 
         return self
 
@@ -814,7 +842,8 @@ class EditionEntry(llist):
 class Editions(ChildList):
     def prepare(self, logfile=None):
         print("--- Chapters ---", file=logfile)
-        return matroska.chapters.Chapters([edition.prepare(logfile) for edition in self])
+        return matroska.chapters.Chapters([
+            edition.prepare(logfile) for edition in self])
 
     def toXml(self, selected=None):
         doc = Document()
@@ -834,14 +863,15 @@ class Editions(ChildList):
     def fromXml(cls, xml, parent=None):
         if xml.documentElement.tagName != "Chapters":
             raise ValueError(
-                f"Expected Chapters element as Document Element. Got {xml.documentElement.tagName} instead.")
+                f"Expected Chapters element as Document Element. "
+                f"Got {xml.documentElement.tagName} instead.")
 
         self = cls(parent=parent)
 
         for node in xml.documentElement.childNodes:
             if isinstance(node, Text):
                 if not regex.match(r"^\s*$", node.data, flags=regex.M):
-                    raise ValueError(f"Unexpected Data: {n}")
+                    raise ValueError(f"Unexpected Data: {node.data}")
 
             if isinstance(node, Element):
                 self.append(EditionEntry.fromXml(node, parent))

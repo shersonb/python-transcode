@@ -29,10 +29,13 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
             if source1.type != source2.type:
                 raise ValueError("Both segments must have same type.")
 
-            if self.type == "video" and (source1.width != source2.width or source1.height != source2.height):
+            if (self.type == "video"
+                    and (source1.width != source2.width
+                         or source1.height != source2.height)):
                 raise ValueError("Both segments must have same size.")
 
-            if self.type == "audio" and (source1.layout != source2.layout):
+            if (self.type == "audio"
+                    and source1.layout != source2.layout):
                 raise ValueError("Both segments must have same layout.")
 
         self.flags = flags
@@ -334,8 +337,6 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
                 if N == 0:
                     break
 
-                TT = numpy.arange(T, T + N/self.rate, 1/self.rate)
-
                 if not 1 & self.flags:
                     A = AA[:N]*numpy.cos(T*numpy.pi/2/self.duration)**2
 
@@ -371,40 +372,70 @@ class CrossFade(BaseVideoFilter, BaseAudioFilter):
             exceptions.append(SourceError("Source 1 not specified.", self))
 
         elif self.source1.type not in ("video", "audio"):
-            exceptions.append(SourceError(f"Unsupported type for source 1: '{self.source1.type}'.", self))
+            exceptions.append(SourceError(
+                f"Unsupported type for source 1: '{self.source1.type}'.",
+                self))
 
         if self.source2 is None:
             exceptions.append(SourceError("Source 2 not specified.", self))
 
         elif self.source2.type not in ("video", "audio"):
-            exceptions.append(SourceError(f"Unsupported type for source 2: '{self.source2.type}'.", self))
+            exceptions.append(SourceError(
+                f"Unsupported type for source 2: '{self.source2.type}'.",
+                self))
 
         if self.source1 is not None and self.source2 is not None:
             if self.source1.type != self.source2.type:
-                exceptions.append(IncompatibleSource(f"Incompatible sources: '{self.source1.type}' and '{self.source2.type}'.", self))
+                exceptions.append(IncompatibleSource(
+                    f"Incompatible sources: '{self.source1.type}' "
+                    f"and '{self.source2.type}'.", self))
 
             elif self.source1.type == "video":
-                if (self.source1.width, self.source1.height) != (self.source2.width, self.source2.height):
-                    exceptions.append(IncompatibleSource(f"Sources have different resolutions: '{self.source1.width}×{self.source1.height}' and '{self.source2.width}×{self.source2.height}'.", self))
+                if ((self.source1.width, self.source1.height)
+                        != (self.source2.width, self.source2.height)):
+                    exceptions.append(IncompatibleSource(
+                        "Sources have different resolutions: "
+                        f"'{self.source1.width}×{self.source1.height}' and "
+                        f"'{self.source2.width}×{self.source2.height}'.",
+                        self))
 
                 if self.source1.sar != self.source2.sar:
-                    exceptions.append(IncompatibleSource(f"Sources have different sample aspect ratios: '{self.source1.sar}' and '{self.source2.sar}'.", self))
+                    exceptions.append(IncompatibleSource(
+                        "Sources have different sample aspect ratios: "
+                        f"'{self.source1.sar}' and '{self.source2.sar}'.",
+                        self))
 
                 if self.source1.framecount != self.source2.framecount:
-                    exceptions.append(IncompatibleSource(f"Sources have different sample frame counts: '{self.source1.framecount}' and '{self.source2.framecount}'.", self))
+                    exceptions.append(IncompatibleSource(
+                        "Sources have different sample frame counts: "
+                        f"'{self.source1.framecount}' and "
+                        f"'{self.source2.framecount}'.", self))
 
-                if abs(self.source1.pts_time - self.source2.pts_time).max() >= 10**-4:
-                    exceptions.append(IncompatibleSource(f"Sources have different mis-aligned presentation timestamps.", self))
+                if (abs(self.source1.pts_time - self.source2.pts_time).max()
+                        >= 10**-4):
+                    exceptions.append(IncompatibleSource(
+                        "Sources have different mis-aligned "
+                        "presentation timestamps.", self))
 
             elif self.source1.type == "audio":
                 if self.source1.rate != self.source2.rate:
-                    exceptions.append(IncompatibleSource(f"Sources have different sampling frequencies: '{self.source1.rate}' and '{self.source2.rate}'.", self))
+                    exceptions.append(IncompatibleSource(
+                        "Sources have different sampling frequencies: "
+                        f"'{self.source1.rate}' and '{self.source2.rate}'.",
+                        self))
 
                 if self.source1.layout != self.source2.layout:
-                    exceptions.append(IncompatibleSource(f"Sources have different layouts: '{self.source1.layout}' and '{self.source2.layout}'.", self))
+                    exceptions.append(IncompatibleSource(
+                        "Sources have different layouts: "
+                        f"'{self.source1.layout}' and "
+                        f"'{self.source2.layout}'.", self))
 
-                if abs(self.source1.duration - self.source2.duration) >= 1/self.source1.rate:
-                    exceptions.append(IncompatibleSource(f"Sources have different sample durations: '{self.source1.duration}' and '{self.source2.duration}'.", self))
+                if (abs(self.source1.duration - self.source2.duration)
+                        >= 1/self.source1.rate):
+                    exceptions.append(IncompatibleSource(
+                        "Sources have different sample durations: "
+                        f"'{self.source1.duration}' and "
+                        f"'{self.source2.duration}'.", self))
 
         return exceptions
 

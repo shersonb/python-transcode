@@ -1,8 +1,5 @@
 from transcode.pyqtgui.qitemmodel import Node, ChildNodes, NoChildren
 
-from matroska.chapters import ChapterAtom as InputChapterAtom
-from matroska.chapters import ChapterDisplay as InputChapterDisplay
-
 
 class EditionsNode(Node):
     def _wrapChildren(self, children):
@@ -40,7 +37,7 @@ class ChapterChildren(ChildNodes):
         return DisplayNode(value)
 
     def _append(self, value):
-        self.parent.value.displays.append(node.value)
+        self.parent.value.displays.append(value)
 
     def _insert(self, index, value):
         self.parent.value.displays.insert(index, value)
@@ -57,4 +54,3 @@ class ChapterChildren(ChildNodes):
 
 class DisplayNode(NoChildren):
     pass
-

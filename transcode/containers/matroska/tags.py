@@ -81,7 +81,7 @@ class SimpleTag(object):
         for node in xml.childNodes:
             if isinstance(node, Text):
                 if not regex.match(r"^\s*$", node.data, flags=regex.M):
-                    raise ValueError(f"Unexpected Data: {n}")
+                    raise ValueError(f"Unexpected Data: {node.data}")
 
             if isinstance(node, Element):
                 if node.tagName == "Name":
@@ -376,17 +376,19 @@ class Tag(object):
             raise ValueError(
                 f"Expected Tag element. Got {xml.tagName} instead.")
 
+        # TODO: Clean this mess up!
+
         for node in xml.childNodes:
             if isinstance(node, Text):
                 if not regex.match(r"^\s*$", node.data, flags=regex.M):
-                    raise ValueError(f"Unexpected Data: {n}")
+                    raise ValueError(f"Unexpected Data: {node.data}")
 
             if isinstance(node, Element):
                 if node.tagName == "Targets":
                     for subnode in node.childNodes:
                         if isinstance(subnode, Text):
                             if not regex.match(r"^\s*$", subnode.data, flags=regex.M):
-                                raise ValueError(f"Unexpected Data: {n}")
+                                raise ValueError(f"Unexpected Data: {subnode.data}")
 
                         elif isinstance(subnode, Element):
                             if subnode.tagName == "TargetTypeValue":
@@ -482,7 +484,8 @@ class Tag(object):
 class Tags(ChildList):
     def prepare(self, logfile=None):
         print("--- Tags ---", file=logfile)
-        return matroska.tags.Tags([attachment.prepare(logfile) for attachment in self])
+        return matroska.tags.Tags([
+            attachment.prepare(logfile) for attachment in self])
 
     def toXml(self, selected=None):
         doc = Document()
@@ -502,14 +505,15 @@ class Tags(ChildList):
     def fromXml(cls, xml):
         if xml.documentElement.tagName != "Tags":
             raise ValueError(
-                f"Expected Tags element as Document Element. Got {xml.documentElement.tagName} instead.")
+                "Expected Tags element as Document Element. "
+                f"Got {xml.documentElement.tagName} instead.")
 
         tags = []
 
         for node in xml.documentElement.childNodes:
             if isinstance(node, Text):
                 if not regex.match(r"^\s*$", node.data, flags=regex.M):
-                    raise ValueError(f"Unexpected Data: {n}")
+                    raise ValueError(f"Unexpected Data: {node.data}")
 
             if isinstance(node, Element):
                 tags.append(Tag.fromXml(node))

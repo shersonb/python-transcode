@@ -1,10 +1,10 @@
-from PyQt5.QtWidgets import (QWidget, QToolButton, QPushButton, QVBoxLayout, QHBoxLayout,
-                             QWidgetAction, QMenu)
+from PyQt5.QtWidgets import (QWidget, QToolButton, QPushButton, QVBoxLayout,
+                             QHBoxLayout, QWidgetAction, QMenu)
 from PyQt5.QtCore import Qt, pyqtSignal, QModelIndex, QSize
 
-from transcode.pyqtgui.qitemmodel import QItemModel, Node, ChildNodes, NoChildren
+from transcode.pyqtgui.qitemmodel import (QItemModel, Node, ChildNodes,
+                                          NoChildren)
 from transcode.pyqtgui.treeview import TreeView as QTreeView
-from copy import deepcopy
 
 from ..chapters import Editions, EditionEntry, ChapterAtom
 from ...basewriter import TrackList, Track
@@ -86,7 +86,8 @@ class TargetChapterNode(NoChildren):
 
 
 class BaseTargetCol(object):
-    def __init__(self, tracks, editions, attachments, targeteditions, targetchapters, targettracks, targetattachments):
+    def __init__(self, tracks, editions, attachments, targeteditions,
+                 targetchapters, targettracks, targetattachments):
         self.editions = editions
         self.tracks = tracks
         self.attachments = attachments
@@ -94,6 +95,7 @@ class BaseTargetCol(object):
         self.targetchapters = targetchapters
         self.targettracks = targettracks
         self.targetattachments = targetattachments
+
 
 class TargetItemCol(BaseTargetCol):
     headerdisplay = "Target"
@@ -231,7 +233,7 @@ class QTargetSelectionTree(QTreeView):
         self.cols = [
             TargetItemCol(tracks, editions, attachments, *self._selection),
             TargetUIDCol(tracks, editions, attachments, *self._selection),
-            ]
+        ]
         self.setModel(QItemModel(root, self.cols))
 
         for k, col in enumerate(self.cols):
@@ -243,8 +245,10 @@ class QTargetSelectionTree(QTreeView):
 
         self.expandAll()
 
-    def setTargetSelection(self, targettracks, targeteditions, targetchapters, targetattachments):
-        self._selection = (targettracks, targeteditions, targetchapters, targetattachments)
+    def setTargetSelection(self, targettracks, targeteditions,
+                           targetchapters, targetattachments):
+        self._selection = (targettracks, targeteditions,
+                           targetchapters, targetattachments)
 
         for col in self.cols:
             col.targeteditions = targeteditions
@@ -290,7 +294,6 @@ class QTargetSelection(QToolButton):
         self.okayBtn.clicked.connect(self._handleOKClicked)
         self.cancelBtn.clicked.connect(self._handleCancelClicked)
 
-
         hlayout.addWidget(self.clearBtn)
         hlayout.addStretch()
         hlayout.addWidget(self.okayBtn)
@@ -309,10 +312,13 @@ class QTargetSelection(QToolButton):
     def setChoices(self, tracks, editions, attachments):
         self.tree.setChoices(tracks, editions, attachments)
 
-    def setTargetSelection(self, targettracks, targeteditions, targetchapters, targetattachments):
-        self._selection = (targettracks, targeteditions, targetchapters, targetattachments)
-        self._selection_copy = (targettracks.copy(), targeteditions.copy(),
-                                targetchapters.copy(), targetattachments.copy())
+    def setTargetSelection(self, targettracks, targeteditions,
+                           targetchapters, targetattachments):
+        self._selection = (
+            targettracks, targeteditions, targetchapters, targetattachments)
+        self._selection_copy = (
+            targettracks.copy(), targeteditions.copy(),
+            targetchapters.copy(), targetattachments.copy())
         self.tree.setTargetSelection(*self._selection_copy)
         self.updateDisplay()
 

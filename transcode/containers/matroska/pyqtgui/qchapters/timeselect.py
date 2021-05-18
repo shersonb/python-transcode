@@ -1,12 +1,10 @@
-from PyQt5.QtWidgets import (QMenu, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QSpinBox,
-                             QTimeEdit, QPushButton, QItemDelegate, QWidgetAction,
-                             QToolButton)
+from PyQt5.QtWidgets import (QMenu, QWidget, QHBoxLayout, QVBoxLayout, QLabel,
+                             QSpinBox, QTimeEdit, QPushButton, QItemDelegate,
+                             QWidgetAction, QToolButton)
 from PyQt5.QtCore import Qt, QTime, pyqtSignal, QSize
 from transcode.pyqtgui.qimageview import QImageView
 from transcode.pyqtgui.slider import Slider
 
-from matroska.chapters import ChapterAtom as InputChapterAtom
-from matroska.chapters import ChapterDisplay as InputChapterDisplay
 from transcode.containers.basereader import Track
 from transcode.filters.base import BaseFilter
 

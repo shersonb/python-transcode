@@ -2,11 +2,12 @@ import av
 from collections import deque, OrderedDict
 from fractions import Fraction as QQ
 from ..util import Packet
-from ..avarrays import toNDArray, toAFrame, aconvert
+from ..avarrays import aconvert
 
 
 class EncoderContext(object):
-    def __init__(self, codec, framesource, notifyencode=None, logfile=None, **kwargs):
+    def __init__(self, codec, framesource, notifyencode=None,
+                 logfile=None, **kwargs):
         if isinstance(codec, av.Codec):
             if not codec.is_encoder:
                 raise TypeError("Codec object is not an encoder.")
@@ -98,12 +99,16 @@ class EncoderContext(object):
         packet = self._packets.popleft()
 
         if packet.pts is None or self._encoder.type == "audio":
-            packet = Packet(data=packet.to_bytes(), pts=self._pts, duration=packet.duration,
-                            keyframe=packet.is_keyframe, time_base=packet.time_base)
+            packet = Packet(
+                data=packet.to_bytes(), pts=self._pts,
+                duration=packet.duration, keyframe=packet.is_keyframe,
+                time_base=packet.time_base)
 
         else:
-            packet = Packet(data=packet.to_bytes(), pts=packet.pts, duration=packet.duration,
-                            keyframe=packet.is_keyframe, time_base=packet.time_base)
+            packet = Packet(
+                data=packet.to_bytes(), pts=packet.pts,
+                duration=packet.duration, keyframe=packet.is_keyframe,
+                time_base=packet.time_base)
 
         self._pts = packet.pts + packet.duration
         self._packetsEncoded += 1
@@ -164,12 +169,16 @@ class EncoderConfig(object):
         options.update(override2)
         options = {key: val for (
             key, val) in options.items() if val is not None}
-        return EncoderContext(self.codec, framesource, notifyencode, logfile,
-                              width=width, height=height, sample_aspect_ratio=sample_aspect_ratio,
-                              rate=rate, pix_fmt=pix_fmt, format=format, time_base=time_base, channels=channels, layout=layout,
-                              bit_rate=int(
-                                  bitrate*1000 if bitrate is not None else self.bitrate*1000),
-                              options=options)
+        return EncoderContext(
+            self.codec, framesource, notifyencode, logfile, width=width,
+            height=height, sample_aspect_ratio=sample_aspect_ratio, rate=rate,
+            pix_fmt=pix_fmt, format=format, time_base=time_base,
+            channels=channels, layout=layout,
+            bit_rate=int(
+                bitrate*1000
+                if bitrate is not None
+                else self.bitrate*1000),
+            options=options)
 
     @property
     def optionslots(self):
@@ -241,7 +250,9 @@ class EncoderConfig(object):
         return dir
 
     def __getattribute__(self, attr):
-        if attr in ("options", "copy", "codec", "avoptions", "descriptor", "type", "optionslots", "create") or attr.startswith("_"):
+        if (attr in ("options", "copy", "codec", "avoptions", "descriptor",
+                     "type", "optionslots", "create")
+                or attr.startswith("_")):
             return super().__getattribute__(attr)
 
         if self.avoptions:
@@ -254,20 +265,25 @@ class EncoderConfig(object):
         return super().__getattribute__(attr)
 
     def __delattr__(self, attr):
-        if attr in ("options", "codec", "avoptions", "descriptor", "type", "optionslots", "create") or attr.startswith("_"):
+        if (attr in ("options", "codec", "avoptions", "descriptor", "type",
+                     "optionslots", "create")
+                or attr.startswith("_")):
             return super().__delattr__(attr)
 
         if self.avoptions:
             optname = attr.rstrip("_")
 
             for option in self.avoptions:
-                if optname == option.name.replace("-", "_") and option.name in self.options:
+                if (optname == option.name.replace("-", "_")
+                        and option.name in self.options):
                     del self.options[option.name]
 
         return super().__delattr__(attr)
 
     def __setattr__(self, attr, value):
-        if attr in ("options", "codec", "avoptions", "descriptor", "type", "optionslots", "create") or attr.startswith("_"):
+        if (attr in ("options", "codec", "avoptions", "descriptor", "type",
+                     "optionslots", "create")
+                or attr.startswith("_")):
             return super().__setattr__(attr, value)
 
         if self.avoptions:

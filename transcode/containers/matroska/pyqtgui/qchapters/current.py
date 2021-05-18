@@ -1,28 +1,25 @@
-from PyQt5.QtWidgets import (QMenu, QMessageBox, QHBoxLayout, QVBoxLayout, QLabel,
-                             QSpinBox, QDialog, QPushButton, QCheckBox, QFileDialog)
+from PyQt5.QtWidgets import (QMenu, QHBoxLayout, QVBoxLayout, QLabel, QSpinBox,
+                             QDialog, QPushButton, QCheckBox, QFileDialog)
 from PyQt5.QtCore import Qt, QModelIndex, pyqtSignal
 
 import os
 import sys
-import traceback
 
 import random
 import xml.dom.minidom
 
 from transcode.config.obj import Config
 from transcode.containers.basewriter import BaseWriter
-from transcode.containers.matroska.chapters import (ChapterAtom, ChapterDisplay,
-                                                    EditionEntry, Editions)
+from transcode.containers.matroska.chapters import (
+    ChapterAtom, ChapterDisplay, EditionEntry, Editions)
 from transcode.pyqtgui.qitemmodel import Node, QItemModel
 from transcode.pyqtgui.treeview import TreeView as QTreeView
 
 from .available import AvailableEditionsSelection
 from .currentnodes import EditionsNode
-from .currentcols import (NameCol, DefaultCol, EnabledCol, OrderedCol, HiddenCol,
-                          LangCol, CountryCol, StartCol, EndCol, UIDCol)
-
-from matroska.chapters import ChapterAtom as InputChapterAtom
-from matroska.chapters import ChapterDisplay as InputChapterDisplay
+from .currentcols import (NameCol, DefaultCol, EnabledCol, OrderedCol,
+                          HiddenCol, LangCol, CountryCol, StartCol, EndCol,
+                          UIDCol)
 
 
 class NewEditionDlg(QDialog):
@@ -64,6 +61,8 @@ class NewEditionDlg(QDialog):
 
 class QChapterTree(QTreeView):
     contentsModified = pyqtSignal()
+    _deletetitle = "Delete edition(s)/chapter(s)"
+    _deletemsg = "Do you wish to delete the selected edition(s)/chapter(s)?"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -112,29 +111,6 @@ class QChapterTree(QTreeView):
 
         else:
             self.setModel(QItemModel(Node(None), []))
-
-    def keyPressEvent(self, event):
-        key = event.key()
-        modifiers = event.modifiers()
-        idx = self.currentIndex()
-        row = idx.row()
-        col = idx.column()
-        model = self.model()
-
-        selected = sorted(idx.row()
-                          for idx in self.selectionModel().selectedRows())
-
-        if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
-            self.askDeleteSelected()
-
-        super().keyPressEvent(event)
-
-    def askDeleteSelected(self):
-        answer = QMessageBox.question(
-            self, "Delete editions/chapters", "Do you wish to delete the selected editions/chapters?", QMessageBox.Yes | QMessageBox.No)
-
-        if answer == QMessageBox.Yes:
-            self.deleteSelected()
 
     def addEdition(self, row=-1):
         dlg = NewEditionDlg(self)
@@ -211,7 +187,8 @@ class QChapterTree(QTreeView):
     # TODO: Move importing of chapters from MatroskaReader
     # objects to transcode.containers.matroska.chapters.
 
-    def importChapterAtom(self, chapteratom, existingChapterUIDs, ordered=False):
+    def importChapterAtom(self, chapteratom, existingChapterUIDs,
+                          ordered=False):
         chapterUID = chapteratom.chapterUID
 
         while chapterUID in existingChapterUIDs:
@@ -300,17 +277,16 @@ class QChapterTree(QTreeView):
         model = self.model()
         filters = "Matroska Chapters (*.xml)"
 
-
         if (isinstance(self.editions, Editions)
-            and isinstance(self.editions.parent, BaseWriter)
-            and isinstance(self.editions.parent.config, Config)):
+                and isinstance(self.editions.parent, BaseWriter)
+                and isinstance(self.editions.parent.config, Config)):
             path = os.path.abspath(self.editions.parent.config.workingdir)
 
         else:
             path = None
 
-        fileName, _ = QFileDialog.getOpenFileName(self, "Import Matroska Chapters...",
-                                                  path, filters)
+        fileName, _ = QFileDialog.getOpenFileName(
+            self, "Import Matroska Chapters...", path, filters)
 
         if fileName:
             try:
@@ -332,16 +308,16 @@ class QChapterTree(QTreeView):
         selected = [index.data(Qt.UserRole) for index in sm.selectedRows()]
 
         if (isinstance(self.editions, Editions)
-            and isinstance(self.editions.parent, BaseWriter)
-            and isinstance(self.editions.parent.config, Config)):
+                and isinstance(self.editions.parent, BaseWriter)
+                and isinstance(self.editions.parent.config, Config)):
             path = os.path.abspath(self.editions.parent.config.workingdir)
 
         else:
             path = None
 
         filters = "Matroska Chapters (*.xml)"
-        fileName, _ = QFileDialog.getSaveFileName(self, "Export Matroska Chapters...",
-                                                  path, filters)
+        fileName, _ = QFileDialog.getSaveFileName(
+            self, "Export Matroska Chapters...", path, filters)
 
         if fileName:
             try:

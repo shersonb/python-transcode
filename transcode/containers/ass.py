@@ -1,16 +1,14 @@
 from transcode.containers import basereader
 import ass
 import numpy
-import av
 from fractions import Fraction as QQ
-import os
 from itertools import islice
 from transcode.util import Packet
 
 
 class Track(basereader.Track):
     def __getstate__(self):
-        state = super().__getstate__() or OrderedDict()
+        state = super().__getstate__()
         state["index"] = self.index
         state["sizes"] = self.sizes
         state["durations"] = self.durations
@@ -56,15 +54,20 @@ class Track(basereader.Track):
         elif whence == "framenumber":
             pass
 
-        fields = [field for field in self.container.assfile.events.field_order if field not in (
-            "Start", "End")]
+        fields = [
+            field
+            for field in self.container.assfile.events.field_order
+            if field not in ("Start", "End")]
 
-        for k, event in enumerate(self.container.assfile.events[start:], start):
+        for k, event in enumerate(
+                self.container.assfile.events[start:], start):
             data = f"{k},{event.dump(fields)}".encode("utf8")
-            yield Packet(data=data, pts=int(event.start.total_seconds()/self.time_base),
-                         duration=int(
-                             (event.end - event.start).total_seconds()/self.time_base),
-                         keyframe=True, time_base=self.time_base)
+            yield Packet(
+                data=data,
+                pts=int(event.start.total_seconds()/self.time_base),
+                duration=int(
+                    (event.end - event.start).total_seconds()/self.time_base),
+                keyframe=True, time_base=self.time_base)
 
     def iterFrames(self, start=0, end=None, whence="pts"):
         if whence == "pts":
@@ -89,8 +92,12 @@ class Track(basereader.Track):
 
     @property
     def pts(self):
-        return numpy.int0([event.start.total_seconds()*self.time_base.denominator/self.time_base.numerator
-                           for event in self.container.assfile.events])
+        num = self.time_base.numerator
+        den = self.time_base.denominator
+
+        return numpy.int0([
+            event.start.total_seconds()*den/num
+            for event in self.container.assfile.events])
 
     @pts.setter
     def pts(self, value):
@@ -98,10 +105,14 @@ class Track(basereader.Track):
 
     @property
     def sizes(self):
-        fields = [field for field in self.container.assfile.events.field_order if field not in (
-            "Start", "End")]
-        return numpy.int0([len(f"{k+1},{event.dump(fields)}".encode("utf8"))
-                           for k, event in enumerate(self.container.assfile.events)])
+        fields = [
+            field
+            for field in self.container.assfile.events.field_order
+            if field not in ("Start", "End")]
+
+        return numpy.int0([
+            len(f"{k+1},{event.dump(fields)}".encode("utf8"))
+            for k, event in enumerate(self.container.assfile.events)])
 
     @sizes.setter
     def sizes(self, value):
@@ -109,8 +120,13 @@ class Track(basereader.Track):
 
     @property
     def durations(self):
-        return numpy.int0([(event.end.total_seconds() - event.start.total_seconds())*self.time_base.denominator/self.time_base.numerator
-                           for event in self.container.assfile.events])
+        num = self.time_base.numerator
+        den = self.time_base.denominator
+
+        return numpy.int0([
+            (event.end.total_seconds()
+             - event.start.total_seconds())*den/num
+            for event in self.container.assfile.events])
 
     @durations.setter
     def durations(self, value):

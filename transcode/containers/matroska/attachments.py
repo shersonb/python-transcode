@@ -1,6 +1,7 @@
 import matroska.attachments
-from transcode.util import ChildList, WeakRefProperty, BrokenReference, FileMissingError, FileAccessDeniedError
-from collections import OrderedDict, UserList
+from transcode.util import (ChildList, WeakRefProperty, BrokenReference,
+                            FileMissingError, FileAccessDeniedError)
+from collections import OrderedDict
 import pathlib
 import mimetypes
 import os
@@ -89,7 +90,8 @@ class AttachedFile(object):
 
     parent = WeakRefProperty("parent")
 
-    def __init__(self, UID, source=None, fileName=None, mimeType=None, description=None, parent=None):
+    def __init__(self, UID, source=None, fileName=None, mimeType=None,
+                 description=None, parent=None):
         self.UID = UID
         self.source = source
         self.fileName = fileName
@@ -121,7 +123,8 @@ class AttachedFile(object):
             return self.source.mimeType
 
         elif isinstance(self.source, pathlib.Path):
-            mimeType, encoding = mimetypes.MimeTypes().guess_type(str(self.source))
+            mimeType, encoding = mimetypes.MimeTypes().guess_type(
+                str(self.source))
             return mimeType
 
     @mimeType.setter
@@ -131,7 +134,8 @@ class AttachedFile(object):
     @property
     def fileData(self):
         if isinstance(self.source, AttachmentRef):
-            if isinstance(self.source.attachment.fileData, matroska.attachments.FilePointer):
+            if isinstance(self.source.attachment.fileData,
+                          matroska.attachments.FilePointer):
                 return b"".join(self.source.attachment.fileData)
 
             elif isinstance(self.source.attachment.fileData, bytes):
@@ -196,7 +200,9 @@ class AttachedFile(object):
     @property
     def sourcerel(self):
         """Input file path relative to config path."""
-        if isinstance(self.source, pathlib.Path) and self.parent and self.parent.config:
+        if (isinstance(self.source, pathlib.Path)
+                and self.parent
+                and self.parent.config):
             relpath = os.path.relpath(
                 self.source, self.parent.config.workingdir)
 
@@ -210,7 +216,9 @@ class AttachedFile(object):
 
     @sourcerel.setter
     def sourcerel(self, value):
-        if isinstance(value, (str, pathlib.Path)) and self.parent and self.parent.config:
+        if (isinstance(value, (str, pathlib.Path))
+                and self.parent
+                and self.parent.config):
             self.source = os.path.join(self.parent.config.workingdir, value)
 
         else:
@@ -225,20 +233,25 @@ class AttachedFile(object):
     def validate(self):
         if isinstance(self.source, AttachmentRef):
             if self.source.source is None:
-                return [BrokenReference(f"Broken Reference in attachment.", self)]
+                return [BrokenReference(
+                    "Broken Reference in attachment.", self)]
 
         elif not os.path.isfile(self.sourceabs):
-            return [FileMissingError(f"File '{self.source}' not found.", self)]
+            return [FileMissingError(
+                f"File '{self.source}' not found.", self)]
 
         elif not os.access(self.sourceabs, os.R_OK):
-            return [FileAccessDeniedError(f"No read access to '{self.source}'.", self)]
+            return [FileAccessDeniedError(
+                f"No read access to '{self.source}'.", self)]
 
         return []
+
 
 class Attachments(ChildList):
     def prepare(self, logfile=None):
         print("--- Attachments ---", file=logfile)
-        return matroska.attachments.Attachments([attachment.prepare(logfile) for attachment in self])
+        return matroska.attachments.Attachments([
+            attachment.prepare(logfile) for attachment in self])
 
     def validate(self):
         return [exc for a in self for exc in a.validate()]

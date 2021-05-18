@@ -1,19 +1,21 @@
-from transcode.pyqtgui.qinputtracklist import FileTrackCol, LanguageCol, InputFmtCol
+from PyQt5.QtWidgets import (QVBoxLayout, QLabel, QSplitter, QWidget,
+                             QMenu, QAction)
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal, QTime
+
+from transcode.pyqtgui.qinputtracklist import (FileTrackCol, LanguageCol,
+                                               InputFmtCol)
 from transcode.pyqtgui.qfilterlist import FilterNameCol, SourceCol, FormatCol
 from transcode.pyqtgui.qinputselection import InputSelectionRoot, ColumnUnion
-from transcode.pyqtgui.qitemmodel import Node, ChildNodes, NoChildren, QItemModel
+from transcode.pyqtgui.qitemmodel import (Node, ChildNodes, NoChildren,
+                                          QItemModel)
 from transcode.pyqtgui.qfilterconfig import QFilterConfig
 from transcode.pyqtgui.qframeselect import QFrameSelect
 from transcode.pyqtgui.qimageview import QImageView
-from PyQt5.QtWidgets import (QVBoxLayout, QTreeView, QLabel, QSplitter, QWidget, QMessageBox,
-                             QMenu, QAction)
 from transcode.pyqtgui.treeview import TreeView as QTreeView
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal, QTime
 from transcode.containers.basereader import Track
 from . import Concatenate
-from ..base import BaseFilter, FilterChain
-from copy import copy
+from ..base import BaseFilter
 from functools import partial
 
 
@@ -52,10 +54,12 @@ class SegmentsRoot(Node):
         return True
 
     def canDropItems(self, model, parent, items, action):
-        return self.canDropChildren(model, parent, items, len(self.children), action)
+        return self.canDropChildren(
+            model, parent, items, len(self.children), action)
 
     def dropItems(self, model, parent, items, action):
-        return self.dropChildren(model, parent, items, len(self.children), action)
+        return self.dropChildren(
+            model, parent, items, len(self.children), action)
 
 
 class SegmentsList(ChildNodes):
@@ -64,7 +68,7 @@ class SegmentsList(ChildNodes):
         return SegmentNode(item)
 
     def _append(self, value):
-        self.parent.value.append(node.value)
+        self.parent.value.append(value)
 
     def _insert(self, index, value):
         self.parent.value.insert(index, value)
@@ -110,8 +114,9 @@ class BaseColumn(object):
     def createContextMenu(self, table, index, obj):
         menu = QMenu(table)
 
-        editfilter = QAction(f"Configure filter...", table,
-                             triggered=partial(self.configureFilter, obj, table))
+        editfilter = QAction(
+            "Configure filter...", table,
+            triggered=partial(self.configureFilter, obj, table))
 
         editfilter.setEnabled(obj.hasQtDlg())
 
@@ -123,7 +128,8 @@ class BaseColumn(object):
         dlg = filter.QtDlg(parent)
         dlg.setSources(self.input_files, self.available_filters)
 
-        if hasattr(parent, "contentsModified") and isinstance(parent.contentsModified, pyqtBoundSignal):
+        if (hasattr(parent, "contentsModified")
+                and isinstance(parent.contentsModified, pyqtBoundSignal)):
             dlg.settingsApplied.connect(parent.contentsModified)
 
         dlg.exec_()
@@ -138,9 +144,11 @@ class NameCol(BaseColumn):
 
         if isinstance(obj, Track) and obj.container in self.input_files:
             container_index = self.input_files.index(obj.container)
-            return f"{segment_index}: input:{container_index}:{obj.track_index}"
+            return (f"{segment_index}: "
+                    f"input:{container_index}:{obj.track_index}")
 
-        if self.available_filters is not None and obj in self.available_filters:
+        if (self.available_filters is not None
+                and obj in self.available_filters):
             filter_index = self.available_filters.index(obj)
             return f"{segment_index}: filter:{filter_index}"
 
@@ -181,16 +189,14 @@ class EndCol(BaseColumn):
 
 class QSegmentTree(QTreeView):
     contentsModified = pyqtSignal()
+    _deletetitle = "Delete segment(s)"
+    _deletemsg = "Do you wish to delete the selected segment(s)?"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setSelectionMode(QTreeView.ExtendedSelection)
-        #self.contentsModified.connect(self._handleContentsModified)
-
-    #def _handleContentsModified(self):
-        #self.model().root.value.reset_cache()
 
     def contextMenuEvent(self, event):
         selected = self.currentIndex()
@@ -201,38 +207,6 @@ class QSegmentTree(QTreeView):
 
         if isinstance(menu, QMenu):
             menu.exec_(self.mapToGlobal(event.pos()))
-
-    def keyPressEvent(self, event):
-        key = event.key()
-        modifiers = event.modifiers()
-        idx = self.currentIndex()
-        row = idx.row()
-        col = idx.column()
-        model = self.model()
-
-        selected = sorted(idx.row()
-                          for idx in self.selectionModel().selectedRows())
-
-        if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
-            self.askDeleteSelected()
-
-        super().keyPressEvent(event)
-
-    def askDeleteSelected(self):
-        answer = QMessageBox.question(
-            self, "Delete tracks", "Do you wish to delete the selected tracks? All encoder and settings associated with selected tracks will be lost!", QMessageBox.Yes | QMessageBox.No)
-
-        if answer == QMessageBox.Yes:
-            self.deleteSelected()
-
-    def deleteSelected(self):
-        selected = sorted(idx.row()
-                          for idx in self.selectionModel().selectedRows())
-
-        for k, row in enumerate(selected):
-            self.model().removeRow(row - k)
-
-        self.contentsModified.emit()
 
 
 class QVideoPreview(QWidget):
@@ -327,16 +301,19 @@ class QConcatenate(QFilterConfig):
     def _resetSourceModels(self):
         if self.inputFiles is not None:
             self.cols = [
-                ColumnUnion("Input",
-                            FileTrackCol(self.inputFiles), FilterNameCol(
-                                self.availableFilters),
-                            width=256),
-                ColumnUnion("Language",
-                            LanguageCol(self.inputFiles), None, width=96),
-                ColumnUnion("Source",
-                            None, SourceCol(self.availableFilters), width=96),
-                ColumnUnion("Format",
-                            InputFmtCol(self.inputFiles), FormatCol(self.availableFilters), width=128),
+                ColumnUnion(
+                    "Input", FileTrackCol(self.inputFiles),
+                    FilterNameCol(self.availableFilters),
+                    width=256),
+                ColumnUnion(
+                    "Language", LanguageCol(self.inputFiles), None,
+                    width=96),
+                ColumnUnion(
+                    "Source", None,
+                    SourceCol(self.availableFilters), width=96),
+                ColumnUnion(
+                    "Format", InputFmtCol(self.inputFiles),
+                    FormatCol(self.availableFilters), width=128),
             ]
 
             if self.availableFilters:
@@ -379,7 +356,8 @@ class QConcatenate(QFilterConfig):
 
         cols = [
             NameCol(self.inputFiles, self.availableFilters, self.filtercopy),
-            DurationCol(self.inputFiles, self.availableFilters, self.filtercopy),
+            DurationCol(self.inputFiles, self.availableFilters,
+                        self.filtercopy),
             StartCol(self.inputFiles, self.availableFilters, self.filtercopy),
             EndCol(self.inputFiles, self.availableFilters, self.filtercopy)
         ]
@@ -389,18 +367,16 @@ class QConcatenate(QFilterConfig):
         model.rowsRemoved.connect(self._handleSegmentsRemoved)
         model.rowsMoved.connect(self._handleSegmentsMoved)
         model.rowsInserted.connect(self._handleSegmentsInserted)
-        self.segmentsList.selectionModel().currentChanged.connect(self._handleCurrentIndexChanged)
-
-        #for k, col in enumerate(cols):
-            #if hasattr(col, "width"):
-                #self.segmentsList.setColumnWidth(k, col.width)
-
+        self.segmentsList.selectionModel().currentChanged.connect(
+            self._handleCurrentIndexChanged)
         self.segmentsList.expandAll()
 
     def _handleCurrentIndexChanged(self, current, previous):
         if self.filtercopy.type == "video":
             try:
-                k = sum(segment.framecount for segment in self.filtercopy[:current.row()])
+                k = sum(
+                    segment.framecount
+                    for segment in self.filtercopy[:current.row()])
 
             except Exception:
                 return
@@ -414,18 +390,25 @@ class QConcatenate(QFilterConfig):
         if self.filtercopy.type == "video":
             k = self.preview.frameSelection.slider.value()
             self.preview.frameSelection.blockSignals(True)
-            self.preview.frameSelection.setPtsTimeArray(self.filtercopy.pts_time)
+            self.preview.frameSelection.setPtsTimeArray(
+                self.filtercopy.pts_time)
 
             try:
-                framesBeforeRemoval = sum(segment.framecount for segment in self.filtercopy[:first])
-                framesRemoved = self.preview.frameSelection.slider.maximum() + 1 - self.filtercopy.framecount
+                framesBeforeRemoval = sum(
+                    segment.framecount
+                    for segment in self.filtercopy[:first])
+                framesRemoved = (self.preview.frameSelection.slider.maximum()
+                                 + 1 - self.filtercopy.framecount)
 
-                if framesBeforeRemoval <= k < framesBeforeRemoval + framesRemoved:
+                if (framesBeforeRemoval <= k
+                        < framesBeforeRemoval + framesRemoved):
                     self.preview.frameSelection.blockSignals(False)
-                    self.preview.frameSelection.slider.setValue(k + framesRemoved)
+                    self.preview.frameSelection.slider.setValue(
+                        k + framesRemoved)
 
                 elif k >= framesBeforeRemoval + framesRemoved:
-                    self.preview.frameSelection.slider.setValue(k - framesRemoved)
+                    self.preview.frameSelection.slider.setValue(
+                        k - framesRemoved)
 
             except Exception:
                 pass
@@ -434,30 +417,46 @@ class QConcatenate(QFilterConfig):
                 self.preview.frameSelection.blockSignals(False)
 
     def _handleSegmentsMoved(self, parent, first, last, dest, row):
-        # Notice: first, last, and row indicate OLD offsets, but we are looking at the segments AFTER the swap.
+        # Notice: first, last, and row indicate OLD offsets,
+        # but we are looking at the segments AFTER the swap.
         if first > row:
-            # Swapping [row, row+1, ..., first-1] with [first, first+1, ..., last]...
+            # Swapping [row, row+1, ..., first-1]
+            # with [first, first+1, ..., last]...
             # is equivalent to...
-            return self._handleSegmentsMoved(parent, row, first - 1, dest, last+1)
+            return self._handleSegmentsMoved(parent, row,
+                                             first - 1, dest, last+1)
 
-        # Swapping [first, first+1, ..., last] with [last+1, last+2, ..., row-1]
+        # Swapping [first, first+1, ..., last]
+        # with [last+1, last+2, ..., row-1]
 
         if self.filtercopy.type == "video":
             k = self.preview.frameSelection.slider.value()
             self.preview.frameSelection.blockSignals(True)
-            self.preview.frameSelection.setPtsTimeArray(self.filtercopy.pts_time)
+            self.preview.frameSelection.setPtsTimeArray(
+                self.filtercopy.pts_time)
             segmentsMoved = last - first + 1
 
             try:
-                framesMoved = sum(segment.framecount for segment in self.filtercopy[row - segmentsMoved:row])
-                framesBeforeInsertion = sum(segment.framecount for segment in self.filtercopy[:row - segmentsMoved])
-                framesBeforeMoved = sum(segment.framecount for segment in self.filtercopy[:first])
+                framesMoved = sum(
+                    segment.framecount
+                    for segment in self.filtercopy[row - segmentsMoved:row])
+
+                framesBeforeInsertion = sum(
+                    segment.framecount
+                    for segment in self.filtercopy[:row - segmentsMoved])
+
+                framesBeforeMoved = sum(
+                    segment.framecount
+                    for segment in self.filtercopy[:first])
 
                 if framesBeforeMoved <= k < framesBeforeMoved + framesMoved:
-                    self.preview.frameSelection.slider.setValue(k + framesBeforeInsertion - framesBeforeMoved)
+                    self.preview.frameSelection.slider.setValue(
+                        k + framesBeforeInsertion - framesBeforeMoved)
 
-                elif framesBeforeMoved + framesMoved <= k < framesBeforeInsertion + framesMoved:
-                    self.preview.frameSelection.slider.setValue(k - framesMoved)
+                elif (framesBeforeMoved + framesMoved <= k
+                      < framesBeforeInsertion + framesMoved):
+                    self.preview.frameSelection.slider.setValue(
+                        k - framesMoved)
 
             except Exception:
                 pass
@@ -469,18 +468,24 @@ class QConcatenate(QFilterConfig):
         if self.filtercopy.type == "video":
             k = self.preview.frameSelection.slider.value()
             self.preview.frameSelection.blockSignals(True)
-            self.preview.frameSelection.setPtsTimeArray(self.filtercopy.pts_time)
+            self.preview.frameSelection.setPtsTimeArray(
+                self.filtercopy.pts_time)
 
             try:
                 try:
-                    framesBeforeInsertion = sum(segment.framecount for segment in self.filtercopy[:first])
-                    framesInserted = sum(segment.framecount for segment in self.filtercopy[first:last+1])
+                    framesBeforeInsertion = sum(
+                        segment.framecount
+                        for segment in self.filtercopy[:first])
+                    framesInserted = sum(
+                        segment.framecount
+                        for segment in self.filtercopy[first:last+1])
 
                 except Exception:
                     return
 
                 if k >= framesBeforeInsertion:
-                    self.preview.frameSelection.slider.setValue(k + framesInserted)
+                    self.preview.frameSelection.slider.setValue(
+                        k + framesInserted)
 
             finally:
                 self.preview.frameSelection.blockSignals(False)
@@ -498,7 +503,9 @@ class QConcatenate(QFilterConfig):
         self.notModified()
 
     def isValidSource(self, other):
-        if isinstance(other, BaseFilter) and (self.filter in other.dependencies or self.filter is other):
+        if (isinstance(other, BaseFilter)
+                and (self.filter in other.dependencies
+                     or self.filter is other)):
             return False
 
         if len(self.filtercopy):
@@ -508,10 +515,12 @@ class QConcatenate(QFilterConfig):
                 return False
 
             if first.type == "video":
-                return (other.width, other.height) == (first.width, first.height)
+                return ((other.width, other.height)
+                        == (first.width, first.height))
 
             elif first.type == "audio":
-                return (other.rate, other.channels) == (first.rate, first.channels)
+                return ((other.rate, other.channels)
+                        == (first.rate, first.channels))
 
             return (other.codec) == (first.codec)
 

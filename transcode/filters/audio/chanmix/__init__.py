@@ -11,7 +11,8 @@ import av
 class ChannelMix(BaseAudioFilter):
     __name__ = "Channel Mixer"
 
-    def __init__(self, matrix=[], layout=None, prev=None, next=None, parent=None):
+    def __init__(self, matrix=[], layout=None,
+                 prev=None, next=None, parent=None):
         self.matrix = numpy.array(matrix)
         self.layout = layout
         super().__init__(prev=prev, next=next)
@@ -29,9 +30,11 @@ class ChannelMix(BaseAudioFilter):
             if M is not None:
                 A = toNDArray(frame)
 
-                if self._layout is None and len(frame.layout.channels) == self.channels:
+                if (self._layout is None
+                        and len(frame.layout.channels) == self.channels):
                     newframe = toAFrame(
-                        (M*A.transpose()).transpose(), layout=frame.layout.name)
+                        (M*A.transpose()).transpose(),
+                        layout=frame.layout.name)
 
                 else:
                     newframe = toAFrame(
@@ -74,7 +77,6 @@ class ChannelMix(BaseAudioFilter):
 
         if hasattr(self, "parent") and self.source is not None:
             avlayout = av.AudioLayout(value)
-            srclayout = av.AudioLayout(self.source.layout)
 
             if self.matrix.shape[0] > len(avlayout.channels):
                 self.matrix = self.matrix[:len(avlayout.channels)]
@@ -82,7 +84,9 @@ class ChannelMix(BaseAudioFilter):
             elif self.matrix.shape[0] < len(avlayout.channels):
                 self.matrix = numpy.concatenate(
                     (self.matrix,
-                     numpy.zeros((len(avlayout.channels) - self.matrix.shape[0], self.matrix.shape[1]))))
+                     numpy.zeros((
+                         len(avlayout.channels) - self.matrix.shape[0],
+                         self.matrix.shape[1]))))
 
     def __getstate__(self):
         state = super().__getstate__()
@@ -96,8 +100,6 @@ class ChannelMix(BaseAudioFilter):
         return state
 
     def __setstate__(self, state):
-        # super().__setstate__(state)
-
         if state.get("matrix") is not None:
             self._matrix = numpy.array(state.get("matrix"))
 

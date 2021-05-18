@@ -1,15 +1,11 @@
 from .. import zoned
 from ..base import BaseVideoFilter
-from transcode.util import cached, numpify
 from transcode.avarrays import toNDArray, toVFrame
-from itertools import count, islice
+from itertools import islice
 import numpy
 from av.video import VideoFrame
 from PIL import Image
 from collections import OrderedDict
-import sys
-from fractions import Fraction as QQ
-import regex
 
 
 class Crop(BaseVideoFilter):
@@ -42,7 +38,9 @@ class Crop(BaseVideoFilter):
     def __str__(self):
         if self is None:
             return "Crop"
-        return "Crop(%d, %d, %d, %d)" % (self.croptop, self.cropbottom, self.cropleft, self.cropright)
+
+        return (f"Crop({self.croptop}, {self.cropbottom}, "
+                f"{self.cropleft}, {self.cropright})")
 
     @property
     def width(self):
@@ -56,16 +54,21 @@ class Crop(BaseVideoFilter):
 
     def _processFrames(self, iterable):
         for frame in iterable:
-            if (self.croptop % 2 or self.cropbottom % 2 or self.cropleft % 2 or self.cropright % 2) \
-                    and frame.format.name != "rgb24":
+            if ((self.croptop % 2
+                 or self.cropbottom % 2
+                 or self.cropleft % 2
+                 or self.cropright % 2)
+                    and frame.format.name != "rgb24"):
                 frame = frame.to_rgb()
 
             if frame.format.name == "rgb24":
                 A = toNDArray(frame)
 
                 A = A[
-                    self.croptop:-self.cropbottom if self.cropbottom else None,
-                    self.cropleft:-self.cropright if self.cropright else None
+                    self.croptop:-self.cropbottom
+                    if self.cropbottom else None,
+                    self.cropleft:-self.cropright
+                    if self.cropright else None
                 ]
 
                 newframe = toVFrame(A, frame.format.name)
@@ -74,18 +77,24 @@ class Crop(BaseVideoFilter):
                 Y, U, V = toNDArray(frame)
 
                 Y = Y[
-                    self.croptop:-self.cropbottom if self.cropbottom else None,
-                    self.cropleft:-self.cropright if self.cropright else None
+                    self.croptop:-self.cropbottom
+                    if self.cropbottom else None,
+                    self.cropleft:-self.cropright
+                    if self.cropright else None
                 ]
 
                 U = U[
-                    self.croptop//2:-self.cropbottom//2 if self.cropbottom else None,
-                    self.cropleft//2:-self.cropright//2 if self.cropright else None
+                    self.croptop//2:-self.cropbottom//2
+                    if self.cropbottom else None,
+                    self.cropleft//2:-self.cropright//2
+                    if self.cropright else None
                 ]
 
                 V = V[
-                    self.croptop//2:-self.cropbottom//2 if self.cropbottom else None,
-                    self.cropleft//2:-self.cropright//2 if self.cropright else None
+                    self.croptop//2:-self.cropbottom//2
+                    if self.cropbottom else None,
+                    self.cropleft//2:-self.cropright//2
+                    if self.cropright else None
                 ]
 
                 newframe = toVFrame((Y, U, V), frame.format.name)
@@ -108,8 +117,8 @@ class Resize(BaseVideoFilter):
 
     getinitkwargs = ["width", "height", "sar", "resample", "box"]
 
-    def __init__(self, width=None, height=None, sar=1, resample=Image.LANCZOS, box=None,
-                 prev=None, next=None, parent=None):
+    def __init__(self, width=None, height=None, sar=1, resample=Image.LANCZOS,
+                 box=None, prev=None, next=None, parent=None):
         self.width = width
         self.height = height
         self.resample = resample
@@ -137,12 +146,14 @@ class Resize(BaseVideoFilter):
     def __str__(self):
         if self is None:
             return "Resize"
-        return "Resize(width=%d, height=%d, sar=%s)" % (self.width, self.height, self.sar)
+        return (f"Resize(width={self.width}, "
+                f"height={self.height}, sar={self.sar})")
 
     def __repr__(self):
         if self is None:
             return "Resize"
-        return "Resize(width=%d, height=%d, sar=%s)" % (self.width, self.height, self.sar)
+        return (f"Resize(width={self.width}, "
+                f"height={self.height}, sar={self.sar})")
 
     @property
     def sar(self):
@@ -185,8 +196,8 @@ class Resize(BaseVideoFilter):
 
 
 class CropZone(zoned.Zone):
-    def __init__(self, src_start, croptop=0, cropbottom=0, cropleft=0, cropright=0, rowanalysis=None, colanalysis=None,
-                 **kwargs):
+    def __init__(self, src_start, croptop=0, cropbottom=0, cropleft=0,
+                 cropright=0, rowanalysis=None, colanalysis=None, **kwargs):
         super().__init__(src_start=src_start, **kwargs)
         self.croptop = croptop
         self.cropbottom = cropbottom
@@ -286,16 +297,21 @@ class CropZone(zoned.Zone):
 
     def processFrames(self, iterable, prev_start):
         for frame in iterable:
-            if (self.croptop % 2 or self.cropbottom % 2 or self.cropleft % 2 or self.cropright % 2) \
-                    and frame.format.name != "rgb24":
+            if ((self.croptop % 2
+                 or self.cropbottom % 2
+                 or self.cropleft % 2
+                 or self.cropright % 2)
+                    and frame.format.name != "rgb24"):
                 frame = frame.to_rgb()
 
             if frame.format.name == "rgb24":
                 A = toNDArray(frame)
 
                 A = A[
-                    self.croptop:-self.cropbottom if self.cropbottom else None,
-                    self.cropleft:-self.cropright if self.cropright else None
+                    self.croptop:-self.cropbottom
+                    if self.cropbottom else None,
+                    self.cropleft:-self.cropright
+                    if self.cropright else None
                 ]
 
                 newframe = toVFrame(A, frame.format.name)
@@ -304,18 +320,24 @@ class CropZone(zoned.Zone):
                 Y, U, V = toNDArray(frame)
 
                 Y = Y[
-                    self.croptop:-self.cropbottom if self.cropbottom else None,
-                    self.cropleft:-self.cropright if self.cropright else None
+                    self.croptop:-self.cropbottom
+                    if self.cropbottom else None,
+                    self.cropleft:-self.cropright
+                    if self.cropright else None
                 ]
 
                 U = U[
-                    self.croptop//2:-self.cropbottom//2 if self.cropbottom else None,
-                    self.cropleft//2:-self.cropright//2 if self.cropright else None
+                    self.croptop//2:-self.cropbottom//2
+                    if self.cropbottom else None,
+                    self.cropleft//2:-self.cropright//2
+                    if self.cropright else None
                 ]
 
                 V = V[
-                    self.croptop//2:-self.cropbottom//2 if self.cropbottom else None,
-                    self.cropleft//2:-self.cropright//2 if self.cropright else None
+                    self.croptop//2:-self.cropbottom//2
+                    if self.cropbottom else None,
+                    self.cropleft//2:-self.cropright//2
+                    if self.cropright else None
                 ]
 
                 newframe = toVFrame((Y, U, V), frame.format.name)
@@ -331,8 +353,8 @@ class CropScenes(zoned.ZonedFilter):
     """Crop video in zones. Resizes to a common size."""
     zoneclass = CropZone
 
-    def __init__(self, zones=[], width=None, height=None, resample=Image.LANCZOS,
-                 box=None, sar=1, **kwargs):
+    def __init__(self, zones=[], width=None, height=None,
+                 resample=Image.LANCZOS, box=None, sar=1, **kwargs):
         self.width = width
         self.sar = sar
         self.height = height
@@ -362,18 +384,11 @@ class CropScenes(zoned.ZonedFilter):
             return "Crop/Resize Scenes"
 
         if len(self) == 1:
-            return f"Crop/Resize Scenes (1 zone, width={self.width}, height={self.height}, sar={self.sar})"
+            return (f"Crop/Resize Scenes (1 zone, width={self.width}, "
+                    f"height={self.height}, sar={self.sar})")
 
-        return f"Crop/Resize Scenes ({len(self)} zones, width={self.width}, height={self.height}, sar={self.sar})"
-
-    def __str__(self):
-        if self is None:
-            return "Crop/Resize Scenes"
-
-        if len(self) == 1:
-            return f"Crop/Resize Scenes (1 zone, width={self.width}, height={self.height}, sar={self.sar})"
-
-        return f"Crop/Resize Scenes ({len(self)} zones, width={self.width}, height={self.height}, sar={self.sar})"
+        return (f"Crop/Resize Scenes ({len(self)} zones, "
+                f"width={self.width}, height={self.height}, sar={self.sar})")
 
     @staticmethod
     def QtDlgClass():
@@ -416,8 +431,7 @@ class CropScenes(zoned.ZonedFilter):
             else:
                 zone_iterable = frames
 
-            A = zone.analyzeFrames(zone_iterable)
-
+            zone.analyzeFrames(zone_iterable)
             zone = zone.next_zone
 
     def _processFrames(self, iterable):

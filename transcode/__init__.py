@@ -4,6 +4,7 @@ from . import encoders
 from . import config
 import os
 
+
 def open(file, mode="r"):
     stem, ext = os.path.splitext(file)
 

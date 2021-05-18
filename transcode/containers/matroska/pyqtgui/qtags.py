@@ -1,14 +1,11 @@
-from PyQt5.QtWidgets import QApplication, QWidget
 import sys
-from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractTableModel, QModelIndex,
-                          QVariant, QItemSelectionModel, QItemSelection, pyqtSignal, pyqtSlot, QMimeData)
-from PyQt5 import QtCore
-from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxLayout, QHBoxLayout,
-                             QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView,
-                             QHeaderView, QSpinBox, QFrame, QLineEdit, QComboBox, QCheckBox, QSpinBox,
-                             QDoubleSpinBox, QItemDelegate, QMenu, QAction, QScrollArea, QFileDialog,
-                             QToolButton)
-from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QRegExpValidator
+from PyQt5.QtCore import (Qt, QModelIndex, pyqtSignal)
+from PyQt5.QtWidgets import (QDialog, QLabel, QVBoxLayout, QHBoxLayout,
+                             QAbstractItemView, QPushButton, QFrame,
+                             QComboBox, QCheckBox, QSpinBox, QItemDelegate,
+                             QMenu, QAction, QScrollArea, QFileDialog,
+                             QWidget)
+from PyQt5.QtGui import QFont
 
 from transcode.pyqtgui.qitemmodel import QItemModel, Node, ChildNodes
 from transcode.pyqtgui.treeview import TreeView as QTreeView
@@ -24,7 +21,7 @@ from ..attachments import Attachments, AttachedFile
 
 from .qtargetselection import QTargetSelection
 from transcode.config.obj import Config
-import traceback
+
 import xml.dom.minidom
 from itertools import count
 import os
@@ -63,7 +60,7 @@ class TagsNode(Node):
 
         elif action == Qt.MoveAction:
             for item in items:
-                if not item in self.children:
+                if item not in self.children:
                     return False
 
         return True
@@ -89,10 +86,12 @@ class TagsNode(Node):
         return True
 
     def canDropItems(self, model, parent, items, action):
-        return self.canDropChildren(model, parent, items, len(self.children), action)
+        return self.canDropChildren(
+            model, parent, items, len(self.children), action)
 
     def dropItems(self, model, parent, items, action):
-        return self.dropChildren(model, parent, items, len(self.children), action)
+        return self.dropChildren(
+            model, parent, items, len(self.children), action)
 
 
 class TagsChildren(ChildNodes):
@@ -143,10 +142,12 @@ class TagNode(Node):
         return True
 
     def canDropItems(self, model, parent, items, action):
-        return self.canDropChildren(model, parent, items, len(self.children), action)
+        return self.canDropChildren(
+            model, parent, items, len(self.children), action)
 
     def dropItems(self, model, parent, items, action):
-        return self.dropChildren(model, parent, items, len(self.children), action)
+        return self.dropChildren(
+            model, parent, items, len(self.children), action)
 
 
 class TagChildren(ChildNodes):
@@ -212,10 +213,12 @@ class SimpleTagNode(Node):
         return True
 
     def canDropItems(self, model, parent, items, action):
-        return self.canDropChildren(model, parent, items, len(self.children), action)
+        return self.canDropChildren(
+            model, parent, items, len(self.children), action)
 
     def dropItems(self, model, parent, items, action):
-        return self.dropChildren(model, parent, items, len(self.children), action)
+        return self.dropChildren(
+            model, parent, items, len(self.children), action)
 
 
 class SimpleTagChildren(ChildNodes):
@@ -241,7 +244,8 @@ class SimpleTagChildren(ChildNodes):
 
 class TagItemCol(object):
     def __init__(self, editions, tracks, attachments,
-                 targeteditions, targetchapters, targettracks, targetattachments):
+                 targeteditions, targetchapters, targettracks,
+                 targetattachments):
         self.editions = editions
         self.tracks = tracks
         self.attachments = attachments
@@ -281,19 +285,15 @@ class TagItemCol(object):
         elif state == 2:
             if isinstance(obj, EditionEntry):
                 self.targeteditions.append(obj)
-                #self.targeteditions.sort()
 
             elif isinstance(obj, ChapterAtom):
                 self.targetchapters.append(obj)
-                #self.targetchapters.sort()
 
             elif isinstance(obj, Track):
                 self.targettracks.append(obj)
-                #self.targettracks.sort()
 
             elif isinstance(obj, AttachedFile):
                 self.targetattachments.append(obj)
-                #self.targetattachments.sort()
 
         return True
 
@@ -474,15 +474,15 @@ BINARY = {"ICRA", "REPLAYGAIN_GAIN", "REPLAYGAIN_PEAK",
 AUTOSELECT = {
     ("COLLECTION", 70): {"TITLE", "TOTAL_PARTS"},
     ("EDITION", 60): {"TITLE"},
-    #("ISSUE", 60),
-    #("VOLUME", 60),
-    #("OPUS", 60),
+    # ("ISSUE", 60),
+    # ("VOLUME", 60),
+    # ("OPUS", 60),
     ("SEASON", 60): {"TOTAL_PARTS", "PART_NUMBER", "DATE_RELEASED"},
-    #("SEQUEL", 60),
-    #("VOLUME", 60),
-    #("ALBUM", 50),
-    #("OPERA", 50),
-    #("CONCERT", 50),
+    # ("SEQUEL", 60),
+    # ("VOLUME", 60),
+    # ("ALBUM", 50),
+    # ("OPERA", 50),
+    # ("CONCERT", 50),
     ("MOVIE", 50): {
         "TITLE", "DIRECTOR", "ASSISTANT_DIRECTOR",
         "DIRECTOR_OF_PHOTOGRAPHY", "SOUND_ENGINEER",
@@ -496,16 +496,16 @@ AUTOSELECT = {
         "TITLE", "PART_NUMBER", "DIRECTOR", "ACTOR",
         "WRITTEN_BY", "PRODUCER", "COPRODUCER"
         "EXECUTIVE_PRODUCER", "SCREENPLAY_BY", "DATE_RELEASED"},
-    #("PART", 40),
-    #("SESSION", 40),
-    #("TRACK", 30),
-    #("SONG", 30),
-    #("CHAPTER", 30),
-    #("SUBTRACK", 20),
-    #("PART", 20),
-    #("MOVEMENT", 20),
-    #("SCENE", 20),
-    #("SHOT", 10)
+    # ("PART", 40),
+    # ("SESSION", 40),
+    # ("TRACK", 30),
+    # ("SONG", 30),
+    # ("CHAPTER", 30),
+    # ("SUBTRACK", 20),
+    # ("PART", 20),
+    # ("MOVEMENT", 20),
+    # ("SCENE", 20),
+    # ("SHOT", 10)
 }
 
 SUBTAGS = {
@@ -565,7 +565,9 @@ class NewSimpleTags(QWidget):
         self.contentsModified.emit()
 
     def tags(self):
-        return [(item, checkBox.checkState(), spinBox.value()) for (item, checkBox, spinBox) in self]
+        return [
+            (item, checkBox.checkState(), spinBox.value())
+            for (item, checkBox, spinBox) in self]
 
     def __iter__(self):
         return iter(self._tags)
@@ -625,7 +627,10 @@ class NewTagDlg(QDialog):
                 checkBox.setCheckState(0)
 
     def selectedTags(self):
-        return [(tag, count) for (tag, checkstate, count) in self.newTags.tags() if checkstate]
+        return [
+            (tag, count)
+            for (tag, checkstate, count) in self.newTags.tags()
+            if checkstate]
 
 
 class BaseColumn(object):
@@ -662,19 +667,30 @@ class BaseColumn(object):
         menu = QMenu(table)
 
         if isinstance(obj, Tags):
-            newAtBottom = QAction("&New Tag...", table,
-                                  triggered=partial(self.newTag, table=table, model=index.model()))
+            newAtBottom = QAction(
+                "&New Tag...", table,
+                triggered=partial(
+                    self.newTag, table=table, model=index.model()))
+
             menu.addAction(newAtBottom)
 
         if isinstance(obj, Tag):
-            newAtBottom = QAction("&New Tag...", table,
-                                  triggered=partial(self.newTag, table=table, model=index.model()))
+            newAtBottom = QAction(
+                "&New Tag...", table,
+                triggered=partial(
+                    self.newTag, table=table, model=index.model()))
 
-            insertAbove = QAction("&Insert Tag Before...", table,
-                                  triggered=partial(self.newTag, table=table, row_id=index.row(), model=index.model()))
+            insertAbove = QAction(
+                "&Insert Tag Before...", table,
+                triggered=partial(
+                    self.newTag, table=table, row_id=index.row(),
+                    model=index.model()))
 
-            newSimpleTag = QAction("&New SimpleTag", table,
-                                   triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model()))
+            newSimpleTag = QAction(
+                "&New SimpleTag", table,
+                triggered=partial(
+                    self.newSimpleTag, table=table, parent=index,
+                    model=index.model()))
 
             menu.addAction(newAtBottom)
             menu.addAction(insertAbove)
@@ -687,17 +703,30 @@ class BaseColumn(object):
             elif isinstance(obj.parent, SimpleTag):
                 row_id = obj.parent.subtags.index(obj)
 
-            insertSimpleTag = QAction("&Insert SimpleTag Before", table,
-                                      triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model(), row_id=row_id))
+            insertSimpleTag = QAction(
+                "&Insert SimpleTag Before", table,
+                triggered=partial(
+                    self.newSimpleTag, table=table, parent=index.parent(),
+                    model=index.model(), row_id=row_id))
 
-            insertAfterTag = QAction(f"&Insert '{titlecase(obj.name.replace('_', ' '))}' After", table,
-                                     triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model(), row_id=row_id+1, tagname=obj.name))
+            insertAfterTag = QAction(
+                f"&Insert '{titlecase(obj.name.replace('_', ' '))}' After",
+                table,
+                triggered=partial(
+                    self.newSimpleTag, table=table, parent=index.parent(),
+                    model=index.model(), row_id=row_id+1, tagname=obj.name))
 
-            appendSimpleTag = QAction("&Add SimpleTag at end", table,
-                                      triggered=partial(self.newSimpleTag, table=table, parent=index.parent(), model=index.model()))
+            appendSimpleTag = QAction(
+                "&Add SimpleTag at end", table,
+                triggered=partial(
+                    self.newSimpleTag, table=table, parent=index.parent(),
+                    model=index.model()))
 
-            insertChildSimpleTag = QAction("&Add child SimpleTag", table,
-                                           triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model()))
+            insertChildSimpleTag = QAction(
+                "&Add child SimpleTag", table,
+                triggered=partial(
+                    self.newSimpleTag, table=table, parent=index,
+                    model=index.model()))
 
             menu.addAction(insertSimpleTag)
             menu.addAction(insertAfterTag)
@@ -706,8 +735,13 @@ class BaseColumn(object):
             menu.addAction(insertChildSimpleTag)
 
             for childtag in SUBTAGS.get(obj.name, set()):
-                addChildSimpleTag = QAction(f"&Add child '{titlecase(childtag.replace('_', ' '))}' SimpleTag", table,
-                                            triggered=partial(self.newSimpleTag, table=table, parent=index, model=index.model(), tagname=childtag))
+                addChildSimpleTag = QAction(
+                    f"&Add child '{titlecase(childtag.replace('_', ' '))}'"
+                    " SimpleTag", table,
+                    triggered=partial(
+                        self.newSimpleTag, table=table, parent=index,
+                        model=index.model(), tagname=childtag))
+
                 menu.addAction(addChildSimpleTag)
 
         importTags = QAction("&Import tags...", table,
@@ -791,9 +825,11 @@ class BaseColumn(object):
 
     def flags(self, index, obj):
         if isinstance(obj, SimpleTag):
-            return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+            return (Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled
+                    | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
 
-        return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+        return (Qt.ItemIsSelectable | Qt.ItemIsEnabled
+                | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
 
 
 class TagNameDelegate(QItemDelegate):
@@ -888,7 +924,8 @@ class TagTargetDelegate(QItemDelegate):
 class NameCol(BaseColumn):
     width = 256
     headerdisplay = "Tag"
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled
+             | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
 
     def editdata(self, index, obj):
         if isinstance(obj, Tag):
@@ -989,9 +1026,11 @@ class ValueCol(BaseColumn):
 
     def flags(self, index, obj):
         if isinstance(obj, SimpleTag):
-            return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+            return (Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled
+                    | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
 
-        return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+        return (Qt.ItemIsSelectable | Qt.ItemIsEnabled
+                | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
 
 
 class TargetsCol(BaseColumn):
@@ -1017,14 +1056,19 @@ class TargetsCol(BaseColumn):
             tracks, editions, chapters, attachments = data
 
             modified = (
-                set(x.UID for x in editions) != set(x.UID for x in obj.editions)
-                or set(x.UID for x in chapters) != set(x.UID for x in obj.chapters)
-                or set(x.trackUID for x in tracks) != set(x.trackUID for x in obj.tracks)
-                or set(x.UID for x in attachments) != set(x.UID for x in obj.attachments)
-                )
+                set(x.UID for x in editions)
+                != set(x.UID for x in obj.editions)
+                or set(x.UID for x in chapters)
+                != set(x.UID for x in obj.chapters)
+                or set(x.trackUID for x in tracks)
+                != set(x.trackUID for x in obj.tracks)
+                or set(x.UID for x in attachments)
+                != set(x.UID for x in obj.attachments)
+            )
 
             if modified:
-                (obj.tracks, obj.editions, obj.chapters, obj.attachments) = data
+                (obj.tracks, obj.editions,
+                 obj.chapters, obj.attachments) = data
                 return True
 
     def display(self, index, obj):
@@ -1069,9 +1113,11 @@ class TargetsCol(BaseColumn):
 
     def flags(self, index, obj):
         if isinstance(obj, SimpleTag):
-            return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+            return (Qt.ItemIsSelectable | Qt.ItemIsEnabled
+                    | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
 
-        return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+        return (Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled
+                | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
 
     def itemDelegate(self, parent):
         delegate = TagTargetDelegate(parent)
@@ -1080,6 +1126,10 @@ class TargetsCol(BaseColumn):
 
 
 class QTagTree(QTreeView):
+    _deletetitle = "Delete tag(s)"
+    _deletemsg = ("Do you wish to delete the selected tag(s)? "
+                  "Any child tags will also be lost!")
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setMinimumWidth(540)
@@ -1130,29 +1180,6 @@ class QTagTree(QTreeView):
 
         else:
             self.setModel(QItemModel(Node(None), []))
-
-    def keyPressEvent(self, event):
-        key = event.key()
-        modifiers = event.modifiers()
-        idx = self.currentIndex()
-        row = idx.row()
-        col = idx.column()
-        model = self.model()
-
-        selected = sorted(idx.row()
-                          for idx in self.selectionModel().selectedRows())
-
-        if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
-            self.askDeleteSelected()
-
-        super().keyPressEvent(event)
-
-    def askDeleteSelected(self):
-        answer = QMessageBox.question(
-            self, "Delete tags", "Do you wish to delete the selected tags? Any child tags will also be lost!", QMessageBox.Yes | QMessageBox.No)
-
-        if answer == QMessageBox.Yes:
-            self.deleteSelected()
 
     def newTag(self, row_id=-1):
         model = self.model()
@@ -1207,37 +1234,20 @@ class QTagTree(QTreeView):
         self.setCurrentIndex(idx)
         self.edit(idx)
 
-    def deleteSelected(self):
-        model = self.model()
-        sm = self.selectionModel()
-        selected = {model.getNode(index) for index in sm.selectedRows()}
-        removed = set()
-
-        for node in selected:
-            parent = node.parent
-
-            if node not in removed:
-                model.removeRow(parent.index(node), model.findIndex(parent))
-                removed.add(node)
-
-                if node.descendants is not None:
-                    removed.update(node.descendants)
-
     def importTags(self):
         model = self.model()
         filters = "Matroska Tags (*.xml)"
 
-
         if (isinstance(self.tags, Tags)
-            and isinstance(self.tags.parent, BaseWriter)
-            and isinstance(self.tags.parent.config, Config)):
+                and isinstance(self.tags.parent, BaseWriter)
+                and isinstance(self.tags.parent.config, Config)):
             path = os.path.abspath(self.tags.parent.config.workingdir)
 
         else:
             path = None
 
-        fileName, _ = QFileDialog.getOpenFileName(self, "Import Matroska Tags...",
-                                                  path, filters)
+        fileName, _ = QFileDialog.getOpenFileName(
+            self, "Import Matroska Tags...", path, filters)
 
         if fileName:
             try:
@@ -1259,16 +1269,16 @@ class QTagTree(QTreeView):
         selected = [index.data(Qt.UserRole) for index in sm.selectedRows()]
 
         if (isinstance(self.tags, Tags)
-            and isinstance(self.tags.parent, BaseWriter)
-            and isinstance(self.tags.parent.config, Config)):
+                and isinstance(self.tags.parent, BaseWriter)
+                and isinstance(self.tags.parent.config, Config)):
             path = os.path.abspath(self.tags.parent.config.workingdir)
 
         else:
             path = None
 
         filters = "Matroska Tags (*.xml)"
-        fileName, _ = QFileDialog.getSaveFileName(self, "Export Matroska Tags...",
-                                                  path, filters)
+        fileName, _ = QFileDialog.getSaveFileName(
+            self, "Export Matroska Tags...", path, filters)
 
         if fileName:
             try:
@@ -1297,8 +1307,6 @@ class QTagsWidget(QWidget):
 
         self.addTagBtn = QPushButton("&Add top-level tag...", self)
         self.addTagBtn.clicked.connect(self.tagTree.newTag)
-        #self.addSubTagBtn = QPushButton("&Add simple tag", self)
-        #self.addSubTagBtn.clicked.connect(self.tagTree.askDeleteSelected)
 
         self.importTagBtn = QPushButton("&Import tags...", self)
         self.importTagBtn.clicked.connect(self.tagTree.importTags)
@@ -1307,7 +1315,6 @@ class QTagsWidget(QWidget):
         self.removeTagBtn.clicked.connect(self.tagTree.askDeleteSelected)
 
         btnlayout.addWidget(self.addTagBtn)
-        #btnlayout.addWidget(self.addSubTagBtn)
         btnlayout.addWidget(self.importTagBtn)
         btnlayout.addWidget(self.removeTagBtn)
         btnlayout.addStretch()

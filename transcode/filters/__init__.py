@@ -24,10 +24,12 @@ def scan():
         if _module[0] in "_." or _module in ("audio", "video", "subtitles"):
             continue
 
-        if os.path.isfile(os.path.join(_path, _module)) and _module.lower().endswith(".py"):
+        if (os.path.isfile(os.path.join(_path, _module))
+                and _module.lower().endswith(".py")):
             _module = importlib.import_module(f"{__name__}.{_module[:-3]}")
 
-        elif os.path.isdir(os.path.join(_path, _module)) and os.path.isfile(os.path.join(_path, _module, "__init__.py")):
+        elif (os.path.isdir(os.path.join(_path, _module))
+              and os.path.isfile(os.path.join(_path, _module, "__init__.py"))):
             _module = importlib.import_module(f"{__name__}.{_module}")
 
         else:

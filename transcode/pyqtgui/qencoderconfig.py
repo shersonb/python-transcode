@@ -1,7 +1,7 @@
 #!/usr/bin/python
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QComboBox,
-                             QSpinBox, QDoubleSpinBox, QLabel, QPushButton, QCheckBox, QLineEdit,
-                             QScrollArea, QWidget)
+                             QSpinBox, QDoubleSpinBox, QLabel, QPushButton,
+                             QCheckBox, QLineEdit, QScrollArea, QWidget)
 from PyQt5.QtCore import Qt, pyqtSlot
 from functools import partial
 
@@ -219,8 +219,7 @@ class QEncoderConfigDlg(QDialog):
 
             setattr(self.encoder, option, value)
 
-        elif state == 0:  # and option in encoderstate:
-            #del encoderstate[option]
+        elif state == 0:
             setattr(self.encoder, option, None)
 
         self.isModified()

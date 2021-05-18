@@ -2,12 +2,10 @@ from .. import basewriter
 import matroska
 from ...encoders.base import EncoderContext
 from ...util import h
-#from ...encoders.audio.base import AudioEncoderContext
 from fractions import Fraction as QQ
 from collections import OrderedDict
-from numpy import (array, int0, unique, searchsorted, concatenate, sort,
+from numpy import (array, int0, unique, searchsorted, sort,
                    diff, insert, zeros, ones, log2, concatenate)
-from ..basereader import BaseReader
 from ..basereader import Track as InputTrack
 from .attachments import AttachmentRef
 from .uid import formatUID
@@ -52,15 +50,15 @@ class PtsArrays(EBMLList):
 class ClusterPts(EBMLMasterElement):
     ebmlID = b"\x14\xae\x04\x35"
     __ebmlchildren__ = (
-            EBMLProperty("ptsArrays", PtsArrays),
-        )
+        EBMLProperty("ptsArrays", PtsArrays),
+    )
 
 
 def calcKeyFrames(iterable, maxint, end):
     """
-    Takes an iterable of increasing integers and inserts values so that two consecutive
-    values do not differ more than maxint. Much like inserting keyframes every n frames if
-    no scene cuts have been encountered.
+    Takes an iterable of increasing integers and inserts values so that two
+    consecutive values do not differ more than maxint. Much like inserting
+    keyframes every n frames if no scene cuts have been encountered.
     """
     for x1, x2 in windowed(iterable, 2):
         if x2 is None or end < x2:
@@ -79,8 +77,10 @@ def calcKeyFrames(iterable, maxint, end):
 class Track(basewriter.Track):
     """Track class for the Matroska media format."""
 
-    def __init__(self, source, encoder=None, filters=None, name=None, language=None, trackUID=None,
-                 maxInLace=1, enabled=True, forced=False, compression=None, mincache=None, maxcache=None, container=None):
+    def __init__(self, source, encoder=None, filters=None, name=None,
+                 language=None, trackUID=None, maxInLace=1, enabled=True,
+                 forced=False, compression=None, mincache=None, maxcache=None,
+                 container=None):
         self.name = name
         self.language = language
         self.trackUID = trackUID
@@ -135,7 +135,8 @@ class Track(basewriter.Track):
     def _prepareentry(self, packets, logfile=None):
         if self.type == "video":
             self.trackEntry = self.container.mkvfile.tracks.new(
-                codecs[self.codec], pixelWidth=self.width, pixelHeight=self.height)
+                codecs[self.codec], pixelWidth=self.width,
+                pixelHeight=self.height)
 
             if self.sar > 1:
                 self.trackEntry.video.displayWidth = self.sar*self.width
@@ -147,7 +148,8 @@ class Track(basewriter.Track):
 
         elif self.type == "audio":
             self.trackEntry = self.container.mkvfile.tracks.new(
-                codecs[self.codec], samplingFrequency=self.rate, channels=self.channels)
+                codecs[self.codec], samplingFrequency=self.rate,
+                channels=self.channels)
 
             if self.bitdepth:
                 self.trackEntry.audio.bitDepth = self.bitdepth
@@ -162,7 +164,8 @@ class Track(basewriter.Track):
         self.trackEntry.defaultDuration = self.defaultDuration
 
         self.trackEntry.flagDefault = self in (
-            self.container.defaultvideo, self.container.defaultaudio, self.container.defaultsubtitle)
+            self.container.defaultvideo, self.container.defaultaudio,
+            self.container.defaultsubtitle)
         print(
             f"    Default: {bool(self.trackEntry.flagDefault)}", file=logfile)
 
@@ -177,10 +180,11 @@ class Track(basewriter.Track):
 
         if self.trackEntry.flagLacing:
             print(
-                f"    Lacing: Enabled (Maximum of {self.maxInLace} packets per block)", file=logfile)
+                "    Lacing: Enabled (Maximum of "
+                f"{self.maxInLace} packets per block)", file=logfile)
 
         else:
-            print(f"    Lacing: Disabled", file=logfile)
+            print("    Lacing: Disabled", file=logfile)
 
         self.trackEntry.name = self.name
         self.trackEntry.language = self.language
@@ -189,10 +193,11 @@ class Track(basewriter.Track):
         if self.compression is not None:
             compressionalgo = ["zlib"]
             print(
-                f"    Packet Compression: Enabled ({compressionalgo[self.compression]})", file=logfile)
+                "    Packet Compression: Enabled "
+                f"({compressionalgo[self.compression]})", file=logfile)
 
         else:
-            print(f"    Packet Compression: Disabled", file=logfile)
+            print("    Packet Compression: Disabled", file=logfile)
 
         if isinstance(packets, EncoderContext):
             self.trackEntry.codecPrivate = packets.extradata
@@ -217,15 +222,17 @@ class Track(basewriter.Track):
                     kf = [0]
 
                 if hasattr(vtrack.encoder, "keyint"):
-                    kf = list(calcKeyFrames(kf, vtrack.encoder.keyint or 240, vtrack.framecount))
+                    kf = list(calcKeyFrames(
+                        kf, vtrack.encoder.keyint or 240, vtrack.framecount))
 
                 clusterPts = vtrack.pts[kf]
 
                 return calcKeyFrames(clusterPts, 32768*10**6,
-                                   int(vtrack.duration*10**9+0.5))
+                                     int(vtrack.duration*10**9+0.5))
 
             else:
-                return calcKeyFrames([0], 32768*10**6, int(self.duration*10**9+0.5))
+                return calcKeyFrames(
+                    [0], 32768*10**6, int(self.duration*10**9+0.5))
 
     @property
     def sizes(self):
@@ -260,13 +267,17 @@ class Track(basewriter.Track):
             B = unique(searchsorted(self.pts, clusterPts))
 
             if self.defaultDuration:
-                isNotDefaultDuration = abs(self.durations - int(self.defaultDuration)) >= 10**6
-                B = unique(sort(concatenate((B, isNotDefaultDuration.nonzero()[0]))))
+                isNotDefaultDuration = abs(
+                    self.durations - int(self.defaultDuration)) >= 10**6
+                B = unique(
+                    sort(concatenate((B, isNotDefaultDuration.nonzero()[0]))))
 
             if len(B) == 0:
                 B = [0]
 
-            B = array(list(calcKeyFrames(B, self.maxInLace, self.framecount or 0)) + [self.framecount or 0])
+            B = array(list(
+                calcKeyFrames(B, self.maxInLace, self.framecount or 0))
+                + [self.framecount or 0])
 
             NumInLace = diff(B)
             lacingOverhead = zeros(NumInLace.shape, dtype=int0)
@@ -281,14 +292,17 @@ class Track(basewriter.Track):
 
             lacingOverhead[fixedLaceBlocks] = 1
 
-            EBMLLacingOverheadByPacket = int0((log2(abs(dsizes) + 1) + 1)/7) + 1
-            EBMLLacingOverheadByPacket[B[:-1]] = int0(log2(sizes[B[:-1]] + 1)/7) + 1
+            EBMLLacingOverheadByPacket = int0(
+                (log2(abs(dsizes) + 1) + 1)/7) + 1
+            EBMLLacingOverheadByPacket[B[:-1]
+                                       ] = int0(log2(sizes[B[:-1]] + 1)/7) + 1
             cE = insert(0, 1, EBMLLacingOverheadByPacket.cumsum())
             EBMLLacingOverhead = cE[B[1:]] - cE[B[:-1]]
 
             lacingOverhead[varLaceBlocks] = EBMLLacingOverhead[varLaceBlocks]
 
-            Hsizes = int(log2(self.track_index + 1)/7 + 1) + 2 + 1 + lacingOverhead
+            Hsizes = int(log2(self.track_index + 1)/7 + 1) + \
+                2 + 1 + lacingOverhead
             Psizes = csizes[B[1:]] - csizes[B[:-1]]
             Dsizes = Hsizes + Psizes
             overhead = (1 + int0(log2(Dsizes + 1)/7 + 1) + Hsizes).sum()
@@ -297,24 +311,30 @@ class Track(basewriter.Track):
             durations = self.durations[:self.framecount]
 
             if self.defaultDuration:
-                isNotDefaultDuration = abs(durations - int(self.defaultDuration)) >= 10**6
+                isNotDefaultDuration = abs(
+                    durations - int(self.defaultDuration)) >= 10**6
 
             else:
                 isNotDefaultDuration = abs(durations) >= 10**6
 
             isDefaultDuration = ~isNotDefaultDuration
-            overheads = zeros(isDefaultDuration.shape, dtype=int0)
             BlockDurationSizes = zeros(isDefaultDuration.shape, dtype=int0)
-            BGoverhead = zeros(isDefaultDuration.shape, dtype=int0)
 
             HeadSizes = int(log2(self.track_index + 1)/7 + 1) + 2 + 1
             BlockPayloadSizes = HeadSizes + sizes
-            BlockOverheadSizes = 1 + int0(log2(BlockPayloadSizes + 1)/7 + 1) + HeadSizes
-            BlockDurationSizes[isNotDefaultDuration*(durations >= 256*10**6)] = 4
-            BlockDurationSizes[isNotDefaultDuration*(durations < 256*10**6)] = 3
-            BlockGroupPayloadSizes = BlockOverheadSizes + sizes + BlockDurationSizes
-            BlockGroupOverheadSizes = 1 + int0(log2(BlockGroupPayloadSizes + 1)/7 + 1) + BlockDurationSizes
-            overhead = BlockOverheadSizes.sum() + BlockGroupOverheadSizes[isNotDefaultDuration].sum()
+            BlockOverheadSizes = 1 + \
+                int0(log2(BlockPayloadSizes + 1)/7 + 1) + HeadSizes
+            BlockDurationSizes[isNotDefaultDuration *
+                               (durations >= 256*10**6)] = 4
+            BlockDurationSizes[isNotDefaultDuration *
+                               (durations < 256*10**6)] = 3
+            BlockGroupPayloadSizes = (BlockOverheadSizes + sizes
+                                      + BlockDurationSizes)
+            BlockGroupOverheadSizes = 1 + \
+                int0(log2(BlockGroupPayloadSizes + 1)/7 + 1) + \
+                BlockDurationSizes
+            overhead = BlockOverheadSizes.sum(
+            ) + BlockGroupOverheadSizes[isNotDefaultDuration].sum()
 
         else:
             overhead = 0
@@ -328,19 +348,23 @@ class Track(basewriter.Track):
 
         return overhead
 
-
     def _iterFrames(self, duration=None, logfile=None):
         frames = super()._iterFrames(duration, logfile)
 
-        if self.type == "video" and self.container and self.container.chapters:
-            key_pts = sorted({ts for edition in self.container.chapters
-                              for atom in edition
-                              for ts in (atom.timeStart, atom.timeEnd)
-                              if atom.segment is self.container
-                              and (not atom.tracks or self in atom.tracks)})
+        if (self.type == "video"
+                and self.container
+                and self.container.chapters):
+            key_pts = sorted({
+                ts for edition in self.container.chapters
+                for atom in edition
+                for ts in (atom.timeStart, atom.timeEnd)
+                if atom.segment is self.container
+                and (not atom.tracks or self in atom.tracks)})
 
             for frame in frames:
-                if len(key_pts) and frame.pts*frame.time_base >= key_pts[0]*self.time_base:
+                if (len(key_pts)
+                        and frame.pts*frame.time_base
+                        >= key_pts[0]*self.time_base):
                     frame.pict_type = "I"
                     del key_pts[0]
 
@@ -349,7 +373,6 @@ class Track(basewriter.Track):
         else:
             for frame in frames:
                 yield frame
-
 
     def _iterPacketHook(self, packet):
         if (self.container is not None
@@ -371,8 +394,10 @@ class MatroskaWriter(basewriter.BaseWriter):
     def __init__(self, outputpath, tracks=[], targetsize=None, config=None,
                  title=None, chapters=None, attachments=None, tags=None,
                  segmentUID=None, nextUID=None, prevUID=None,
-                 segmentFilename=None, nextFilename=None, prevFilename=None, segmentFamilies=[],
-                 defaultvideo=None, defaultaudio=None, defaultsubtitle=None, writingApp="python-transcode"):
+                 segmentFilename=None, nextFilename=None, prevFilename=None,
+                 segmentFamilies=[],
+                 defaultvideo=None, defaultaudio=None, defaultsubtitle=None,
+                 writingApp="python-transcode"):
         self.title = title
         self.chapters = chapters
         self.attachments = attachments
@@ -501,9 +526,11 @@ class MatroskaWriter(basewriter.BaseWriter):
 
         if self.mkvfile:
             """
-            'self.mkvfile' should never be none when transcode is started, but in case this method
-            is called outside if self.transcode(), we will use sizes from the previous transcode
-            if available (see 'else:' clause), provided that self.loadOverhead() is called beforehand.
+            'self.mkvfile' should never be none when transcode is started,
+            but in case this method is called outside if self.transcode(),
+            we will use sizes from the previous transcode if available
+            (see 'else:' clause), provided that self.loadOverhead() is called
+            beforehand.
             """
 
             overhead.append(self.mkvfile.segment.info.size())
@@ -523,10 +550,13 @@ class MatroskaWriter(basewriter.BaseWriter):
             overhead.append(self.lastoverhead.get("attachmentsSize", 0))
             overhead.append(self.lastoverhead.get("tagsSize", 0))
 
-        overheadPerCluster = len(
-            matroska.cluster.Cluster.ebmlID) + len(matroska.cluster.Timestamp.ebmlID) + 4
+        overheadPerCluster = (len(matroska.cluster.Cluster.ebmlID)
+                              + len(matroska.cluster.Timestamp.ebmlID) + 4)
+
         overhead.append(
-            overheadPerCluster*self.lastoverhead.get("clusterCount", int(self.duration/32.768 + 1)))
+            overheadPerCluster*self.lastoverhead.get(
+                "clusterCount", int(self.duration/32.768 + 1)))
+
         return sum(overhead)
 
     @property
@@ -595,8 +625,10 @@ class MatroskaWriter(basewriter.BaseWriter):
 
         if isinstance(self.segmentUID, (bytes, int)):
             self.mkvfile.info.segmentUID = self.segmentUID
+            segmentUID = ' '.join(f'{x:02x}' for x in self.segmentUID)
+
             print(
-                f"Segment UID: {' '.join(f'{x:02x}' for x in self.segmentUID)}", file=logfile)
+                f"Segment UID: {segmentUID}", file=logfile)
 
         if self.segmentFilename is not None:
             self.mkvfile.info.segmentFilename = self.segmentFilename
@@ -605,7 +637,8 @@ class MatroskaWriter(basewriter.BaseWriter):
         if isinstance(self.prevUID, (bytes, int)):
             self.mkvfile.info.prevUID = self.prevUID
             print(
-                f"Previous UID: {' '.join(f'{x:02x}' for x in self.prevUID)}", file=logfile)
+                f"Previous UID: {' '.join(f'{x:02x}' for x in self.prevUID)}",
+                file=logfile)
 
         if self.prevFilename is not None:
             self.mkvfile.info.prevFilename = self.prevFilename
@@ -614,14 +647,15 @@ class MatroskaWriter(basewriter.BaseWriter):
         if isinstance(self.nextUID, (bytes, int)):
             self.mkvfile.info.nextUID = self.nextUID
             print(
-                f"Next UID: {' '.join(f'{x:02x}' for x in self.nextUID)}", file=logfile)
+                f"Next UID: {' '.join(f'{x:02x}' for x in self.nextUID)}",
+                file=logfile)
 
         if self.nextFilename is not None:
             self.mkvfile.info.nextFilename = self.nextFilename
             print(f"Next Filename: {self.nextFilename}", file=logfile)
 
         if self.segmentFamilies:
-            state["segmentFamilies"] = self.segmentFamilies
+            self.mkvfile.info.segmentFamilies = self.segmentFamilies
             s = ", ".join(' '.join(f'{x:02x}' for x in segmentFamily)
                           for segmentFamily in self.segmentFamilies)
 
@@ -646,28 +680,37 @@ class MatroskaWriter(basewriter.BaseWriter):
     def _finalize(self, logfile):
         self.mkvfile.close()
         filesize = self.mkvfile.fileSize
+        tolerance = self.vtrack.duration*self.vtrack.avgfps/self.vtrack.rate
 
         if self.targetsize:
             if filesize > self.targetsize:
                 print(
-                    f"Resulting file size: {h(filesize)} ({h(filesize - self.targetsize)} OVER target)", file=logfile)
+                    f"Resulting file size: {h(filesize)} "
+                    f"({h(filesize - self.targetsize)} OVER target)",
+                    file=logfile)
             elif filesize == self.targetsize:
                 print(
-                    f"Resulting file size: {h(filesize)} (on target)", file=logfile)
-            elif filesize > self.targetsize - 125*self.vtrack.duration*self.vtrack.avgfps/self.vtrack.rate:
+                    f"Resulting file size: {h(filesize)} (on target)",
+                    file=logfile)
+            elif (filesize > self.targetsize - 125*tolerance):
                 print(
-                    f"Resulting file size: {h(filesize)} ({h(self.targetsize - filesize)} below target, within tolerance)", file=logfile)
+                    f"Resulting file size: {h(filesize)} "
+                    f"({h(self.targetsize - filesize)} below target, "
+                    "within tolerance)", file=logfile)
             else:
                 print(
-                    f"Resulting file size: {h(filesize)} ({h(self.targetsize - filesize)} below target, additional pass recommended)", file=logfile)
+                    f"Resulting file size: {h(filesize)} "
+                    f"({h(self.targetsize - filesize)} "
+                    "below target, additional pass recommended)",
+                    file=logfile)
         else:
             print(f"Resulting file size: {h(filesize)}", file=logfile)
 
         self.newoverhead["fileSize"] = filesize
 
         self.newoverhead["infoSize"] = self.mkvfile.segment.info.size()
-        self.newoverhead["trackEntrySizes"] = [track.size()
-                                               for track in self.mkvfile.tracks]
+        self.newoverhead["trackEntrySizes"] = [
+            track.size() for track in self.mkvfile.tracks]
 
         if len(self.mkvfile.chapters):
             self.newoverhead["chaptersSize"] = self.mkvfile.chapters.size()
@@ -676,7 +719,8 @@ class MatroskaWriter(basewriter.BaseWriter):
             self.newoverhead["chaptersSize"] = 0
 
         if len(self.mkvfile.attachments):
-            self.newoverhead["attachmentsSize"] = self.mkvfile.attachments.size()
+            self.newoverhead["attachmentsSize"] = \
+                self.mkvfile.attachments.size()
 
         else:
             self.newoverhead["attachmentsSize"] = 0
@@ -684,10 +728,14 @@ class MatroskaWriter(basewriter.BaseWriter):
         self.newoverhead["cuesSize"] = self.mkvfile.segment.cues.size()
         self.newoverhead["tagsSize"] = self.mkvfile.tags.size()
 
-        self.newoverhead["firstClusterOffset"] = self.mkvfile.segment.contentsOffset + \
-            self.mkvfile.segment.firstClusterOffset
-        self.newoverhead["lastClusterEnd"] = self.mkvfile.segment.contentsOffset + \
-            self.mkvfile.segment.lastClusterEnd
+        self.newoverhead["firstClusterOffset"] = (
+            self.mkvfile.segment.contentsOffset
+            + self.mkvfile.segment.firstClusterOffset)
+
+        self.newoverhead["lastClusterEnd"] = (
+            self.mkvfile.segment.contentsOffset
+            + self.mkvfile.segment.lastClusterEnd)
+
         self.newoverhead["clusterCount"] = self.mkvfile.segment.clusterCount
 
         self.mkvfile = None
@@ -711,7 +759,6 @@ class MatroskaWriter(basewriter.BaseWriter):
 
     @property
     def dependencies(self):
-        from .attachments import AttachmentRef
         dep = super().dependencies
 
         if self.attachments:
@@ -738,7 +785,8 @@ class MatroskaWriter(basewriter.BaseWriter):
 
         return exceptions
 
-    def createTrack(self, source, encoder=None, filters=None, name=None, language=None):
+    def createTrack(self, source, encoder=None, filters=None,
+                    name=None, language=None):
         if name is None and hasattr(source, "name"):
             name = source.name
 
@@ -747,7 +795,9 @@ class MatroskaWriter(basewriter.BaseWriter):
 
         existingUIDs = {track.trackUID for track in self.tracks}
 
-        if hasattr(source, "UID") and isinstance(source.UID, int) and 0 < source.UID < 2**64:
+        if (hasattr(source, "UID")
+                and isinstance(source.UID, int)
+                and 0 < source.UID < 2**64):
             UID = source.UID
 
         else:
@@ -775,14 +825,17 @@ class MatroskaWriter(basewriter.BaseWriter):
         else:
             compression = None
 
-        return self.trackclass(source, encoder, filters, name=name, language=language, trackUID=UID, maxInLace=maxInLace, compression=compression)
+        return self.trackclass(
+            source, encoder, filters, name=name, language=language,
+            trackUID=UID, maxInLace=maxInLace, compression=compression)
 
     def loadOverhead(self):
         super().loadOverhead()
 
         try:
             clusterptsfile = open(
-                f"{self.config.configstem}-{self.file_index}-clusterpts.dat", "rb")
+                f"{self.config.configstem}-{self.file_index}-clusterpts.dat",
+                "rb")
 
             self.clusterPtsHist = ClusterPts.fromFile(clusterptsfile)
             clusterptsfile.close()
@@ -798,7 +851,8 @@ class MatroskaWriter(basewriter.BaseWriter):
 
             try:
                 clusterptsfile = open(
-                    f"{self.config.configstem}-{self.file_index}-clusterpts.dat", "wb")
+                    f"{self.config.configstem}-{self.file_index}"
+                    "-clusterpts.dat", "wb")
                 self.clusterPtsHist.toFile(clusterptsfile)
                 clusterptsfile.close()
 

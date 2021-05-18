@@ -1,8 +1,6 @@
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QMenu)
-from PyQt5.QtCore import QSize, pyqtSignal
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton)
+from PyQt5.QtCore import pyqtSignal
 
-from matroska.chapters import ChapterAtom as InputChapterAtom
-from matroska.chapters import ChapterDisplay as InputChapterDisplay
 from .current import QChapterTree
 
 

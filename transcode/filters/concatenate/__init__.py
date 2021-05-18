@@ -18,6 +18,7 @@ def tryweakref(obj):
     except Exception:
         obj
 
+
 class Concatenate(BaseVideoFilter, BaseAudioFilter):
     __name__ = "Concatenate"
     allowedtypes = ("audio", "video")
@@ -71,7 +72,9 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
     @cached
     def durations(self):
         if len(self):
-            return numpy.int0(numpy.concatenate([segment.durations*segment.time_base/self.time_base for segment in self]) + 0.0001)
+            return numpy.int0(numpy.concatenate([
+                segment.durations*segment.time_base/self.time_base
+                for segment in self]) + 0.0001)
 
         return numpy.array((), dtype=numpy.float64)
 
@@ -166,7 +169,6 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
             whence = "seconds"
 
         N = 0
-        K = count(start)
         T = 0
 
         for segment in self:
@@ -199,15 +201,19 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                     continue
 
                 elif T <= start*segment.time_base:
-                    if end is not None and end*segment.time_base < T + segment.duration:
+                    if (end is not None
+                            and end*segment.time_base < T + segment.duration):
                         frames = segment.iterFrames(
-                            start - int(T/segment.time_base + 0.5), end - int(T/segment.time_base + 0.5), whence)
+                            start - int(T/segment.time_base + 0.5),
+                            end - int(T/segment.time_base + 0.5), whence)
 
                     else:
                         frames = segment.iterFrames(
-                            start - int(T/segment.time_base + 0.5), None, whence)
+                            start - int(T/segment.time_base + 0.5),
+                            None, whence)
 
-                elif end is None or end*segment.time_base >= T + segment.duration:
+                elif (end is None
+                      or end*segment.time_base >= T + segment.duration):
                     frames = segment.iterFrames()
 
                 elif end*segment.time_base > T:
@@ -298,15 +304,19 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                     continue
 
                 elif T <= start*segment.time_base:
-                    if end is not None and end*segment.time_base < T + segment.duration:
+                    if (end is not None
+                            and end*segment.time_base < T + segment.duration):
                         packets = segment.iterPackets(
-                            start - int(T/segment.time_base + 0.5), end - int(T/segment.time_base + 0.5), whence)
+                            start - int(T/segment.time_base + 0.5),
+                            end - int(T/segment.time_base + 0.5), whence)
 
                     else:
                         packets = segment.iterPackets(
-                            start - int(T/segment.time_base + 0.5), None, whence)
+                            start - int(T/segment.time_base + 0.5),
+                            None, whence)
 
-                elif end is None or end*segment.time_base >= T + segment.duration:
+                elif (end is None
+                      or end*segment.time_base >= T + segment.duration):
                     packets = segment.iterPackets()
 
                 elif end*segment.time_base > T:
@@ -471,24 +481,41 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
 
         for k, s in enumerate(self):
             if s is None:
-                exceptions.append(BrokenReference(f"Broken reference at position {k}.", self))
+                exceptions.append(BrokenReference(
+                    f"Broken reference at position {k}.", self))
 
-        for ((j, source1), (k, source2)) in windowed(filter(lambda X: X[1] is not None and X[1].prev is not None, enumerate(self)), 2):
+        for ((j, source1), (k, source2)) in windowed(filter(
+                lambda X: X[1] is not None and X[1].prev is not None,
+                enumerate(self)), 2):
             if source1.type != source2.type:
-                exceptions.append(IncompatibleSource(f"Incompatible sources: '{source1.type}' and '{source2.type}'.", self))
+                exceptions.append(IncompatibleSource(
+                    f"Incompatible sources: '{source1.type}' and "
+                    f"'{source2.type}'.", self))
 
             elif source1.type == "video":
-                if (source1.width, source1.height) != (source2.width, source2.height):
-                    exceptions.append(IncompatibleSource(f"Sources have different resolutions: '{source1.width}×{source1.height}' ({j}) and '{source2.width}×{source2.height}' ({k}).", self))
+                if ((source1.width, source1.height)
+                        != (source2.width, source2.height)):
+                    exceptions.append(IncompatibleSource(
+                        f"Sources have different resolutions: "
+                        f"'{source1.width}×{source1.height}' ({j}) and "
+                        f"'{source2.width}×{source2.height}' ({k}).", self))
 
                 if source1.sar != source2.sar:
-                    exceptions.append(IncompatibleSource(f"Sources have different sample aspect ratios: '{source1.sar}' ({j}) and '{source2.sar}' ({k}).", self))
+                    exceptions.append(IncompatibleSource(
+                        f"Sources have different sample aspect ratios: "
+                        f"'{source1.sar}' ({j}) and '{source2.sar}' ({k}).",
+                        self))
 
             elif source1.type == "audio":
                 if source1.rate != source2.rate:
-                    exceptions.append(IncompatibleSource(f"Sources have different sampling frequencies: '{source1.rate}' ({j}) and '{source2.rate}' ({k}).", self))
+                    exceptions.append(IncompatibleSource(
+                        f"Sources have different sampling frequencies: "
+                        f"'{source1.rate}' ({j}) and '{source2.rate}' ({k}).",
+                        self))
 
                 if source1.layout != source2.layout:
-                    exceptions.append(IncompatibleSource(f"Sources have different layouts: '{source1.layout}' ({j}) and '{source2.layout}' ({k}).", self))
+                    exceptions.append(IncompatibleSource(
+                        f"Sources have different layouts: '{source1.layout}' "
+                        f"({j}) and '{source2.layout}' ({k}).", self))
 
         return exceptions

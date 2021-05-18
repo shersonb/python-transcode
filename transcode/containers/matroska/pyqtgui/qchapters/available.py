@@ -1,7 +1,8 @@
-from PyQt5.QtWidgets import (QHBoxLayout, QFileIconProvider, QVBoxLayout, QDialog,
-                             QPushButton)
+from PyQt5.QtWidgets import (QHBoxLayout, QFileIconProvider, QVBoxLayout,
+                             QDialog, QPushButton)
 from PyQt5.QtCore import Qt, QFileInfo
-from transcode.pyqtgui.qitemmodel import Node, ChildNodes, NoChildren, QItemModel
+from transcode.pyqtgui.qitemmodel import (Node, ChildNodes, NoChildren,
+                                          QItemModel)
 from transcode.pyqtgui.treeview import TreeView as QTreeView
 
 from matroska.chapters import EditionEntry as InputEditionEntry
@@ -149,7 +150,8 @@ class AvailableStartCol(AvailableEditionEntriesBaseColumn):
     width = 192
 
     def display(self, index, obj):
-        if isinstance(obj, InputChapterAtom) and obj.chapterTimeStart is not None:
+        if (isinstance(obj, InputChapterAtom)
+                and obj.chapterTimeStart is not None):
             s = obj.chapterTimeStart/10**9
             m, s = divmod(s, 60)
             h, m = divmod(int(m), 60)
@@ -166,7 +168,8 @@ class AvailableEndCol(AvailableEditionEntriesBaseColumn):
     width = 192
 
     def display(self, index, obj):
-        if isinstance(obj, InputChapterAtom) and obj.chapterTimeEnd is not None:
+        if (isinstance(obj, InputChapterAtom)
+                and obj.chapterTimeEnd is not None):
             s = obj.chapterTimeEnd/10**9
             m, s = divmod(s, 60)
             h, m = divmod(int(m), 60)

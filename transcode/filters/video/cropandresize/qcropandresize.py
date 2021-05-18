@@ -2,13 +2,13 @@
 from PIL import Image
 from PyQt5.QtCore import Qt, pyqtSlot, QRegExp, QTime
 from PyQt5.QtGui import QRegExpValidator, QPen, QColor
-from PyQt5.QtWidgets import (QAction, QLabel, QSpinBox, QGridLayout, QVBoxLayout,
-                             QHBoxLayout, QLineEdit, QScrollArea, QWidget, QComboBox)
+from PyQt5.QtWidgets import (QAction, QLabel, QSpinBox, QGridLayout,
+                             QVBoxLayout, QHBoxLayout, QLineEdit, QScrollArea,
+                             QWidget, QComboBox)
 
 from functools import partial
 from fractions import Fraction as QQ
 import regex
-from PIL import Image
 
 from . import Crop, Resize, CropScenes
 from transcode.filters.video.scenes import Scenes
@@ -343,7 +343,9 @@ class CropDlg(QFilterConfig):
     @pyqtSlot(int, QTime)
     def loadFrame(self, n, t):
         if self.filtercopy.prev is not None:
-            frame = next(self.filtercopy.prev.iterFrames(n, whence="framenumber"))
+            frame = next(
+                self.filtercopy.prev.iterFrames(n, whence="framenumber"))
+
             im = frame.to_image()
             pixmap = im.convert("RGBA").toqpixmap()
             self.cropWidget.setFrame(pixmap)
@@ -521,22 +523,7 @@ class CropZoneDlg(ZoneDlg):
             self.resizeWidget.resample.setCurrentIndex(idx)
             self.resizeWidget.resample.blockSignals(False)
 
-    # def zoomIn(self):
-        #zoom = self.imageView.hzoom
-        #newzoom = max(min(zoom*sqrt(2), 16), 0.125)
-        ##print(zoom, newzoom)
-        #self.imageView.setZoom(newzoom, newzoom)
-
-    # def zoomOut(self):
-        #zoom = self.imageView.hzoom
-        #newzoom = max(min(zoom/sqrt(2), 16), 0.125)
-        ##print(zoom, newzoom)
-        #self.imageView.setZoom(newzoom, newzoom)
-
-    # def zoomOrig(self):
-        #self.imageView.setZoom(1, 1)
-
-        ##w, h = min()
+    # TODO: Implement zoom in, zoom out, zoom original
 
     @pyqtSlot(int, QTime)
     def loadFrame(self, n, t):
@@ -738,7 +725,8 @@ class CropResizeCol(ZoneCol):
 
     def display(self, index, obj):
         J, zone = self.filter.zoneAt(obj)
-        return "{J} ({zone.croptop}, {zone.cropbottom}, {zone.cropleft}, {zone.cropright})".format(J=J, zone=zone)
+        return (f"{J} ({zone.croptop}, {zone.cropbottom}, "
+                f"{zone.cropleft}, {zone.cropright})")
 
     def createContextMenu(self, table, index, obj):
         menu = ZoneCol.createContextMenu(self, table, index, obj)
@@ -747,18 +735,26 @@ class CropResizeCol(ZoneCol):
         if isinstance(self.filter.parent, FilterChain):
             for scenes in self.filter.parent:
                 if isinstance(scenes, Scenes):
-                    zoneatscenes = QAction("Create zones from scenes", table, triggered=partial(
-                        self.zoneAtScenes, table=table, scenes=scenes))
+                    zoneatscenes = QAction(
+                        "Create zones from scenes", table,
+                        triggered=partial(
+                            self.zoneAtScenes, table=table, scenes=scenes))
                     break
 
             else:
-                zoneatscenes = QAction("Create zones from scenes", table, triggered=partial(
-                    self.zoneAtScenes, table=table, scenes=None))
+                zoneatscenes = QAction(
+                    "Create zones from scenes", table,
+                    triggered=partial(
+                        self.zoneAtScenes, table=table, scenes=None))
+
                 zoneatscenes.setEnabled(False)
 
         else:
-            zoneatscenes = QAction("Create zones from scenes", table, triggered=partial(
-                self.zoneAtScenes, table=table, scenes=None))
+            zoneatscenes = QAction(
+                "Create zones from scenes", table,
+                triggered=partial(
+                    self.zoneAtScenes, table=table, scenes=None))
+
             zoneatscenes.setEnabled(False)
 
         menu.addAction(zoneatscenes)
@@ -784,7 +780,8 @@ class CropResizeCol(ZoneCol):
             if p.src_start == scene.src_start:
                 continue
 
-            self.filter.insertZoneAt(scene.src_start, croptop=p.croptop,
-                                     cropbottom=p.cropbottom, cropleft=p.cropleft, cropright=p.cropright)
+            self.filter.insertZoneAt(
+                scene.src_start, croptop=p.croptop, cropbottom=p.cropbottom,
+                cropleft=p.cropleft, cropright=p.cropright)
 
         table.contentsModified.emit()

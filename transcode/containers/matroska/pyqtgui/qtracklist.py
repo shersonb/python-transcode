@@ -1,21 +1,10 @@
 from .quidspinbox import UIDDelegate
-from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractTableModel, QModelIndex,
-                          QVariant, QItemSelectionModel, QItemSelection, pyqtSignal, pyqtSlot, QMimeData,
-                          QByteArray, QDataStream, QIODevice, QRegExp)
-from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxLayout, QHBoxLayout,
-                             QAbstractItemView, QMessageBox, QPushButton, QTreeView, QTableView,
-                             QHeaderView, QSpinBox, QMenu, QAction,
-                             QLineEdit, QFileDialog, QCheckBox, QDoubleSpinBox, QItemDelegate, QComboBox)
-from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QRegExpValidator
-from transcode.encoders import vencoders, aencoders, sencoders
-from transcode.encoders import createConfigObj as createCodecConfigObj
+from PyQt5.QtCore import (Qt, QModelIndex)
+from PyQt5.QtWidgets import (QSpinBox, QMenu, QAction, QItemDelegate,
+                             QComboBox)
+
 from transcode.pyqtgui.qoutputtracklist import BaseOutputTrackCol
-import sys
-import traceback
-import json
-import regex
-import av
-import os
+
 import random
 from functools import partial
 import faulthandler
@@ -62,7 +51,8 @@ class CompressionDelegate(QItemDelegate):
 class TrackUIDCol(BaseOutputTrackCol):
     width = 128
     headerdisplay = "Track UID"
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEditable
+             | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled)
 
     def __init__(self, input_files, filters, output_file):
         super().__init__(input_files, filters, output_file, "trackUID")
@@ -101,8 +91,9 @@ class TrackUIDCol(BaseOutputTrackCol):
 
     def createContextMenu(self, table, index, obj):
         menu = QMenu(table)
-        selectRandom = QAction(f"Select random UID", table,
-                             triggered=partial(self.selectRandomUID, obj, table.model()))
+        selectRandom = QAction(
+            "Select random UID", table,
+            triggered=partial(self.selectRandomUID, obj, table.model()))
 
         menu.addAction(selectRandom)
         return menu
@@ -110,7 +101,10 @@ class TrackUIDCol(BaseOutputTrackCol):
     def selectRandomUID(self, obj, model):
         UID = random.randint(1, 2**64 - 1)
 
-        existingUIDs = {track.trackUID for track in self.output_file.tracks if track is not obj}
+        existingUIDs = {
+            track.trackUID
+            for track in self.output_file.tracks
+            if track is not obj}
 
         while UID in existingUIDs:
             UID = random.randint(1, 2**64 - 1)
@@ -123,7 +117,8 @@ class DefaultTrackCol(BaseOutputTrackCol):
     display = ""
     headerdisplay = "Default"
     width = 64
-    flags = Qt.ItemIsSelectable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
+             | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled)
 
     def checkstate(self, index, track):
         if track.type is None:
@@ -154,11 +149,13 @@ class DefaultTrackCol(BaseOutputTrackCol):
             setattr(track.container, f"default{track.type}", track)
             return True
 
+
 class ForcedTrackCol(BaseOutputTrackCol):
     display = ""
     headerdisplay = "Forced"
     width = 64
-    flags = Qt.ItemIsSelectable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
+             | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled)
 
     def __init__(self, input_files, filters, output_file):
         super().__init__(input_files, filters, output_file, "forced")
@@ -185,7 +182,8 @@ class EnabledTrackCol(BaseOutputTrackCol):
     display = ""
     headerdisplay = "Enabled"
     width = 64
-    flags = Qt.ItemIsSelectable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
+             | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled)
 
     def __init__(self, input_files, filters, output_file):
         super().__init__(input_files, filters, output_file, "enabled")
@@ -212,7 +210,8 @@ class LacingCol(BaseOutputTrackCol):
     display = ""
     headerdisplay = "Lacing"
     width = 128
-    flags = Qt.ItemIsSelectable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsEditable
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
+             | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsEditable)
 
     def __init__(self, input_files, filters, output_file):
         super().__init__(input_files, filters, output_file, "maxInLace")
@@ -223,7 +222,7 @@ class LacingCol(BaseOutputTrackCol):
         if maxInLace > 1:
             return f"{maxInLace} packets/block"
 
-        return f"Lacing disabled"
+        return "Lacing disabled"
 
     def itemDelegate(self, parent):
         return LacingDelegate(parent)
@@ -232,7 +231,8 @@ class LacingCol(BaseOutputTrackCol):
 class CompressionCol(BaseOutputTrackCol):
     headerdisplay = "Compression"
     width = 64
-    flags = Qt.ItemIsSelectable | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsEditable
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
+             | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsEditable)
 
     def __init__(self, input_files, filters, output_file):
         super().__init__(input_files, filters, output_file, "compression")

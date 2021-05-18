@@ -1,7 +1,5 @@
-from PyQt5.QtCore import Qt, pyqtSlot, QRegExp, QTime
-from PyQt5.QtGui import QRegExpValidator, QPen, QColor
-from PyQt5.QtWidgets import (QAction, QLabel, QSpinBox, QGridLayout, QVBoxLayout, QComboBox,
-                             QHBoxLayout, QLineEdit, QScrollArea, QWidget, QComboBox, QDoubleSpinBox)
+from PyQt5.QtWidgets import (QLabel, QGridLayout, QVBoxLayout, QHBoxLayout,
+                             QWidget, QComboBox, QDoubleSpinBox)
 
 import av
 from transcode.pyqtgui.qfilterconfig import QFilterConfig
@@ -35,17 +33,17 @@ class ChanMixDlg(QFilterConfig):
         self.destLayout.addItem("2.1 Stereo", "2.1")
         self.destLayout.addItem("3.0 Stereo", "3.0")
         self.destLayout.addItem("3.1 Stereo", "3.1")
-        #self.destLayout.addItem("3.0 Surround", "259")
-        #self.destLayout.addItem("4.0 Quad", "51")
+        # self.destLayout.addItem("3.0 Surround", "259")
+        # self.destLayout.addItem("4.0 Quad", "51")
         self.destLayout.addItem("4.0 Surround", "4.0")
         self.destLayout.addItem("4.1 Surround", "4.1")
         self.destLayout.addItem("5.0 Surround", "5.0")
         self.destLayout.addItem("5.0 Surround (Side)", "5.0(side)")
         self.destLayout.addItem("5.1 Surround", "5.1")
         self.destLayout.addItem("5.1 Surround (Side)", "5.1(side)")
-        #self.destLayout.addItem("6.0 Hexagonal", "6.0")
+        # self.destLayout.addItem("6.0 Hexagonal", "6.0")
         self.destLayout.addItem("6.0 Hexagonal (Side)", "6.0")
-        #self.destLayout.addItem("6.1 Hexagonal", "6.0")
+        # self.destLayout.addItem("6.1 Hexagonal", "6.0")
         self.destLayout.addItem("6.1 Hexagonal (Side)", "6.1")
         self.destLayout.addItem("7.0 Surround", "7.0")
         self.destLayout.addItem("7.1 Surround", "7.1")

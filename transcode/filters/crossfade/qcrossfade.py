@@ -1,7 +1,8 @@
 #!/usr/bin/python
 from PyQt5.QtCore import pyqtSlot, QTime
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (QLabel, QVBoxLayout, QHBoxLayout, QWidget, QCheckBox)
+from PyQt5.QtWidgets import (QLabel, QVBoxLayout, QHBoxLayout, QWidget,
+                             QCheckBox)
 
 from . import CrossFade
 from ..base import BaseFilter
@@ -24,13 +25,15 @@ class QCrossFade(QFilterConfig):
 
         self.source1Selection = self.createSourceControl(self.sourceWidget)
         self.source1Selection.setSelectFunc(self.isValidSource1)
-        self.source1Selection.currentDataChanged.connect(self.setFilterSource1)
+        self.source1Selection.currentDataChanged.connect(
+            self.setFilterSource1)
         self.source1Fade = QCheckBox("Fade Out", self)
         self.source1Fade.stateChanged.connect(self.setSource1Fade)
 
         self.source2Selection = self.createSourceControl(self.sourceWidget)
         self.source2Selection.setSelectFunc(self.isValidSource2)
-        self.source2Selection.currentDataChanged.connect(self.setFilterSource2)
+        self.source2Selection.currentDataChanged.connect(
+            self.setFilterSource2)
         self.source2Fade = QCheckBox("Fade In", self)
         self.source2Fade.stateChanged.connect(self.setSource2Fade)
 
@@ -75,7 +78,8 @@ class QCrossFade(QFilterConfig):
         else:
             self.filtercopy.flags |= 1
 
-        if self.filtercopy.prev is not None and self.filtercopy.prev.type == "video":
+        if (self.filtercopy.prev is not None
+                and self.filtercopy.prev.type == "video"):
             self.setFrame(self.frameSelect.slider.value())
 
         self.isModified()
@@ -87,7 +91,8 @@ class QCrossFade(QFilterConfig):
         else:
             self.filtercopy.flags |= 2
 
-        if self.filtercopy.prev is not None and self.filtercopy.prev.type == "video":
+        if (self.filtercopy.prev is not None
+                and self.filtercopy.prev.type == "video"):
             self.setFrame(self.frameSelect.slider.value())
 
         self.isModified()
@@ -110,17 +115,21 @@ class QCrossFade(QFilterConfig):
 
     def _resetSourceControls(self):
         self._showSourceControls(self.inputFiles or self.availableFilters)
-        self._setSourceSelection(self.source1Selection, self.filtercopy.source1)
-        self._setSourceSelection(self.source2Selection, self.filtercopy.source2)
+        self._setSourceSelection(
+            self.source1Selection, self.filtercopy.source1)
+        self._setSourceSelection(
+            self.source2Selection, self.filtercopy.source2)
 
     def _resetControls(self):
         if self.filtercopy is not None:
             self.source1Fade.blockSignals(True)
-            self.source1Fade.setCheckState(0 if (1 & self.filtercopy.flags) else 2)
+            self.source1Fade.setCheckState(
+                0 if (1 & self.filtercopy.flags) else 2)
             self.source1Fade.blockSignals(False)
 
             self.source2Fade.blockSignals(True)
-            self.source2Fade.setCheckState(0 if (2 & self.filtercopy.flags) else 2)
+            self.source2Fade.setCheckState(
+                0 if (2 & self.filtercopy.flags) else 2)
             self.source2Fade.blockSignals(False)
 
             self.frameSelect.setVisible(self.filtercopy.type == "video")
@@ -151,7 +160,9 @@ class QCrossFade(QFilterConfig):
         self.filtercopy.source1 = source
         self.isModified()
 
-        if source is not None and self.filtercopy.source2 is not None and source.type == "video":
+        if (source is not None
+                and self.filtercopy.source2 is not None
+                and source.type == "video"):
             self.frameSelect.setPtsTimeArray(source.pts_time)
             self.setFrame(self.frameSelect.slider.value())
 
@@ -161,7 +172,9 @@ class QCrossFade(QFilterConfig):
         self.filtercopy.source2 = source
         self.isModified()
 
-        if source is not None and self.filtercopy.source1 is not None and source.type == "video":
+        if (source is not None
+                and self.filtercopy.source1 is not None
+                and source.type == "video"):
             self.frameSelect.setPtsTimeArray(source.pts_time)
             self.setFrame(self.frameSelect.slider.value())
 
@@ -169,7 +182,8 @@ class QCrossFade(QFilterConfig):
         if other is self.filter:
             return False
 
-        if isinstance(other, BaseFilter) and self.filter in other.dependencies:
+        if (isinstance(other, BaseFilter)
+                and self.filter in other.dependencies):
             return False
 
         if self.filtercopy.source2 is None:
@@ -179,14 +193,16 @@ class QCrossFade(QFilterConfig):
             return True
 
         elif self.filtercopy.source2.type == "video":
-            return self.filtercopy.source2.framecount == other.framecount and \
-                self.filtercopy.source2.width == other.width and \
-                self.filtercopy.source2.height == other.height and \
-                (abs(self.filtercopy.source2.pts_time - other.pts_time) < 0.008).all()
+            return (self.filtercopy.source2.framecount == other.framecount
+                    and self.filtercopy.source2.width == other.width
+                    and self.filtercopy.source2.height == other.height
+                    and (abs(self.filtercopy.source2.pts_time
+                             - other.pts_time) < 0.008).all())
 
         elif self.filtercopy.source2.type == "audio":
-            return self.filtercopy.source2.channels == other.channels and \
-                abs(self.filtercopy.source2.duration - other.duration) < 0.00001
+            return (self.filtercopy.source2.channels == other.channels
+                    and abs(self.filtercopy.source2.duration - other.duration)
+                    < 0.00001)
 
     def isValidSource2(self, other):
         if other is self.filter:
@@ -202,11 +218,13 @@ class QCrossFade(QFilterConfig):
             return other.type in ("video", "audio")
 
         elif self.filtercopy.source1.type == "video":
-            return self.filtercopy.source1.framecount == other.framecount and \
-                self.filtercopy.source1.width == other.width and \
-                self.filtercopy.source1.height == other.height and \
-                (abs(self.filtercopy.source1.pts_time - other.pts_time) < 0.008).all()
+            return (self.filtercopy.source1.framecount == other.framecount
+                    and self.filtercopy.source1.width == other.width
+                    and self.filtercopy.source1.height == other.height
+                    and (abs(self.filtercopy.source1.pts_time
+                             - other.pts_time) < 0.008).all())
 
         elif self.filtercopy.source1.type == "audio":
-            return self.filtercopy.source1.channels == other.channels and \
-                abs(self.filtercopy.source1.duration - other.duration) < 0.00001
+            return (self.filtercopy.source1.channels == other.channels
+                    and abs(self.filtercopy.source1.duration - other.duration)
+                    < 0.00001)

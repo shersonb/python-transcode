@@ -1,9 +1,7 @@
 from .. import basereader
 import matroska
 import numpy
-import av
 from fractions import Fraction as QQ
-import os
 from ...util import Packet
 
 codecs = {
@@ -24,7 +22,7 @@ codecs = {
 
 class Track(basereader.Track):
     def __getstate__(self):
-        state = super().__getstate__() or OrderedDict()
+        state = super().__getstate__()
         state["index"] = self.index
         state["sizes"] = self.sizes
         state["durations"] = self.durations
@@ -116,15 +114,19 @@ class Track(basereader.Track):
     @property
     def sar(self):
         if self.trackEntry.video:
-            return self.dar/QQ(self.trackEntry.video.pixelWidth, self.trackEntry.video.pixelHeight)
+            return self.dar/QQ(self.trackEntry.video.pixelWidth,
+                               self.trackEntry.video.pixelHeight)
 
     @property
     def dar(self):
         if self.trackEntry.video:
-            if self.trackEntry.video.displayWidth and self.trackEntry.video.displayHeight:
-                return QQ(self.trackEntry.video.displayWidth, self.trackEntry.video.displayHeight)
+            if (self.trackEntry.video.displayWidth
+                    and self.trackEntry.video.displayHeight):
+                return QQ(self.trackEntry.video.displayWidth,
+                          self.trackEntry.video.displayHeight)
 
-            return QQ(self.trackEntry.video.pixelWidth, self.trackEntry.video.pixelHeight)
+            return QQ(self.trackEntry.video.pixelWidth,
+                      self.trackEntry.video.pixelHeight)
 
     @property
     def extradata(self):
@@ -169,8 +171,12 @@ class Track(basereader.Track):
             start = self.keyIndexFromPts(startpts)
 
         start_pts, startClusterPosition, startBlockPosition = self.index[start]
-        packets = self.container.demux(startClusterPosition=startClusterPosition,
-                                       startBlockPosition=startBlockPosition, trackNumber=self.trackNumber)
+
+        packets = self.container.demux(
+            startClusterPosition=startClusterPosition,
+            startBlockPosition=startBlockPosition,
+            trackNumber=self.trackNumber)
+
         keyframeseen = False
 
         for packet in packets:
@@ -207,23 +213,34 @@ class MatroskaReader(basereader.BaseReader):
             notifystart(int(self.mkvfile.segment.info.duration))
 
         tracksDict = {
-            track.trackNumber: track for track in self.tracks if track.trackEntry.trackType in (1, 2, 17)}
-        trackPts = {track.trackNumber: []
-                    for track in self.tracks if track.trackEntry.trackType in (1, 2, 17)}
-        trackIndices = {track.trackNumber: []
-                        for track in self.tracks if track.trackEntry.trackType in (1, 2, 17)}
+            track.trackNumber: track
+            for track in self.tracks
+            if track.trackEntry.trackType in (1, 2, 17)}
+
+        trackPts = {
+            track.trackNumber: []
+            for track in self.tracks
+            if track.trackEntry.trackType in (1, 2, 17)}
+
+        trackIndices = {
+            track.trackNumber: []
+            for track in self.tracks
+            if track.trackEntry.trackType in (1, 2, 17)}
 
         for cluster in self.mkvfile.segment.iterClusters():
             clusterOffset = cluster.offsetInParent
 
-            for (blockOffset, size, trackNumber, pts, duration, keyframe, invisible,
-                    discardable, referencePriority, referenceBlocks) in cluster.scan():
+            for (blockOffset, size, trackNumber, pts, duration, keyframe,
+                 invisible, discardable, referencePriority, referenceBlocks
+                 ) in cluster.scan():
                 index = trackIndices[trackNumber]
                 trackEntry = tracksDict[trackNumber]
                 ptslist = trackPts[trackNumber]
 
-                if trackEntry.codec == "vc1" and (keyframe or not discardable) \
-                        and len(index) and index[-1][0] == -1:
+                if (trackEntry.codec == "vc1"
+                        and (keyframe or not discardable)
+                        and len(index)
+                        and index[-1][0] == -1):
                     _, prevClusterOffset, prevBlockOffset = index[-1]
                     index[-1] = (ptslist[-1][0],
                                  prevClusterOffset, prevBlockOffset)
@@ -232,7 +249,8 @@ class MatroskaReader(basereader.BaseReader):
                     if trackEntry.codec == "vc1":
                         index.append((-1, clusterOffset, blockOffset))
 
-                    elif len(index) == 0 or index[-1][-2:] != (clusterOffset, blockOffset):
+                    elif (len(index) == 0
+                          or index[-1][-2:] != (clusterOffset, blockOffset)):
                         index.append((pts, clusterOffset, blockOffset))
 
                 ptslist.append((pts, size, duration))
@@ -270,13 +288,18 @@ class MatroskaReader(basereader.BaseReader):
     def time_base(self):
         return QQ(1, 10**9)
 
-    def demux(self, startClusterPosition=0, startBlockPosition=0, trackNumber=None):
+    def demux(self, startClusterPosition=0, startBlockPosition=0,
+              trackNumber=None):
         track_index = [track.trackNumber for track in self.tracks].index(
             trackNumber)
 
-        for packet in self.mkvfile.demux(startClusterPosition=startClusterPosition,
-                                         startBlockPosition=startBlockPosition, trackNumber=trackNumber):
-            yield Packet(data=packet.data, pts=packet.pts, duration=packet.duration,
-                         time_base=self.time_base, keyframe=packet.keyframe,
-                         invisible=packet.invisible, discardable=packet.discardable,
-                         referenceBlocks=packet.referenceBlocks, track_index=track_index)
+        for packet in self.mkvfile.demux(
+                startClusterPosition=startClusterPosition,
+                startBlockPosition=startBlockPosition,
+                trackNumber=trackNumber):
+            yield Packet(
+                data=packet.data, pts=packet.pts, duration=packet.duration,
+                time_base=self.time_base, keyframe=packet.keyframe,
+                invisible=packet.invisible, discardable=packet.discardable,
+                referenceBlocks=packet.referenceBlocks,
+                track_index=track_index)

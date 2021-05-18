@@ -111,7 +111,8 @@ class FilterList(UserList):
 
 
 class Config(object):
-    def __init__(self, configname=None, input_files=[], filter_chains=[], output_files=[]):
+    def __init__(self, configname=None, input_files=[], filter_chains=[],
+                 output_files=[]):
         self.configname = configname
         self.input_files = input_files
         self.filter_chains = filter_chains

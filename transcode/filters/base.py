@@ -1,5 +1,5 @@
-from ..util import cached, search, llist, WeakRefProperty, ValidationException, SourceError
-from ..containers.basereader import BaseReader, Track
+from ..util import cached, search, llist, WeakRefProperty, SourceError
+from ..containers.basereader import Track
 import threading
 import numpy
 from collections import OrderedDict
@@ -92,7 +92,7 @@ class BaseFilter(object):
     def source(self, value):
         if isinstance(self.parent, FilterChain):
             raise ValueError(
-                f"'source' property is read-only for FilterChain members.")
+                "'source' property is read-only for FilterChain members.")
 
         oldsource = self.source
 
@@ -141,7 +141,8 @@ class BaseFilter(object):
         for i, ref in list(self._monitors.items()):
             mon = ref()
 
-            if mon is None: # Filter has been deallocated, removed from monitors.
+            if mon is None:
+                # Filter has been deallocated, removed from monitors.
                 del self._monitors[i]
 
             elif isinstance(mon, BaseFilter):
@@ -506,12 +507,10 @@ class FilterChain(llist, BaseFilter):
         self._exchange_new_old(oldstart, newstart, oldend, newend)
 
     def __delitem__(self, index):
-        item = self[index]
         oldstart, oldend = self._get_start_end()
         super().__delitem__(index)
         newstart, newend = self._get_start_end()
         self._exchange_new_old(oldstart, newstart, oldend, newend)
-
 
     def append(self, value):
         oldstart, oldend = self._get_start_end()
@@ -536,7 +535,6 @@ class FilterChain(llist, BaseFilter):
         super().clear()
         self._exchange_new_old(oldstart, None, oldend, None)
 
-
     @WeakRefProperty
     def source(self, value):
         if isinstance(self.parent, FilterChain):
@@ -548,7 +546,7 @@ class FilterChain(llist, BaseFilter):
     def source(self, value):
         if isinstance(self.parent, FilterChain):
             raise ValueError(
-                f"'source' property is read-only for FilterChain members.")
+                "'source' property is read-only for FilterChain members.")
 
         oldsource = self.source
 
@@ -559,7 +557,8 @@ class FilterChain(llist, BaseFilter):
             else:
                 value.addMonitor(self)
 
-        if isinstance(oldsource, BaseFilter) and oldsource not in (self._prev, value):
+        if (isinstance(oldsource, BaseFilter)
+                and oldsource not in (self._prev, value)):
             if len(self):
                 oldsource.removeMonitor(self.start)
 
@@ -766,4 +765,5 @@ class FilterChain(llist, BaseFilter):
         return type(self), (), self.__getstate__(), iter(self)
 
     def __repr__(self):
-        return f"<{self.__class__.__name__} ({len(self)} filters) at 0x{id(self):012x}>"
+        return (f"<{self.__class__.__name__} ({len(self)} filters) "
+                f"at 0x{id(self):012x}>")

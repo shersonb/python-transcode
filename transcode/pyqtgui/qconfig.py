@@ -1,20 +1,19 @@
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtBoundSignal
 from PyQt5.QtGui import QFont, QIcon
-from .qinputtracklist import QInputTrackList, QInputFiles
+from .qinputtracklist import QInputFiles
 from .qfilterlist import QFilterList
 from .qavailablefilters import QAvailableFilters
-from .qoutputfiles import QOutputFileList, QOutputFiles
+from .qoutputfiles import QOutputFiles
 from .qoutputconfig import QOutputConfig
 
-from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow,
-                             QVBoxLayout, QHBoxLayout, QSplitter, QMessageBox,
-                             QLabel, QAction, QFileDialog, QToolBar)
+from PyQt5.QtWidgets import (QWidget, QMainWindow, QVBoxLayout, QHBoxLayout,
+                             QSplitter, QMessageBox, QLabel, QAction,
+                             QFileDialog, QToolBar)
 
 import threading
 from transcode.config import Config
 from transcode.config.ebml import ConfigElement
 from transcode.filters import filters
-from transcode.containers.basewriter import BaseWriter
 import os
 import sys
 import types
@@ -51,7 +50,8 @@ class QConfig(QWidget):
         inputLayout.addLayout(inputLabelLayout)
 
         self.inputFiles = QInputFiles(inputWidget)
-        self.inputFiles.inputFileList.contentsModified.connect(self.contentsModified)
+        self.inputFiles.inputFileList.contentsModified.connect(
+            self.contentsModified)
 
         inputLayout.addWidget(self.inputFiles)
 
@@ -110,7 +110,8 @@ class QConfig(QWidget):
         outputFilesLayout.addLayout(outputFilesLabelLayout)
 
         self.outputFiles = QOutputFiles(outputFilesWidget)
-        self.outputFiles.outputFileList.contentsModified.connect(self.contentsModified)
+        self.outputFiles.outputFileList.contentsModified.connect(
+            self.contentsModified)
 
         outputFilesLayout.addWidget(self.outputFiles)
 
@@ -153,16 +154,12 @@ class QConfig(QWidget):
             self.currentFilters.setFilters(config.filter_chains)
             self.outputFiles.setOutputFiles(config.output_files)
             self.outputConfig.setOutputFile(None)
-            self.outputFiles.outputFileList.selectionModel().currentRowChanged.connect(self.selectOutputFile)
+            self.outputFiles.outputFileList.selectionModel(
+            ).currentRowChanged.connect(self.selectOutputFile)
 
             if self.outputFiles.outputFileList.model().rowCount():
                 self.outputFiles.outputFileList.setCurrentIndex(
                     self.outputFiles.outputFileList.model().index(0, 0))
-
-        # else:
-            # self.inputFiles.setInputFiles(None)
-            # self.outputFiles.setOutputFiles(None)
-            # self.inputFiles.setInputFiles(None)
 
 
 class QConfigWindow(QMainWindow):
@@ -301,7 +298,9 @@ class QConfigWindow(QMainWindow):
         try:
             if os.path.isfile(fileName):
                 T = time.localtime()
-                backup = f"{fileName}-backup-{T.tm_year:04d}.{T.tm_mon:02d}.{T.tm_mday:02d}-{T.tm_hour:02d}.{T.tm_min:02d}.{T.tm_sec:02d}"
+                backup = (f"{fileName}-backup-"
+                          f"{T.tm_year:04d}.{T.tm_mon:02d}.{T.tm_mday:02d}-"
+                          f"{T.tm_hour:02d}.{T.tm_min:02d}.{T.tm_sec:02d}")
 
                 try:
                     os.rename(fileName, backup)
@@ -315,7 +314,7 @@ class QConfigWindow(QMainWindow):
             try:
                 ConfigElement.save(self.config, fileName)
 
-            except BaseException as exc:
+            except Exception:
                 self.exceptionCaptured.emit(*sys.exc_info())
 
                 if backup:
@@ -340,7 +339,8 @@ class QConfigWindow(QMainWindow):
 
     def _updateWindowTitle(self):
         if self.config.configname:
-            self.setWindowTitle(f"QTranscode Editor - [{self.config.configname}]")
+            self.setWindowTitle(
+                f"QTranscode Editor - [{self.config.configname}]")
 
         else:
             self.setWindowTitle("QTranscode Editor - Untitled")
@@ -368,23 +368,24 @@ class QConfigWindow(QMainWindow):
             config = ConfigElement.load(fileName)
             self.configLoaded.emit(config)
 
-        except BaseException as exc:
+        except Exception:
             self.exceptionCaptured.emit(*sys.exc_info())
 
         finally:
             self.fileLoaded.emit()
 
     def saveChangesDlg(self):
-        answer = QMessageBox.question(self, "Save Changes?", "Do you wish to save changes?",
-                                      QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+        answer = QMessageBox.question(
+            self, "Save Changes?", "Do you wish to save changes?",
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
         return answer
 
     def _handleException(self, cls, exc, tb):
-        print("\n".join(traceback.format_exception(cls, exc, tb)), file=sys.stderr)
+        print("\n".join(traceback.format_exception(cls, exc, tb)),
+              file=sys.stderr)
         excmsg = QMessageBox(self)
-        excmsg.setWindowTitle("Error")
-        excmsg.setText("An exception was encountered\n\n%s" %
-                       "".join(traceback.format_exception(cls, exc, tb)))
+        excmsg.setWindowTitle(cls.__name__)
+        excmsg.setText(str(exc))
         excmsg.setStandardButtons(QMessageBox.Ok)
         excmsg.setIcon(QMessageBox.Critical)
         excmsg.exec_()
@@ -427,8 +428,8 @@ def main():
     if args.file:
         t = threading.Thread(target=win.loadFile, args=(args.file,), kwargs={})
         t.start()
-        #t = QThread.create(win.loadFile, (args.file,))
-        #t.run()
+        # t = QThread.create(win.loadFile, (args.file,))
+        # t.run()
 
     app.exec_()
     return win.config

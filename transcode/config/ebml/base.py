@@ -1,4 +1,4 @@
-from ebml.base import EBMLInteger, EBMLString, EBMLData, EBMLMasterElement, EBMLProperty, EBMLFloat, EBMLList, EBMLElement, Void
+from ebml.base import EBMLString
 from ebml.ndarray import EBMLNDArray
 from ebml.serialization import Object, List
 from transcode.util import llist, ChildList, WeakRefList
@@ -26,7 +26,8 @@ class PathElement(EBMLString):
         workingdir = environ.get("cwd", os.getcwd())
         relpath = os.path.relpath(obj, workingdir)
 
-        if not relpath == os.path.pardir and not relpath.startswith(f"{os.path.pardir}{os.path.sep}"):
+        if (not relpath == os.path.pardir
+                and not relpath.startswith(f"{os.path.pardir}{os.path.sep}")):
             return cls(relpath)
 
         return cls(obj)

@@ -3,12 +3,9 @@ from PyQt5.QtCore import Qt, QModelIndex
 from functools import partial
 import random
 
-from matroska.chapters import ChapterAtom as InputChapterAtom
-from matroska.chapters import ChapterDisplay as InputChapterDisplay
+from transcode.containers.matroska.chapters import (
+    ChapterAtom, ChapterDisplay, EditionEntry)
 
-from transcode.containers.matroska.chapters import (ChapterAtom, ChapterDisplay,
-                                                    EditionEntry, Editions)
-from transcode.pyqtgui.qitemmodel import Node, ChildNodes, NoChildren, QItemModel
 from ..quidspinbox import UIDDelegate
 from .timeselect import TimeSelectDelegate
 
@@ -87,72 +84,62 @@ class BaseColumn(object):
 
         menu = QMenu(table)
 
-        insertEdition = QAction("Insert Edition Entry before", table,
-                                triggered=partial(table.addEdition, row=edrow))
+        insertEdition = QAction(
+            "Insert Edition Entry before", table,
+            triggered=partial(table.addEdition, row=edrow))
+
         insertEdition.setEnabled(index.isValid())
         menu.addAction(insertEdition)
 
+        insertEditionAfter = QAction(
+            "Insert Edition Entry after", table,
+            triggered=partial(table.addEdition, row=edrow+1))
 
-        insertEditionAfter = QAction("Insert Edition Entry after", table,
-                                     triggered=partial(table.addEdition, row=edrow+1))
         insertEditionAfter.setEnabled(index.isValid())
         menu.addAction(insertEditionAfter)
 
-        #addEdition = QAction("Add Edition Entry at end", table,
-                             #triggered=table.addEdition)
-        #menu.addAction(addEdition)
-
-        addFromInput = QAction("&Import existing Edition Entries from input file...", table,
-                               triggered=table.addFromInput)
+        addFromInput = QAction(
+            "&Import existing Edition Entries from input file...", table,
+            triggered=table.addFromInput)
         menu.addAction(addFromInput)
 
         menu.addSeparator()
 
-        insertChapter = QAction("Insert Chapter before", table,
-                                triggered=partial(table.addChapter,
-                                                  row=chrow, parent=edindex))
+        insertChapter = QAction(
+            "Insert Chapter before", table,
+            triggered=partial(table.addChapter, row=chrow,
+                              parent=edindex))
         menu.addAction(insertChapter)
 
-        insertChapterAfter = QAction("Insert Chapter after", table,
-                                     triggered=partial(table.addChapter,
-                                                       row=chrow+1, parent=edindex))
+        insertChapterAfter = QAction(
+            "Insert Chapter after", table,
+            triggered=partial(table.addChapter, row=chrow+1,
+                              parent=edindex))
         menu.addAction(insertChapterAfter)
-
-        #addChapter = QAction("Add Chapter at end", table,
-                             #triggered=partial(table.addChapter,
-                                               #row=table.model().rowCount(edindex), parent=edindex))
-        #menu.addAction(addChapter)
 
         menu.addSeparator()
 
-        insertChapterDisplay = QAction("Insert Chapter Display before", table,
-                                       triggered=partial(table.addDisplay,
-                                                         row=disprow, parent=chapindex))
+        insertChapterDisplay = QAction(
+            "Insert Chapter Display before", table,
+            triggered=partial(table.addDisplay, row=disprow,
+                              parent=chapindex))
         menu.addAction(insertChapterDisplay)
 
-        insertChapterDisplayAfter = QAction("Insert Chapter Display after", table,
-                                            triggered=partial(table.addDisplay,
-                                                              row=disprow+1, parent=chapindex))
+        insertChapterDisplayAfter = QAction(
+            "Insert Chapter Display after", table,
+            triggered=partial(table.addDisplay, row=disprow+1,
+                              parent=chapindex))
         menu.addAction(insertChapterDisplayAfter)
-
-        #addChapterDisplay = QAction("Add Chapter Display at end", table,
-                                    #triggered=partial(table.addDisplay,
-                                                      #row=table.model().rowCount(chapindex), parent=chapindex))
-        #menu.addAction(addChapterDisplay)
-
 
         if not index.isValid():
             insertChapter.setEnabled(False)
             insertChapterAfter.setEnabled(False)
-            #addChapter.setEnabled(False)
-            #addChapterDisplay.setEnabled(False)
             insertChapterDisplay.setEnabled(False)
             insertChapterDisplayAfter.setEnabled(False)
 
         elif isinstance(obj, EditionEntry):
             insertChapter.setEnabled(False)
             insertChapterAfter.setEnabled(False)
-            #addChapterDisplay.setEnabled(False)
             insertChapterDisplay.setEnabled(False)
             insertChapterDisplayAfter.setEnabled(False)
 
@@ -172,11 +159,13 @@ class BaseColumn(object):
 
         menu.addSeparator()
 
-        importChapters = QAction("&Import chapters from xml...", table,
-                             triggered=table.importChapters)
+        importChapters = QAction(
+            "&Import chapters from xml...", table,
+            triggered=table.importChapters)
 
-        exportChapters = QAction("&Export selected chapters...", table,
-                             triggered=table.exportChapters)
+        exportChapters = QAction(
+            "&Export selected chapters...", table,
+            triggered=table.exportChapters)
 
         menu.addAction(importChapters)
         menu.addAction(exportChapters)
@@ -184,15 +173,18 @@ class BaseColumn(object):
 
     def flags(self, index, obj):
         if isinstance(obj, EditionEntry):
-            return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+            return (Qt.ItemIsSelectable | Qt.ItemIsEnabled
+                    | Qt.ItemIsDragEnabled)
 
         elif isinstance(obj, ChapterAtom):
             if obj.parent.ordered:
-                return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+                return (Qt.ItemIsSelectable | Qt.ItemIsEnabled
+                        | Qt.ItemIsDragEnabled)
 
             return Qt.ItemIsSelectable | Qt.ItemIsEnabled
 
-        return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsEditable | Qt.ItemIsDragEnabled
+        return (Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsEditable
+                | Qt.ItemIsDragEnabled)
 
 
 class NameCol(BaseColumn):
@@ -243,7 +235,8 @@ class DefaultCol(BaseColumn):
 
     def flags(self, index, obj):
         if isinstance(obj, EditionEntry):
-            return (super().flags(index, obj) | Qt.ItemIsUserCheckable) & ~Qt.ItemIsEditable
+            return ((super().flags(index, obj) | Qt.ItemIsUserCheckable)
+                    & ~Qt.ItemIsEditable)
 
         return super().flags(index, obj) & ~Qt.ItemIsEditable
 
@@ -277,7 +270,8 @@ class EnabledCol(BaseColumn):
 
     def flags(self, index, obj):
         if isinstance(obj, ChapterAtom):
-            return (super().flags(index, obj) | Qt.ItemIsUserCheckable) & ~Qt.ItemIsEditable
+            return ((super().flags(index, obj) | Qt.ItemIsUserCheckable)
+                    & ~Qt.ItemIsEditable)
 
         return super().flags(index, obj) & ~Qt.ItemIsEditable
 
@@ -309,7 +303,8 @@ class OrderedCol(BaseColumn):
 
     def flags(self, index, obj):
         if isinstance(obj, EditionEntry):
-            return (super().flags(index, obj) | Qt.ItemIsUserCheckable) & ~Qt.ItemIsEditable
+            return ((super().flags(index, obj) | Qt.ItemIsUserCheckable)
+                    & ~Qt.ItemIsEditable)
 
         return super().flags(index, obj) & ~Qt.ItemIsEditable
 
@@ -341,7 +336,8 @@ class HiddenCol(BaseColumn):
 
     def flags(self, index, obj):
         if isinstance(obj, (EditionEntry, ChapterAtom)):
-            return (super().flags(index, obj) | Qt.ItemIsUserCheckable) & ~Qt.ItemIsEditable
+            return ((super().flags(index, obj) | Qt.ItemIsUserCheckable)
+                    & ~Qt.ItemIsEditable)
 
         return super().flags(index, obj) & ~Qt.ItemIsEditable
 
@@ -505,7 +501,8 @@ class EndCol(BaseColumn):
                 if obj.next is not None:
                     n = obj.next.startFrame
 
-                elif obj.mkvfile is not None and obj.mkvfile.vtrack is not None:
+                elif (obj.mkvfile is not None
+                      and obj.mkvfile.vtrack is not None):
                     n = obj.mkvfile.vtrack.framecount
 
             if pts is None:
@@ -549,8 +546,9 @@ class UIDCol(BaseColumn):
 
     def createContextMenu(self, table, index, obj):
         menu = super().createContextMenu(table, index, obj)
-        selectRandom = QAction(f"Select random UID", table,
-                               triggered=partial(self.selectRandomUID, obj, table.model()))
+        selectRandom = QAction(
+            "Select random UID", table,
+            triggered=partial(self.selectRandomUID, obj, table.model()))
 
         menu.addAction(selectRandom)
 
@@ -563,7 +561,10 @@ class UIDCol(BaseColumn):
 
         if isinstance(obj, ChapterAtom):
             existingUIDs = {
-                chap.UID for ed in self.editions for chap in ed if chap is not obj}
+                chap.UID
+                for ed in self.editions
+                for chap in ed
+                if chap is not obj}
 
         else:
             existingUIDs = {ed.UID for ed in self.editions if ed is not obj}

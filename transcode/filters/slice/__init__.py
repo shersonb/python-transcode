@@ -13,7 +13,8 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
     startpts = CacheResettingProperty("startpts")
     endpts = CacheResettingProperty("endpts")
 
-    def __init__(self, startpts=0, endpts=None, firstframekey=False, **kwargs):
+    def __init__(self, startpts=0, endpts=None,
+                 firstframekey=False, **kwargs):
         super().__init__(**kwargs)
         self.startpts = startpts
         self.endpts = endpts
@@ -22,18 +23,22 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
     @cached
     def prev_start(self):
         if self.type == "video":
-            return self.prev.frameIndexFromPts((self.startpts - 0.008)/self.prev.time_base, "+")
+            return self.prev.frameIndexFromPts(
+                (self.startpts - 0.008)/self.prev.time_base, "+")
 
-        return self.prev.frameIndexFromPts((self.startpts - 0.001)/self.prev.time_base, "+")
+        return self.prev.frameIndexFromPts(
+            (self.startpts - 0.001)/self.prev.time_base, "+")
 
     @cached
     def prev_end(self):
         if self.endpts is not None:
             if self.type == "video":
-                return self.prev.frameIndexFromPts((self.endpts - 0.008)/self.prev.time_base, "+")
+                return self.prev.frameIndexFromPts(
+                    (self.endpts - 0.008)/self.prev.time_base, "+")
 
             try:
-                return self.prev.frameIndexFromPts(self.endpts/self.prev.time_base, "+")
+                return self.prev.frameIndexFromPts(
+                    self.endpts/self.prev.time_base, "+")
 
             except IndexError:
                 return self.prev.framecount
@@ -46,7 +51,10 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
         kf = set()
 
         if isinstance(prev, BaseFilter):
-            kf.update(k - self.prev_start for k in prev.keyframes if self.prev_start <= k < self.prev_end)
+            kf.update(
+                k - self.prev_start
+                for k in prev.keyframes
+                if self.prev_start <= k < self.prev_end)
 
         if self.firstframekey:
             kf.add(0)
@@ -55,7 +63,8 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
 
     @cached
     def pts_time(self):
-        return self.prev.pts_time[self.prev_start:self.prev_end] - self.startpts
+        return (self.prev.pts_time[self.prev_start:self.prev_end]
+                - self.startpts)
 
     @cached
     def pts(self):
@@ -160,10 +169,10 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                 else:
                     end = None
 
-            I = self.prev.iterFrames(start, end, whence)
+            frames = self.prev.iterFrames(start, end, whence)
             pts = self.pts
 
-            for n, frame in zip(N, I):
+            for n, frame in zip(N, frames):
                 frame.pts = pts[n]
 
                 if n == 0 and self.firstframekey:
@@ -191,7 +200,7 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                 else:
                     end = self.prev.duration/self.prev.time_base
 
-                I = self.prev.iterFrames(
+                frames = self.prev.iterFrames(
                     start - 0.001/self.prev.time_base, end, whence)
 
             elif whence == "seconds":
@@ -209,20 +218,26 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
                 else:
                     end = self.prev.duration
 
-                I = self.prev.iterFrames(start - 0.001, end, whence)
+                frames = self.prev.iterFrames(start - 0.001, end, whence)
 
-            for frame in I:
+            for frame in frames:
                 if whence == "seconds":
                     n1 = int(
-                        max(numpy.floor((start - frame.pts*frame.time_base)*frame.rate + 0.0001), 0))
-                    n2 = int(max(numpy.floor((frame.pts*frame.time_base +
-                                              frame.samples/frame.rate - end)*frame.rate + 0.0001), 0))
+                        max(numpy.floor((
+                            start - frame.pts*frame.time_base)
+                            * frame.rate + 0.0001), 0))
+                    n2 = int(max(numpy.floor((
+                        frame.pts*frame.time_base + frame.samples/frame.rate
+                        - end)*frame.rate + 0.0001), 0))
 
                 elif whence == "pts":
                     n1 = int(max(numpy.floor(
-                        (start*frame.time_base - frame.pts*frame.time_base)*frame.rate + 0.0001), 0))
-                    n2 = int(max(numpy.floor((frame.pts*frame.time_base + frame.samples /
-                                              frame.rate - end*frame.time_base)*frame.rate + 0.0001), 0))
+                        (start*frame.time_base - frame.pts*frame.time_base)
+                        * frame.rate + 0.0001), 0))
+                    n2 = int(max(numpy.floor((
+                        frame.pts*frame.time_base + frame.samples
+                        / frame.rate - end*frame.time_base)
+                        * frame.rate + 0.0001), 0))
 
                 if n1 or n2:
                     pts = frame.pts
@@ -239,11 +254,13 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
 
                     if whence == "seconds":
                         frame.pts = max(
-                            pts - int(self.startpts/tb + 0.001), int((start - self.startpts)/tb + 0.001))
+                            pts - int(self.startpts/tb + 0.001),
+                            int((start - self.startpts)/tb + 0.001))
 
                     elif whence == "pts":
                         frame.pts = max(
-                            pts - int(self.startpts/tb + 0.001), int(start - self.startpts/tb + 0.001))
+                            pts - int(self.startpts/tb + 0.001),
+                            int(start - self.startpts/tb + 0.001))
 
                 else:
                     frame.pts -= int(self.startpts/self.time_base + 0.001)
@@ -263,23 +280,36 @@ class Slice(BaseVideoFilter, BaseAudioFilter):
 
         for packet in packets:
             if whence == "pts":
-                if end is not None and self.endpts is not None and packet.pts*packet.time_base >= min(self.endpts, self.startpts + end*packet.time_base):
+                if (end is not None
+                        and self.endpts is not None
+                        and packet.pts*packet.time_base
+                        >= min(self.endpts,
+                               self.startpts + end*packet.time_base)):
                     break
 
-                elif self.endpts is not None and packet.pts*packet.time_base >= self.endpts - 10**-9:
+                elif (self.endpts is not None
+                      and packet.pts*packet.time_base
+                      >= self.endpts - 10**-9):
                     break
 
-                elif end is not None and packet.pts*packet.time_base >= self.startpts + end*packet.time_base:
+                elif (end is not None
+                      and packet.pts*packet.time_base
+                      >= self.startpts + end*packet.time_base):
                     break
 
             elif whence == "seconds":
-                if end is not None and self.endpts is not None and packet.pts*packet.time_base >= min(self.endpts, self.startpts + end):
+                if (end is not None
+                        and self.endpts is not None
+                        and packet.pts*packet.time_base
+                        >= min(self.endpts, self.startpts + end)):
                     break
 
-                elif self.endpts is not None and packet.pts*packet.time_base >= self.endpts:
+                elif (self.endpts is not None
+                      and packet.pts*packet.time_base >= self.endpts):
                     break
 
-                elif end is not None and packet.pts*packet.time_base >= self.startpts + end:
+                elif (end is not None
+                      and packet.pts*packet.time_base >= self.startpts + end):
                     break
 
             packet.pts -= int(self.startpts/self.time_base + 0.5)

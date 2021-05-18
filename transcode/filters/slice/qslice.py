@@ -1,10 +1,11 @@
 #!/usr/bin/python
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (QLabel, QSpinBox, QVBoxLayout, QHBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QLabel, QSpinBox, QVBoxLayout, QHBoxLayout,
+                             QWidget)
 
 import numpy
-from numpy import sqrt, concatenate
+from numpy import concatenate
 
 from . import Slice
 from transcode.util import search
@@ -171,21 +172,6 @@ class QTimeSlider(QWidget):
 
         self.timeSelectionChanged.emit(n, t)
 
-    # def _handleTimeEditFinished(self):
-        #t = self.timeSelect.time()
-        #pts = t.msecsSinceStartOfDay()/1000
-        #n = search(self.pts_time, pts, dir="-")
-        #pts_time = self.pts_time[n]
-
-        #ms = int(pts_time*1000 + 0.5)
-        #s, ms = divmod(ms, 1000)
-        #m, s = divmod(s, 60)
-        #h, m = divmod(m, 60)
-        #T = QTime(h, m, s, ms)
-
-        # if t != T:
-            # self.timeSelect.setTime(T)
-
 
 class QSlice(QFilterConfig):
     allowedtypes = ("video", "audio", "subtitle")
@@ -250,7 +236,8 @@ class QSlice(QFilterConfig):
         self.isModified()
 
     def updateStartImage(self):
-        if self.filtercopy.prev is not None and self.filtercopy.prev.type == "video":
+        if (self.filtercopy.prev is not None
+                and self.filtercopy.prev.type == "video"):
             n = search(self.filtercopy.prev.pts_time,
                        self.filtercopy.startpts + 0.0005, "-")
 
@@ -260,7 +247,8 @@ class QSlice(QFilterConfig):
 
             except StopIteration:
                 self.startImageView.setFrame(
-                    QPixmap(self.filtercopy.prev.width, self.filtercopy.prev.height))
+                    QPixmap(self.filtercopy.prev.width,
+                            self.filtercopy.prev.height))
                 return
 
             im = frame.to_image()
@@ -268,7 +256,8 @@ class QSlice(QFilterConfig):
             self.startImageView.setFrame(pixmap)
 
     def updateEndImage(self):
-        if self.filtercopy.prev is not None and self.filtercopy.prev.type == "video":
+        if (self.filtercopy.prev is not None
+                and self.filtercopy.prev.type == "video"):
             if self.filtercopy.endpts is not None:
                 n = search(self.filtercopy.prev.pts_time,
                            self.filtercopy.endpts + 0.0005, "-")
@@ -279,7 +268,8 @@ class QSlice(QFilterConfig):
 
                 except StopIteration:
                     self.endImageView.setFrame(
-                        QPixmap(self.filtercopy.prev.width, self.filtercopy.prev.height))
+                        QPixmap(self.filtercopy.prev.width,
+                                self.filtercopy.prev.height))
                     return
 
                 im = frame.to_image()
@@ -288,16 +278,14 @@ class QSlice(QFilterConfig):
 
             else:
                 self.endImageView.setFrame(
-                    QPixmap(self.filtercopy.prev.width, self.filtercopy.prev.height))
+                    QPixmap(self.filtercopy.prev.width,
+                            self.filtercopy.prev.height))
 
     def createNewFilterInstance(self):
         return Slice()
 
     def _prevChanged(self, source):
         self._resetControlMaximums()
-
-        # if source.type == "video":
-        #self.loadFrame(self.slider.slider.value(), self.slider.timeSelect.time())
 
         self.startSlider.spinBox.setVisible(source.type == "video")
         self.startSlider.slider.setVisible(source.type == "video")
@@ -310,7 +298,8 @@ class QSlice(QFilterConfig):
     def _resetControlMaximums(self):
         if self.filtercopy.prev is not None:
             pts_time = concatenate(
-                (self.filtercopy.prev.pts_time, [float(self.filtercopy.prev.duration)]))
+                (self.filtercopy.prev.pts_time,
+                 [float(self.filtercopy.prev.duration)]))
             self.startSlider.blockSignals(True)
             self.startSlider.setPtsTimeArray(pts_time)
             self.startSlider.blockSignals(False)

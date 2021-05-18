@@ -429,6 +429,9 @@ class Track(object):
     def defaultDuration(self):
         return None
 
+    @property
+    def canIterPackets(self):
+        return True
 
 class BaseReader(object):
     from copy import deepcopy as copy

@@ -1,5 +1,6 @@
-from PyQt5.QtWidgets import QWidget, QDialog, QTabWidget, QVBoxLayout, QHBoxLayout, QPushButton
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, Qt
+from PyQt5.QtWidgets import (QDialog, QTabWidget, QVBoxLayout, QHBoxLayout,
+                             QPushButton)
+from PyQt5.QtCore import pyqtSignal
 
 from .qtags import QTagsWidget
 from .qattachments import QAttachmentsWidget
@@ -90,7 +91,7 @@ class QMatroskaConfigDlg(QDialog):
     def reset(self):
         if self.output_file is not None:
             tracks = self.output_file.tracks
-            input_files = self.output_file.config.input_files
+            self.output_file.config.input_files
 
             memo = {id(track): track for track in tracks}
 
@@ -105,10 +106,11 @@ class QMatroskaConfigDlg(QDialog):
             self.editions.parent = self.output_file
 
             self.setWindowTitle(
-                f"Matroska Options — {self.output_file.title} [{self.output_file.outputpathrel}]")
+                f"Matroska Options — {self.output_file.title} "
+                f"[{self.output_file.outputpathrel}]")
 
         else:
-            input_files = tracks = self.tags = self.attachments = self.editions = None
+            tracks = self.tags = self.attachments = self.editions = None
             self.setWindowTitle("Matroska Options")
 
         self.tabs.setData(self.tags, tracks, self.editions, self.attachments)

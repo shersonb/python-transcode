@@ -1,4 +1,3 @@
-from ..base import EncoderContext
 from ..base import EncoderConfig
 
 
@@ -15,8 +14,9 @@ class ac3Config(EncoderConfig):
         if "format" in override:
             del override["format"]
 
-        return super().create(framesource, rate=rate, format=self.format, time_base=time_base,
-                              notifyencode=notifyencode, logfile=logfile, **override)
+        return super().create(
+            framesource, rate=rate, format=self.format, time_base=time_base,
+            notifyencode=notifyencode, logfile=logfile, **override)
 
     def __reduce__(self):
         return type(self), (), self.__getstate__()

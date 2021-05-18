@@ -1,32 +1,25 @@
-from .quidspinbox import UIDDelegate
-import sys
-from PyQt5.QtCore import (Qt, QAbstractListModel, QAbstractItemModel, QAbstractTableModel,
-                          QModelIndex, QFileInfo, QVariant, QItemSelectionModel, QItemSelection,
-                          pyqtSignal, pyqtSlot, QMimeData, QDir)
-from PyQt5 import QtCore
-from PyQt5.QtWidgets import (QDialog, QLabel, QListWidgetItem, QListView, QVBoxLayout,
-                             QHBoxLayout, QAbstractItemView, QMessageBox, QPushButton, QTreeView,
-                             QTableView, QHeaderView, QSpinBox, QFrame, QLineEdit, QComboBox,
-                             QCheckBox, QSpinBox, QDoubleSpinBox, QItemDelegate, QWidget,
-                             QFileIconProvider, QMenu, QAction, QScrollArea, QFileDialog)
-from PyQt5.QtGui import QFont, QIcon, QDrag, QBrush, QPainter, QRegExpValidator
+from PyQt5.QtCore import (Qt, QModelIndex, QFileInfo, pyqtSignal)
 
-from ..tags import Tag, Tags
-from transcode.pyqtgui.qitemmodel import QItemModel, Node, ChildNodes, NoChildren
+from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
+                             QAbstractItemView, QPushButton, QWidget,
+                             QFileIconProvider, QMenu, QAction, QFileDialog)
+
+from transcode.pyqtgui.qitemmodel import (QItemModel, Node, ChildNodes,
+                                          NoChildren)
 from transcode.pyqtgui.qimageview import QImageView
-from transcode.pyqtgui.qlangselect import LanguageDelegate, LANGUAGES
-from titlecase import titlecase
+from transcode.pyqtgui.treeview import TreeView as QTreeView
 from functools import partial
 
-from ..attachments import Attachments, AttachedFile, AttachmentRef
-from matroska.attachments import AttachedFile as InputAttachedFile
-from ..reader import MatroskaReader
 from ...basereader import BaseReader
 from ...basewriter import BaseWriter
+from ..reader import MatroskaReader
+from ..tags import SimpleTag
+from ..attachments import Attachments, AttachedFile, AttachmentRef
+from .quidspinbox import UIDDelegate
+from matroska.attachments import AttachedFile as InputAttachedFile
 
 from transcode.config.obj import Config
 
-import pathlib
 import os
 import random
 import io
@@ -276,7 +269,8 @@ class AttachmentModel(QItemModel):
             old_row = item.parent.index(item)
             self.moveRow(old_row, row + k - j, old_parent, parent)
 
-            if self.getNode(old_parent) is self.getNode(parent) and old_row < row:
+            if (self.getNode(old_parent) is self.getNode(parent)
+                    and old_row < row):
                 j += 1
 
             return False
@@ -308,7 +302,6 @@ class AttachmentModel(QItemModel):
         if row == -1:
             row = self.rowCount(parent)
 
-        k = 0
         newfiles = []
 
         for url in urls:
@@ -334,8 +327,6 @@ class AttachmentModel(QItemModel):
         return True
 
     def canDropItems(self, items, action, row, column, parent):
-        node = self.getNode(parent)
-
         for item in items:
             o = item
 
@@ -416,23 +407,27 @@ class BaseColumn(object):
     def createContextMenu(self, table, index, obj):
         menu = QMenu(table)
 
-        addFromFile = QAction("&Add attachment(s) from file(s)...", table,
-                              triggered=table.addFromFile)
+        addFromFile = QAction(
+            "&Add attachment(s) from file(s)...", table,
+            triggered=table.addFromFile)
         menu.addAction(addFromFile)
 
-        addFromInput = QAction("&Import existing attachment(s) from input...", table,
-                               triggered=table.addFromInput)
+        addFromInput = QAction(
+            "&Import existing attachment(s) from input...", table,
+            triggered=table.addFromInput)
         menu.addAction(addFromInput)
 
-        removeSelected = QAction("&Remove selected attachment(s)...", table,
-                                 triggered=table.askDeleteSelected)
+        removeSelected = QAction(
+            "&Remove selected attachment(s)...", table,
+            triggered=table.askDeleteSelected)
         menu.addAction(removeSelected)
 
         return menu
 
     def flags(self, index, obj):
         if isinstance(obj, SimpleTag):
-            return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+            return (Qt.ItemIsSelectable | Qt.ItemIsEditable
+                    | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled)
 
         return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
 
@@ -440,7 +435,8 @@ class BaseColumn(object):
 class NameCol(BaseColumn):
     width = 128
     headerdisplay = "Attachment"
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEditable
+             | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled)
 
     def __init__(self, tags, attachments):
         super().__init__(tags, attachments, "fileName")
@@ -461,8 +457,6 @@ class SizeCol(BaseColumn):
         super().__init__(tags, attachments, None)
 
     def display(self, index, obj):
-        workingdir = obj.parent.config.workingdir
-
         if isinstance(obj.source, AttachmentRef):
             size = obj.source.attachment.fileData.size
 
@@ -498,7 +492,9 @@ class SourceCol(BaseColumn):
         data = self.editdata(index, obj)
 
         if isinstance(data, AttachmentRef):
-            return f"Attachment {data.UID} from input:{input_files.index(data.source)} ({data.source.inputpathrel})"
+            return (f"Attachment {data.UID} from input:"
+                    f"{input_files.index(data.source)} "
+                    f"({data.source.inputpathrel})")
 
         return obj.sourcerel
 
@@ -509,19 +505,18 @@ class SourceCol(BaseColumn):
 class MimeTypeCol(BaseColumn):
     width = 128
     headerdisplay = "Mime Type"
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled
+             | Qt.ItemIsDragEnabled)
 
     def __init__(self, tags, attachments):
         super().__init__(tags, attachments, "mimeType")
-
-    # def display(self, index, obj):
-        # return f"{obj.parent.attachments.index(obj)}: {obj.fileName}"
 
 
 class UIDCol(BaseColumn):
     width = 256
     headerdisplay = "UID"
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled
+             | Qt.ItemIsDragEnabled)
 
     def __init__(self, tags, attachments):
         super().__init__(tags, attachments, "UID")
@@ -544,8 +539,9 @@ class UIDCol(BaseColumn):
 
     def createContextMenu(self, table, index, obj):
         menu = super().createContextMenu(table, index, obj)
-        selectRandom = QAction(f"Select random UID", table,
-                             triggered=partial(self.selectRandomUID, obj, table.model()))
+        selectRandom = QAction(
+            "Select random UID", table,
+            triggered=partial(self.selectRandomUID, obj, table.model()))
 
         menu.addAction(selectRandom)
         return menu
@@ -567,7 +563,8 @@ class UIDCol(BaseColumn):
 class DescriptionCol(BaseColumn):
     width = 256
     headerdisplay = "Description"
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled
+             | Qt.ItemIsDragEnabled)
 
     def __init__(self, tags, attachments):
         super().__init__(tags, attachments, "description")
@@ -581,6 +578,9 @@ class DescriptionCol(BaseColumn):
 
 
 class QAttachmentTree(QTreeView):
+    _deletetitle = "Delete attachment(s)"
+    _deletemsg = "Do you wish to delete the selected attachment(s)?"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setMinimumWidth(640)
@@ -632,48 +632,10 @@ class QAttachmentTree(QTreeView):
         else:
             self.setModel(QItemModel(Node(None), []))
 
-    def keyPressEvent(self, event):
-        key = event.key()
-        modifiers = event.modifiers()
-        idx = self.currentIndex()
-        row = idx.row()
-        col = idx.column()
-        model = self.model()
-
-        selected = sorted(idx.row()
-                          for idx in self.selectionModel().selectedRows())
-
-        if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
-            self.askDeleteSelected()
-
-        super().keyPressEvent(event)
-
-    def askDeleteSelected(self):
-        answer = QMessageBox.question(
-            self, "Delete attachment(s)", "Do you wish to delete the selected attachment(s)?", QMessageBox.Yes | QMessageBox.No)
-
-        if answer == QMessageBox.Yes:
-            self.deleteSelected()
-
-    def deleteSelected(self):
-        model = self.model()
-        selected = {model.getNode(index) for index in self.selectedIndexes()}
-        removed = set()
-
-        for node in selected:
-            parent = node.parent
-
-            if node not in removed:
-                model.removeRow(parent.index(node), model.findIndex(parent))
-                removed.add(node)
-
-                if node.descendants is not None:
-                    removed.update(node.descendants)
-
     def addFromFile(self):
         if (isinstance(self.attachments, Attachments)
-            and isinstance(self.attachments.parent, BaseWriter)
-            and isinstance(self.attachments.parent.config, Config)):
+                and isinstance(self.attachments.parent, BaseWriter)
+                and isinstance(self.attachments.parent.config, Config)):
             path = os.path.abspath(self.attachments.parent.config.workingdir)
 
         else:
@@ -681,8 +643,8 @@ class QAttachmentTree(QTreeView):
 
         existingUIDs = {attachment.UID for attachment in self.attachments}
         filters = "All image files (*.jpg *.png *.);;All files (*)"
-        fileNames, _ = QFileDialog.getOpenFileNames(self, "Add attachments...",
-                                                    path, filters)
+        fileNames, _ = QFileDialog.getOpenFileNames(
+            self, "Add attachments...", path, filters)
         newfiles = []
 
         for fileName in fileNames:
@@ -714,9 +676,10 @@ class QAttachmentTree(QTreeView):
                 while UID in existingUIDs:
                     UID = random.randint(1, 2**64 - 1)
 
-                newfiles.append(AttachedFile(UID, source=source,
-                                             fileName=attachment.fileName, mimeType=attachment.mimeType,
-                                             description=attachment.description))
+                newfiles.append(AttachedFile(
+                    UID, source=source, fileName=attachment.fileName,
+                    mimeType=attachment.mimeType,
+                    description=attachment.description))
                 existingUIDs.add(UID)
 
             model.insertRows(model.rowCount(), newfiles, QModelIndex())
@@ -753,7 +716,6 @@ class QAttachmentsWidget(QWidget):
         self.add2Btn.clicked.connect(self.attachTree.addFromInput)
         self.removeBtn.clicked.connect(self.attachTree.askDeleteSelected)
 
-
         btnlayout.addWidget(self.add1Btn)
         btnlayout.addWidget(self.add2Btn)
         btnlayout.addWidget(self.removeBtn)
@@ -777,14 +739,14 @@ class QAttachmentsWidget(QWidget):
 
         selected = self.attachTree.currentIndex().data(Qt.UserRole)
 
-        if isinstance(selected, AttachedFile) and selected.mimeType in ("image/jpeg", "image/png"):
+        if (isinstance(selected, AttachedFile)
+                and selected.mimeType in ("image/jpeg", "image/png")):
             try:
                 if isinstance(selected.source, AttachmentRef):
                     with io.BytesIO() as b:
                         b.write(b"".join(selected.source.attachment.fileData))
                         b.seek(0)
                         im = Image.open(b).convert("RGBA")
-
 
                 else:
                     im = Image.open(selected.source).convert("RGBA")
