@@ -2,10 +2,6 @@
 from ..base import BaseVideoFilter
 from transcode.util import cached
 import numpy
-from fractions import Fraction as QQ
-import itertools
-from av.video import VideoFrame
-import sys
 
 
 class DropFrames(BaseVideoFilter, set):
@@ -52,7 +48,9 @@ class DropFrames(BaseVideoFilter, set):
     @cached
     def framecount(self):
         dropcount = len(
-            list(filter(lambda d: d < self.prev.framecount, self.prev_dropframes)))
+            list(filter(
+                lambda d: d < self.prev.framecount, self.prev_dropframes)))
+
         return self.prev.framecount - dropcount
 
     @cached

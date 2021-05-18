@@ -1,15 +1,11 @@
-from PyQt5.QtCore import Qt, pyqtSlot, QRegExp, QTime
-from PyQt5.QtGui import QRegExpValidator, QPen, QColor
-from PyQt5.QtWidgets import (QAction, QLabel, QSpinBox, QDoubleSpinBox, QGridLayout, QVBoxLayout,
-                             QHBoxLayout, QLineEdit, QScrollArea, QWidget, QComboBox)
+from PyQt5.QtCore import pyqtSlot, QTime
+from PyQt5.QtWidgets import (QLabel, QSpinBox, QDoubleSpinBox,
+                             QVBoxLayout, QHBoxLayout, QWidget)
 
-from functools import partial
-from fractions import Fraction as QQ
 from transcode.pyqtgui.qfilterconfig import QFilterConfig
 from transcode.pyqtgui.qframeselect import QFrameSelect
 from transcode.pyqtgui.qimageview import QImageView
 from . import HSLAdjust
-import regex
 
 
 class QHSLAdjDlg(QFilterConfig):
@@ -43,7 +39,8 @@ class QHSLAdjDlg(QFilterConfig):
         self.hueSpinBox = QSpinBox(self)
         self.hueSpinBox.setMinimum(-179)
         self.hueSpinBox.setMaximum(180)
-        self.hueSpinBox.valueChanged.connect(self._handleHueSpinBoxValueChanged)
+        self.hueSpinBox.valueChanged.connect(
+            self._handleHueSpinBoxValueChanged)
 
         satLabel = QLabel("Saturation factor:", self)
         self.satSpinBox = QDoubleSpinBox(self)
@@ -51,14 +48,16 @@ class QHSLAdjDlg(QFilterConfig):
         self.satSpinBox.setSingleStep(0.1)
         self.satSpinBox.setMinimum(0)
         self.satSpinBox.setMaximum(10)
-        self.satSpinBox.valueChanged.connect(self._handleSatSpinBoxValueChanged)
+        self.satSpinBox.valueChanged.connect(
+            self._handleSatSpinBoxValueChanged)
 
         lumLabel = QLabel("Luminosity factor:", self)
         self.lumSpinBox = QDoubleSpinBox(self)
         self.lumSpinBox.setDecimals(2)
         self.lumSpinBox.setMinimum(0)
         self.lumSpinBox.setMaximum(10)
-        self.lumSpinBox.valueChanged.connect(self._handleLumSpinBoxValueChanged)
+        self.lumSpinBox.valueChanged.connect(
+            self._handleLumSpinBoxValueChanged)
 
         hlayout = QHBoxLayout()
 
@@ -122,7 +121,6 @@ class QHSLAdjDlg(QFilterConfig):
             im = frame.to_image()
             pixmap = im.convert("RGBA").toqpixmap()
             self.imageView.setFrame(pixmap)
-            #self.imageView.resize(pixmap.size())
 
     def _prevChanged(self, source):
         self.slider.setPtsTimeArray(source.pts_time)

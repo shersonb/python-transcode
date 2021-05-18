@@ -1,15 +1,16 @@
 from PyQt5.QtGui import (QPainter, QPalette, QColor, QBrush, QPen, QPolygon,
-                         QRegExpValidator, QPainterPath)
+                         QPainterPath)
 from PyQt5.QtCore import Qt, QPoint, QRect, pyqtSignal, pyqtSlot
-from PyQt5.QtWidgets import (QAction, QProgressDialog, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QCheckBox, QLabel, QWidget, QFrame,
-                             QSizePolicy, QDoubleSpinBox)
+from PyQt5.QtWidgets import (QAction, QProgressDialog, QVBoxLayout,
+                             QHBoxLayout, QPushButton, QCheckBox, QLabel,
+                             QWidget, QFrame, QSizePolicy, QDoubleSpinBox)
 
 from functools import partial
-from numpy import sqrt, log, arange, int0, maximum, meshgrid, exp, moveaxis, uint8, float64, ndarray
+from numpy import (log, arange, int0, maximum, meshgrid, exp, moveaxis,
+                   uint8, float64, ndarray)
 import threading
 
-from . import Levels, Zone
+from . import Levels
 from transcode.pyqtgui.qframetablecolumn import ZoneCol
 from transcode.pyqtgui.qzones import ZoneDlg
 import sys
@@ -17,7 +18,8 @@ import traceback
 
 
 class Histogram(QLabel):
-    def __init__(self, histogram=None, min=0, max=256, gamma=1, minclip=0, maxclip=255, color=(0, 0, 0), *args, **kwargs):
+    def __init__(self, histogram=None, min=0, max=256, gamma=1,
+                 minclip=0, maxclip=255, color=(0, 0, 0), *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._histogram = histogram
         self.min = min
@@ -59,7 +61,6 @@ class Histogram(QLabel):
         blackpen = QPen(Qt.black, 1)
         nopen = QPen()
         nopen.setStyle(Qt.NoPen)
-        redpen = QPen(Qt.red, 1)
         greypen = QPen(Qt.gray, 1)
         painter.setPen(blackpen)
         nofill = QBrush()
@@ -95,14 +96,17 @@ class Histogram(QLabel):
 
                 u = j/len(self._histogram)
 
-                if isinstance(m, ndarray) or isinstance(M, ndarray) or isinstance(self.gamma, ndarray):
+                if (isinstance(m, ndarray)
+                        or isinstance(M, ndarray)
+                        or isinstance(self.gamma, ndarray)):
                     continue
 
                 if m <= u <= M:
                     v = 1 - (1 - (u - m)/(M - m))**self.gamma
 
                     if u < M or self.gamma >= 1:
-                        dvdu = self.gamma*(1 - (u - m)/(M - m))**(self.gamma - 1)/(M - m)
+                        dvdu = self.gamma * \
+                            (1 - (u - m)/(M - m))**(self.gamma - 1)/(M - m)
 
                     else:
                         dvdu = 1
@@ -146,7 +150,6 @@ class ColorPreview(QWidget):
 class ChannelEditor(QWidget):
     def __init__(self, color=(0, 0, 0), *args, **kwargs):
         super(ChannelEditor, self).__init__(*args, **kwargs)
-        #QWidget.__init__(self, *args, **kwargs)
 
         layout = QVBoxLayout(self)
         self.setLayout(layout)
@@ -154,7 +157,6 @@ class ChannelEditor(QWidget):
 
         self.color = color
 
-        #self.histogram = QLabel(self)
         self.histogram = Histogram(None, 0, 255, 1, 0, 255, color, self)
         layout.addWidget(self.histogram)
         self.histogram.setMinimumWidth(256)
@@ -386,7 +388,10 @@ class QLevels(ZoneDlg):
     def setFocus(self, x, y):
         self._x = x
         self._y = y
-        if self.currentFrame is not None and self._x is not None and self._y is not None:
+
+        if (self.currentFrame is not None
+                and self._x is not None
+                and self._y is not None):
             A = self.currentFrame.to_rgb().to_ndarray()
             h, w, n = A.shape
             X = arange(w)
@@ -413,10 +418,14 @@ class QLevels(ZoneDlg):
     def generatePreview(self, n):
         self.currentFrame = next(
             self.filtercopy.prev.iterFrames(n, whence="framenumber"))
+
         return super().generatePreview(n)
 
     def updateColors(self):
-        if self.currentFrame is not None and self._x is not None and self._y is not None and self._ker is not None:
+        if (self.currentFrame is not None
+                and self._x is not None
+                and self._y is not None
+                and self._ker is not None):
             A = self.currentFrame.to_rgb().to_ndarray()
             avg = int0(
                 (moveaxis(A, 2, 0)*self._ker).sum(axis=(1, 2)) + 0.5)
@@ -428,7 +437,9 @@ class QLevels(ZoneDlg):
             N = arange(256, dtype=float64)
             n = self.slider.slider.value()
 
-            if self.transitionCheckBox.checkState() and self.zonecopy.prev is not None and self.zonecopy.next is not None:
+            if (self.transitionCheckBox.checkState()
+                    and self.zonecopy.prev is not None
+                    and self.zonecopy.next is not None):
                 t = (n - self.zonecopy.prev_start + 1) / \
                     (self.zonecopy.prev_framecount + 1)
                 rmin = (1 - t)*self.zonecopy.prev.rmin + \
@@ -500,7 +511,7 @@ class QLevels(ZoneDlg):
     def autogamma(self):
         zone = self.zonecopy
         a = arange(0, 256, 0.25)
-        I = -log(1-a/256)
+        Ia = -log(1-a/256)
         r, g, b = self.rchan.minSpinBox.value(
         ), self.gchan.minSpinBox.value(), self.bchan.minSpinBox.value()
         R, G, B = self.rchan.maxSpinBox.value(
@@ -511,8 +522,13 @@ class QLevels(ZoneDlg):
         IR = -log(1-(a.clip(min=r, max=R+0.75) - r)/(R+1-r))*rg
         IG = -log(1-(a.clip(min=g, max=G+0.75) - g)/(G+1-g))*gg
         IB = -log(1-(a.clip(min=b, max=B+0.75) - b)/(B+1-b))*bg
-        gamma = ((I*zone.histogram[0]).sum() + (I*zone.histogram[1]).sum() + (I*zone.histogram[2]).sum())/(
-            (IR*zone.histogram[0]).sum() + (IG*zone.histogram[1]).sum() + (IB*zone.histogram[2]).sum())
+
+        gamma = (((Ia*zone.histogram[0]).sum()
+                  + (Ia*zone.histogram[1]).sum()
+                  + (Ia*zone.histogram[2]).sum())
+                 / ((IR*zone.histogram[0]).sum()
+                    + (IG*zone.histogram[1]).sum()
+                    + (IB*zone.histogram[2]).sum()))
         return float(gamma)
 
     def useAutoGamma(self):
@@ -548,8 +564,11 @@ class QLevels(ZoneDlg):
             self.transitionCheckBox.blockSignals(True)
             self.transitionCheckBox.setChecked(False)
             self.transitionCheckBox.blockSignals(False)
-            self.transitionCheckBox.setEnabled(self.zone not in (self.zone.parent.start, self.zone.parent.end) and
-                                               True not in (self.zone.prev.transition, self.zone.next.transition))
+            self.transitionCheckBox.setEnabled(
+                self.zone not in (
+                    self.zone.parent.start, self.zone.parent.end)
+                and not (
+                    self.zone.prev.transition or self.zone.next.transition))
 
             self.rchan.setEnabled(True)
             self.gchan.setEnabled(True)
@@ -620,39 +639,48 @@ class QLevels(ZoneDlg):
 
             if not self.zonecopy.transition:
                 N = arange(0, 256, 0.25)
-                I = -log(1 - N/256)/log(2)
+                Ia = -log(1 - N/256)/log(2)
 
                 rmin = self.zonecopy.rmin
                 rmax = self.zonecopy.rmax
                 Nr = (N.clip(min=rmin, max=rmax - 0.25) - rmin)/(rmax - rmin)
-                Ir = -self.zonecopy.gamma*self.zonecopy.rgamma*log(1 - Nr)/log(2)
+                Ir = -self.zonecopy.gamma * \
+                    self.zonecopy.rgamma*log(1 - Nr)/log(2)
 
                 gmin = self.zonecopy.gmin
                 gmax = self.zonecopy.gmax
                 Ng = (N.clip(min=gmin, max=gmax - 0.25) - gmin)/(gmax - gmin)
-                Ig = -self.zonecopy.gamma*self.zonecopy.ggamma*log(1 - Ng)/log(2)
+                Ig = -self.zonecopy.gamma * \
+                    self.zonecopy.ggamma*log(1 - Ng)/log(2)
 
                 bmin = self.zonecopy.bmin
                 bmax = self.zonecopy.bmax
                 Nb = (N.clip(min=bmin, max=bmax - 0.25) - bmin)/(bmax - bmin)
-                Ib = -self.zonecopy.gamma*self.zonecopy.bgamma*log(1 - Nb)/log(2)
+                Ib = -self.zonecopy.gamma * \
+                    self.zonecopy.bgamma*log(1 - Nb)/log(2)
 
-                self.redAvgIntensIn.setText(f"Avg Red Intensity: {(I*R).sum()/R.sum():.2f}")
-                self.greenAvgIntensIn.setText(f"Avg Green Intensity: {(I*G).sum()/G.sum():.2f}")
-                self.blueAvgIntensIn.setText(f"Avg Blue Intensity: {(I*B).sum()/B.sum():.2f}")
+                self.redAvgIntensIn.setText(
+                    f"Avg Red Intensity: {(Ia*R).sum()/R.sum():.2f}")
+                self.greenAvgIntensIn.setText(
+                    f"Avg Green Intensity: {(Ia*G).sum()/G.sum():.2f}")
+                self.blueAvgIntensIn.setText(
+                    f"Avg Blue Intensity: {(Ia*B).sum()/B.sum():.2f}")
 
-                self.redAvgIntensOut.setText(f"Avg Red Intensity: {(Ir*R).sum()/R.sum():.2f}")
-                self.greenAvgIntensOut.setText(f"Avg Green Intensity: {(Ig*G).sum()/G.sum():.2f}")
-                self.blueAvgIntensOut.setText(f"Avg Blue Intensity: {(Ib*B).sum()/B.sum():.2f}")
+                self.redAvgIntensOut.setText(
+                    f"Avg Red Intensity: {(Ir*R).sum()/R.sum():.2f}")
+                self.greenAvgIntensOut.setText(
+                    f"Avg Green Intensity: {(Ig*G).sum()/G.sum():.2f}")
+                self.blueAvgIntensOut.setText(
+                    f"Avg Blue Intensity: {(Ib*B).sum()/B.sum():.2f}")
 
             else:
-                self.redAvgIntensOut.setText(f"Avg Red Intensity: —")
-                self.greenAvgIntensOut.setText(f"Avg Green Intensity: —")
-                self.blueAvgIntensOut.setText(f"Avg Blue Intensity: —")
+                self.redAvgIntensOut.setText("Avg Red Intensity: —")
+                self.greenAvgIntensOut.setText("Avg Green Intensity: —")
+                self.blueAvgIntensOut.setText("Avg Blue Intensity: —")
 
-                self.redAvgIntensIn.setText(f"Avg Red Intensity: —")
-                self.greenAvgIntensIn.setText(f"Avg Green Intensity: —")
-                self.blueAvgIntensIn.setText(f"Avg Blue Intensity: —")
+                self.redAvgIntensIn.setText("Avg Red Intensity: —")
+                self.greenAvgIntensIn.setText("Avg Green Intensity: —")
+                self.blueAvgIntensIn.setText("Avg Blue Intensity: —")
 
         else:
             self.rchan.setHistogram(None)
@@ -737,8 +765,13 @@ class ZoneAnalysis(QProgressDialog):
         self.thread = None
 
     def exec_(self):
-        self.thread = threading.Thread(target=self.zone.analyzeFrames,
-                                       kwargs=dict(notifyprogress=self.progress.emit, notifyfinish=self.progresscomplete.emit, cancelled=self.cancelevent))
+        self.thread = threading.Thread(
+            target=self.zone.analyzeFrames,
+            kwargs=dict(
+                notifyprogress=self.progress.emit,
+                notifyfinish=self.progresscomplete.emit,
+                cancelled=self.cancelevent))
+
         self.thread.start()
         return super().exec_()
 
@@ -771,13 +804,15 @@ class LevelsCol(ZoneCol):
         menu = ZoneCol.createContextMenu(self, table, index, obj)
         menu.addSeparator()
 
-        configure = QAction("Analyze selected zone(s)...", table, triggered=partial(
-            self.analyzeZones, table=table))
+        configure = QAction(
+            "Analyze selected zone(s)...", table,
+            triggered=partial(self.analyzeZones, table=table))
 
         menu.addAction(configure)
 
-        configure = QAction("Configure zone...", table, triggered=partial(
-            self.createDlg, table=table, index=index))
+        configure = QAction(
+            "Configure zone...", table,
+            triggered=partial(self.createDlg, table=table, index=index))
 
         menu.addAction(configure)
         return menu
@@ -800,7 +835,8 @@ class LevelsCol(ZoneCol):
 
         for k, (J, zone) in enumerate(zones):
             dlg = ZoneAnalysis(zone, table)
-            dlg.setWindowTitle(f"Analyzing Zone {J} ({k+1} of {len(zones)} selected)...")
+            dlg.setWindowTitle(f"Analyzing Zone {J} "
+                               f"({k+1} of {len(zones)} selected)...")
 
             if not dlg.exec_():
                 break

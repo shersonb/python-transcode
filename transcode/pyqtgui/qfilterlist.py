@@ -1,19 +1,20 @@
 from PyQt5.QtCore import (Qt, pyqtSignal)
-from PyQt5.QtWidgets import QMenu
 from .treeview import TreeView as QTreeView
 from .qitemmodel import QItemModel, Node
-import sys
 
 from .qinputselection import InputDelegate
 from .qfilterlistmodel import FilterListModel, FiltersRoot
-from .qfilterlistcols import FilterNameCol, SourceCol, OptionsCol, FormatCol, DurationCol
+from .qfilterlistcols import (FilterNameCol, SourceCol, OptionsCol,
+                              FormatCol, DurationCol)
 
 
 class EditableSourceCol(SourceCol):
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsEditable
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEnabled
+             | Qt.ItemIsDragEnabled | Qt.ItemIsEditable)
 
     def itemDelegate(self, parent):
-        return InputDelegate(self.filters.config.input_files, self.filters, parent)
+        return InputDelegate(self.filters.config.input_files,
+                             self.filters, parent)
 
 
 class QFilterList(QTreeView):

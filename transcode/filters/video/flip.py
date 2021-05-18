@@ -1,8 +1,6 @@
 #!/usr/bin/python
-import numpy
 from .base import BaseVideoFilter
 from ...avarrays import toNDArray, toVFrame
-from av.video import VideoFrame
 
 
 class HFlip(BaseVideoFilter):

@@ -1,8 +1,10 @@
-from .qinputtracklist import InputFilesRoot, FileTrackCol, LanguageCol, InputFmtCol
+from .qinputtracklist import (InputFilesRoot, FileTrackCol,
+                              LanguageCol, InputFmtCol)
 from .qfilterlistmodel import FiltersRoot
 from .qfilterlistcols import FilterNameCol, SourceCol, FormatCol
 from .qitemmodel import Node, ChildNodes, QItemModel
-from PyQt5.QtWidgets import QTreeView, QToolButton, QWidgetAction, QMenu, QItemDelegate
+from PyQt5.QtWidgets import (QTreeView, QToolButton, QWidgetAction,
+                             QMenu, QItemDelegate)
 from PyQt5.QtCore import QModelIndex, Qt, pyqtSignal
 from PyQt5.QtGui import QIcon
 from transcode.config.obj import InputFileList, FilterList
@@ -37,7 +39,8 @@ class ColumnUnion(object):
         self.selectfunc = selectfunc
 
     def editdata(self, index, obj):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "editdata"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "editdata")):
             return self.incol.editdata(index, obj)
 
         if isinstance(obj, BaseFilter) and hasattr(self.fcol, "editdata"):
@@ -46,7 +49,8 @@ class ColumnUnion(object):
         return None
 
     def seteditdata(self, index, obj, value):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "editdata"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "editdata")):
             return self.incol.editdata(index, obj)
 
         if isinstance(obj, BaseFilter) and hasattr(self.fcol, "editdata"):
@@ -58,7 +62,8 @@ class ColumnUnion(object):
         if obj is None:
             flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
-        elif isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "flags"):
+        elif (isinstance(obj, (BaseReader, Track))
+              and hasattr(self.incol, "flags")):
             if callable(self.incol.flags):
                 flags = self.incol.flags(index, obj)
 
@@ -78,7 +83,8 @@ class ColumnUnion(object):
         if obj is None:
             return flags | Qt.ItemIsSelectable
 
-        if isinstance(obj, (Track, BaseFilter)) and (self.selectfunc is None or self.selectfunc(obj)):
+        if (isinstance(obj, (Track, BaseFilter))
+                and (self.selectfunc is None or self.selectfunc(obj))):
             return flags | Qt.ItemIsSelectable | Qt.ItemIsEnabled
 
         return flags & ~Qt.ItemIsSelectable & ~Qt.ItemIsEnabled
@@ -93,7 +99,8 @@ class ColumnUnion(object):
         elif isinstance(obj, FilterList):
             return "Filters"
 
-        elif isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "display"):
+        elif (isinstance(obj, (BaseReader, Track))
+              and hasattr(self.incol, "display")):
             if callable(self.incol.display):
                 return self.incol.display(index, obj)
 
@@ -108,7 +115,8 @@ class ColumnUnion(object):
                 return self.fcol.display
 
     def icon(self, index, obj):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "icon"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "icon")):
             if callable(self.incol.icon):
                 return self.incol.icon(index, obj)
 
@@ -123,7 +131,8 @@ class ColumnUnion(object):
                 return self.fcol.icon
 
     def tooltip(self, index, obj):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "tooltip"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "tooltip")):
             if callable(self.incol.tooltip):
                 return self.incol.tooltip(index, obj)
 
@@ -138,7 +147,8 @@ class ColumnUnion(object):
                 return self.fcol.tooltip
 
     def sizehint(self, index, obj):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "sizehint"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "sizehint")):
             if callable(self.incol.sizehint):
                 return self.incol.sizehint(index, obj)
 
@@ -153,7 +163,8 @@ class ColumnUnion(object):
                 return self.fcol.sizehint
 
     def bgcolor(self, index, obj):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "bgcolor"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "bgcolor")):
             if callable(self.incol.bgcolor):
                 return self.incol.bgcolor(index, obj)
 
@@ -168,7 +179,8 @@ class ColumnUnion(object):
                 return self.fcol.bgcolor
 
     def bgdata(self, index, obj):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "bgdata"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "bgdata")):
             if callable(self.incol.bgdata):
                 return self.incol.bgdata(index, obj)
 
@@ -183,7 +195,8 @@ class ColumnUnion(object):
                 return self.fcol.bgdata
 
     def fgdata(self, index, obj):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "fgdata"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "fgdata")):
             if callable(self.incol.fgdata):
                 return self.incol.fgdata(index, obj)
 
@@ -198,7 +211,8 @@ class ColumnUnion(object):
                 return self.fcol.fgdata
 
     def checkstate(self, index, obj):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "checkstate"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "checkstate")):
             if callable(self.incol.checkstate):
                 return self.incol.checkstate(index, obj)
 
@@ -213,7 +227,8 @@ class ColumnUnion(object):
                 return self.fcol.checkstate
 
     def itemdata(self, index, obj):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "itemdata"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "itemdata")):
             if callable(self.incol.itemdata):
                 return self.incol.itemdata(index, obj)
 
@@ -228,7 +243,8 @@ class ColumnUnion(object):
                 return self.fcol.itemdata
 
     def textalign(self, index, obj):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "textalign"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "textalign")):
             if callable(self.incol.textalign):
                 return self.incol.textalign(index, obj)
 
@@ -243,7 +259,8 @@ class ColumnUnion(object):
                 return self.fcol.textalign
 
     def font(self, index, obj):
-        if isinstance(obj, (BaseReader, Track)) and hasattr(self.incol, "font"):
+        if (isinstance(obj, (BaseReader, Track))
+                and hasattr(self.incol, "font")):
             if callable(self.incol.font):
                 return self.incol.font(index, obj)
 
@@ -306,10 +323,14 @@ class QTreeSelection(QToolButton):
 
     def setModel(self, model):
         self.tree.setModel(model)
-        self.tree.selectionModel().currentChanged.connect(self._currentIndexChanged)
+        self.tree.selectionModel().currentChanged.connect(
+            self._currentIndexChanged)
 
     def keyPressEvent(self, event):
-        if event.key() in (Qt.Key_Up, Qt.Key_Down) and not event.modifiers() & (Qt.ShiftModifier | Qt.AltModifier | Qt.ControlModifier):
+        if (event.key() in (Qt.Key_Up, Qt.Key_Down)
+                and not (event.modifiers()
+                         & (Qt.ShiftModifier | Qt.AltModifier
+                            | Qt.ControlModifier))):
             self.tree.keyPressEvent(event)
 
         return super().keyPressEvent(event)
@@ -327,16 +348,16 @@ class QInputSelection(QTreeSelection):
 
         if input_files is not None:
             self.cols = [
-                ColumnUnion("Input",
-                            FileTrackCol(
-                                input_files), FilterNameCol(filters),
-                            width=256),
-                ColumnUnion("Language",
-                            LanguageCol(input_files), None, width=96),
-                ColumnUnion("Source",
-                            None, SourceCol(filters), width=96),
-                ColumnUnion("Format",
-                            InputFmtCol(input_files), FormatCol(filters), width=128),
+                ColumnUnion(
+                    "Input", FileTrackCol(input_files),
+                    FilterNameCol(filters), width=256),
+                ColumnUnion(
+                    "Language", LanguageCol(input_files), None, width=96),
+                ColumnUnion(
+                    "Source", None, SourceCol(filters), width=96),
+                ColumnUnion(
+                    "Format", InputFmtCol(input_files),
+                    FormatCol(filters), width=128),
             ]
 
             if filters:
@@ -391,7 +412,8 @@ class InputDelegate(QItemDelegate):
     def setEditorData(self, editor, index):
         item = index.data(Qt.UserRole)
 
-        if isinstance(item.source, Track) and item.source.container in self.input_files:
+        if (isinstance(item.source, Track)
+                and item.source.container in self.input_files):
             file_index = self.input_files.index(item.source.container)
             track_index = item.source.track_index
             editor.setCurrentIndex(editor.model().index(

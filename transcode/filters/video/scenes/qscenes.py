@@ -1,9 +1,8 @@
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import Qt, QObject, QPoint
-from PyQt5.QtWidgets import (QAction, QAbstractItemView, QProgressDialog, QMessageBox,
+from PyQt5.QtWidgets import (QAction, QProgressDialog, QMessageBox,
                              QCheckBox, QComboBox)
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QRegExpValidator
+from PyQt5.QtCore import pyqtSignal
 
 from functools import partial
 from numpy import isnan, arange, array
@@ -99,30 +98,39 @@ class BaseSceneCol(ZoneCol, QObject):
 
             else:
                 end = min(
-                    self.filter.prev.cumulativeIndexMap[k], self.filter.prev.framecount)
+                    self.filter.prev.cumulativeIndexMap[k],
+                    self.filter.prev.framecount)
 
         else:
             start = j
             end = k
 
-        analyzevisible = QAction("Analyze &visible", table, triggered=partial(self.startAnalysis,
-                                                                              table=table, start=start, end=end))
-        analyzeall = QAction("Analyze &all", table, triggered=partial(self.startAnalysis, table=table,
-                                                                      start=0, end=self.filter.prev.framecount))
-        autoscenes = QAction("A&utoscenes", table,
-                             triggered=partial(self.autoScenes, table=table))
+        analyzevisible = QAction(
+            "Analyze &visible", table,
+            triggered=partial(
+                self.startAnalysis, table=table, start=start, end=end))
+        analyzeall = QAction(
+            "Analyze &all", table,
+            triggered=partial(
+                self.startAnalysis, table=table, start=0,
+                end=self.filter.prev.framecount))
+        autoscenes = QAction(
+            "A&utoscenes", table,
+            triggered=partial(self.autoScenes, table=table))
 
         if (self.filter.stats is None
-            or self.filter.stats.shape[0] < self.filter.source.framecount - 1
-            or (
-                isinstance(self.filter.prev, BaseFilter)
-                and isnan(self.filter.stats[self.filter.prev.cumulativeIndexReverseMap[1:] - 1]).any()
-                )
-            ):
+                or (self.filter.stats.shape[0]
+                    < self.filter.source.framecount - 1)
+                or (
+                    isinstance(self.filter.prev, BaseFilter)
+                    and isnan(self.filter.stats[
+                        self.filter.prev.cumulativeIndexReverseMap[1:]
+                        - 1]).any())):
             autoscenes.setDisabled(True)
 
-        keyscenes = QAction("Scenes from &Key Frames", table, triggered=partial(
-            self.scenesFromKeyFrames, table=table))
+        keyscenes = QAction(
+            "Scenes from &Key Frames", table,
+            triggered=partial(self.scenesFromKeyFrames, table=table))
         menu.addAction(analyzevisible)
         menu.addAction(analyzeall)
         menu.addAction(autoscenes)
@@ -146,7 +154,11 @@ class BaseSceneCol(ZoneCol, QObject):
 
     def autoScenes(self, table):
         if len(self.filter) <= 1 or \
-                QMessageBox.question(table, "Auto Scenes", "Current zone settings will be lost! Do you wish to proceed?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+                QMessageBox.question(
+                    table, "Auto Scenes",
+                    "Current zone settings will be lost! "
+                    "Do you wish to proceed?",
+                    QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
             isan = isnan(self.filter.stats).sum(axis=1) == 0
             N = arange(1, self.filter.source.framecount)[isan]
             stats = self.filter.stats[isan]
@@ -186,7 +198,9 @@ class BaseSceneCol(ZoneCol, QObject):
 
     def scenesFromKeyFrames(self, table):
         answer = QMessageBox.question(
-            table, "Scenes from Key Frames", "Current zone settings will be lost! Do you wish to proceed?", QMessageBox.Yes | QMessageBox.No)
+            table, "Scenes from Key Frames",
+            "Current zone settings will be lost! Do you wish to proceed?",
+            QMessageBox.Yes | QMessageBox.No)
         if answer == QMessageBox.Yes:
             while len(self.filter) > 1:
                 self.filter.removeZoneAt(self.filter[1].src_start)
@@ -218,11 +232,8 @@ class BaseSceneCol(ZoneCol, QObject):
         table.setFocus()
 
     def _keyPressFunc(self, table, event):
-        current = table.currentIndex()
-        selection = table.selectionModel().selectedIndexes()
         key = event.key()
         modifiers = event.modifiers()
-        model = table.model()
 
         if key == Qt.Key_S and modifiers & Qt.ShiftModifier:
             zones = set(self.filter.zone_indices)

@@ -1,10 +1,7 @@
 #!/usr/bin/python
 from .. import zoned
-from transcode.util import cached, numpify
 import numpy
-import itertools
 from av.video import VideoFrame
-import sys
 from scipy.signal import fftconvolve
 from collections import OrderedDict
 from itertools import islice
@@ -56,8 +53,10 @@ class Zone(zoned.Zone):
                  rmin=0, rmax=255, rgamma=1,
                  gmin=0, gmax=255, ggamma=1,
                  bmin=0, bmax=255, bgamma=1,
-                 gamma=1, transition=False, histogram=None, prev=None, next=None, parent=None):
-        super().__init__(src_start=src_start, prev=prev, next=next, parent=parent)
+                 gamma=1, transition=False, histogram=None,
+                 prev=None, next=None, parent=None):
+        super().__init__(src_start=src_start,
+                         prev=prev, next=next, parent=parent)
         self.rmin = rmin
         self.gmin = gmin
         self.bmin = bmin
@@ -123,14 +122,33 @@ class Zone(zoned.Zone):
             return "LevelsZone"
 
         if self.transition:
-            return "<LevelsZone: ({self.src_start}, {self.src_end}), [({self.prev.rmin:.2f}, {self.prev.rmax:.2f}), ({self.prev.gmin:.2f}, {self.prev.gmax:.2f}), ({self.prev.bmin:.2f}, {self.prev.bmax:.2f}), {self.prev.gamma:.4f}] - [({self.next.rmin:.2f}, {self.next.rmax:.2f}), ({self.next.gmin:.2f}, {self.next.gmax:.2f}), ({self.next.bmin:.2f}, {self.next.bmax:.2f}), {self.next.gamma:.4f}], {self.framecount} frames, {self.duration:.3f} seconds (Transition)>".format(self=self)
+            return (f"<LevelsZone: ({self.src_start}, {self.src_end}), ["
+                    f"({self.prev.rmin:.2f}, {self.prev.rmax:.2f}, "
+                    f"{self.prev.rgamma:.2f}), ({self.prev.gmin:.2f}, "
+                    f"{self.prev.gmax:.2f}, {self.prev.ggamma:.2f}), "
+                    f"({self.prev.bmin:.2f}, {self.prev.bmax:.2f}, "
+                    f"{self.prev.bgamma:.2f}), {self.prev.gamma:.4f}] - ["
+                    f"({self.next.rmin:.2f}, {self.next.rmax:.2f}, "
+                    f"{self.next.rgamma:.2f}), ({self.next.gmin:.2f}, "
+                    f"{self.next.gmax:.2f}, {self.next.gmax:.2f}, "
+                    f"{self.next.ggamma:.2f}), ({self.next.bmin:.2f}, "
+                    f"{self.next.bmax:.2f}, {self.next.bgamma:.2f}), "
+                    f"{self.next.gamma:.4f}], {self.framecount} frames, "
+                    f"{self.duration:.3f} seconds (Transition)>")
+
         else:
-            return "<LevelsZone: ({self.src_start}, {self.src_end}), [({self.rmin:.2f}, {self.rmax:.2f}, {self.rgamma:.2f}), ({self.gmin:.2f}, {self.gmax:.2f}, {self.ggamma:.2f}), ({self.bmin:.2f}, {self.bmax:.2f}, {self.bgamma:.2f}), {self.gamma:.4f}], {self.framecount} frames, {self.duration:.3f} seconds>".format(self=self)
+            return (f"<LevelsZone: ({self.src_start}, {self.src_end}), ["
+                    f"({self.rmin:.2f}, {self.rmax:.2f}, {self.rgamma:.2f}), "
+                    f"({self.gmin:.2f}, {self.gmax:.2f}, {self.ggamma:.2f}), "
+                    f"({self.bmin:.2f}, {self.bmax:.2f}, {self.bgamma:.2f}), "
+                    f"{self.gamma:.4f}], {self.framecount} frames, "
+                    f"{self.duration:.3f} seconds>")
 
     @property
     def rmin(self):
         if self.transition:
-            return numpy.linspace(self.prev.rmin, self.next.rmin, self.framecount + 2)[1:-1]
+            return numpy.linspace(
+                self.prev.rmin, self.next.rmin, self.framecount + 2)[1:-1]
         return self._rmin
 
     @rmin.setter
@@ -147,7 +165,8 @@ class Zone(zoned.Zone):
     @property
     def rmax(self):
         if self.transition:
-            return numpy.linspace(self.prev.rmax, self.next.rmax, self.framecount + 2)[1:-1]
+            return numpy.linspace(
+                self.prev.rmax, self.next.rmax, self.framecount + 2)[1:-1]
         return self._rmax
 
     @rmax.setter
@@ -164,7 +183,8 @@ class Zone(zoned.Zone):
     @property
     def gmin(self):
         if self.transition:
-            return numpy.linspace(self.prev.gmin, self.next.gmin, self.framecount + 2)[1:-1]
+            return numpy.linspace(
+                self.prev.gmin, self.next.gmin, self.framecount + 2)[1:-1]
         return self._gmin
 
     @gmin.setter
@@ -181,7 +201,8 @@ class Zone(zoned.Zone):
     @property
     def gmax(self):
         if self.transition:
-            return numpy.linspace(self.prev.gmax, self.next.gmax, self.framecount + 2)[1:-1]
+            return numpy.linspace(
+                self.prev.gmax, self.next.gmax, self.framecount + 2)[1:-1]
         return self._gmax
 
     @gmax.setter
@@ -198,7 +219,8 @@ class Zone(zoned.Zone):
     @property
     def bmin(self):
         if self.transition:
-            return numpy.linspace(self.prev.bmin, self.next.bmin, self.framecount + 2)[1:-1]
+            return numpy.linspace(
+                self.prev.bmin, self.next.bmin, self.framecount + 2)[1:-1]
         return self._bmin
 
     @bmin.setter
@@ -215,7 +237,8 @@ class Zone(zoned.Zone):
     @property
     def bmax(self):
         if self.transition:
-            return numpy.linspace(self.prev.bmax, self.next.bmax, self.framecount + 2)[1:-1]
+            return numpy.linspace(
+                self.prev.bmax, self.next.bmax, self.framecount + 2)[1:-1]
         return self._bmax
 
     @bmax.setter
@@ -232,7 +255,8 @@ class Zone(zoned.Zone):
     @property
     def gamma(self):
         if self.transition:
-            return numpy.linspace(self.prev.gamma, self.next.gamma, self.framecount + 2)[1:-1]
+            return numpy.linspace(
+                self.prev.gamma, self.next.gamma, self.framecount + 2)[1:-1]
         return self._gamma
 
     @gamma.setter
@@ -248,7 +272,8 @@ class Zone(zoned.Zone):
     @property
     def rgamma(self):
         if self.transition:
-            return numpy.linspace(self.prev.rgamma, self.next.rgamma, self.framecount + 2)[1:-1]
+            return numpy.linspace(
+                self.prev.rgamma, self.next.rgamma, self.framecount + 2)[1:-1]
         return self._rgamma
 
     @rgamma.setter
@@ -264,7 +289,8 @@ class Zone(zoned.Zone):
     @property
     def ggamma(self):
         if self.transition:
-            return numpy.linspace(self.prev.ggamma, self.next.ggamma, self.framecount + 2)[1:-1]
+            return numpy.linspace(
+                self.prev.ggamma, self.next.ggamma, self.framecount + 2)[1:-1]
         return self._ggamma
 
     @ggamma.setter
@@ -280,7 +306,8 @@ class Zone(zoned.Zone):
     @property
     def bgamma(self):
         if self.transition:
-            return numpy.linspace(self.prev.bgamma, self.next.bgamma, self.framecount + 2)[1:-1]
+            return numpy.linspace(
+                self.prev.bgamma, self.next.bgamma, self.framecount + 2)[1:-1]
         return self._bgamma
 
     @bgamma.setter
@@ -388,19 +415,30 @@ class Zone(zoned.Zone):
             G = self._G[G, k]
             B = self._B[B, k]
 
-        elif self.rmin == self.gmin == self.bmin == 0 and self.rmax == self.gmax == self.bmax == 255 \
-                and self.rgamma == self.ggamma == self.bgamma == self.gamma == 1:
+        elif (self.rmin == self.gmin == self.bmin == 0
+              and self.rmax == self.gmax == self.bmax == 255
+              and self.rgamma == self.ggamma
+              == self.bgamma == self.gamma == 1):
             """Nothing is actually being done to the frame."""
             return frame
 
         else:
-            if self.rmin != 0 or self.rmax != 255 or self.gamma != 1 or self.rgamma != 1:
+            if (self.rmin != 0
+                    or self.rmax != 255
+                    or self.gamma != 1
+                    or self.rgamma != 1):
                 R = self._R[R]
 
-            if self.gmin != 0 or self.gmax != 255 or self.gamma != 1 or self.ggamma != 1:
+            if (self.gmin != 0
+                    or self.gmax != 255
+                    or self.gamma != 1
+                    or self.ggamma != 1):
                 G = self._G[G]
 
-            if self.bmin != 0 or self.bmax != 255 or self.gamma != 1 or self.bgamma != 1:
+            if (self.bmin != 0
+                    or self.bmax != 255
+                    or self.gamma != 1
+                    or self.bgamma != 1):
                 B = self._B[B]
 
         A = numpy.zeros(R.shape+(3,), dtype=numpy.uint8)
@@ -411,14 +449,21 @@ class Zone(zoned.Zone):
         return (A, fmt, pict_type, pts, time_base)
 
     def processFrames(self, frames, prev_start):
-        def torgb(frame): return frame.to_rgb(
-        ) if frame.format.name != "rgb24" else frame
-        def totuple(frame): return (frame.to_ndarray(), frame.format.name,
-                                    frame.pict_type.name, frame.pts, frame.time_base)
-        I = map(torgb, frames)
-        I = map(totuple, I)
+        def torgb(frame):
+            return (frame.to_rgb()
+                    if frame.format.name != "rgb24"
+                    else frame)
 
-        for (A, fmt, pict_type, pts, time_base) in map(self._processOneFrame, I):
+        def totuple(frame):
+            return (
+                frame.to_ndarray(), frame.format.name,
+                frame.pict_type.name, frame.pts, frame.time_base)
+
+        rgb = map(torgb, frames)
+        tuples = map(totuple, rgb)
+
+        for (A, fmt, pict_type, pts, time_base) in map(
+                self._processOneFrame, tuples):
             frame = VideoFrame.from_ndarray(A, fmt)
             frame.pict_type = pict_type
             frame.pts = pts
@@ -428,22 +473,24 @@ class Zone(zoned.Zone):
     def _calc_pts_time(self, m=None):
         return self.parent.prev.pts_time(m)
 
-    def analyzeFrames(self, iterable=None, notifyprogress=None, notifyfinish=None, notifycancelled=None, cancelled=None):
+    def analyzeFrames(self, iterable=None, notifyprogress=None,
+                      notifyfinish=None, notifycancelled=None,
+                      cancelled=None):
         if iterable is None:
             iterable = self.parent.prev.iterFrames(
                 self.prev_start, self.prev_end, whence="framenumber")
 
         A = numpy.zeros((3, 1024), dtype=numpy.int0)
-        I = parallel.map(analyzeFrame, iterable)
+        results = parallel.map(analyzeFrame, iterable)
 
-        for k, H in enumerate(I):
+        for k, H in enumerate(results):
             A += numpy.int0(H)
 
             if callable(notifyprogress):
                 notifyprogress(k)
 
             if isinstance(cancelled, threading.Event) and cancelled.isSet():
-                I.stop()
+                results.stop()
                 cancelled.clear()
                 self.histogram = A
 

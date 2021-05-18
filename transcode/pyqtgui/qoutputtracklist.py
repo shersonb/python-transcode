@@ -1,10 +1,11 @@
 from PyQt5.QtCore import (Qt, pyqtSignal, pyqtBoundSignal)
-from PyQt5.QtWidgets import (QHBoxLayout, QAbstractItemView, QMessageBox, QPushButton,
-                             QTreeView, QComboBox, QDoubleSpinBox, QItemDelegate,
-                             QComboBox, QWidget, QApplication, QMenu, QAction, QFileDialog)
+from PyQt5.QtWidgets import (QHBoxLayout, QAbstractItemView, QMessageBox,
+                             QPushButton, QComboBox, QDoubleSpinBox,
+                             QItemDelegate, QWidget, QMenu, QAction,
+                             QFileDialog)
 from PyQt5.QtGui import QFont, QIcon, QBrush
 
-from .qitemmodel import QItemModel, Node, ChildNodes, NoChildren
+from .qitemmodel import QItemModel, Node, ChildNodes
 from .qinputselection import InputDelegate
 from .qlangselect import LanguageDelegate, LANGUAGES
 from .treeview import TreeView as QTreeView
@@ -16,10 +17,9 @@ from transcode.encoders import vencoders, aencoders, sencoders
 from transcode.encoders import createConfigObj as createCodecConfigObj
 from transcode.filters.filterchain import FilterChain
 from transcode.filters.base import BaseFilter
-from transcode.config.ebml.filterchains import FilterChainElement, FilterElement
+from transcode.config.ebml.filterchains import FilterChainElement
 import av
 from functools import partial
-from itertools import count
 from collections import OrderedDict
 import sys
 from transcode.encoders import encoders
@@ -59,22 +59,25 @@ class BaseOutputTrackCol(object):
         current = table.currentIndex()
         track = current.data(Qt.UserRole)
 
-        configurefilter = QAction("Configure Filters...",
-                        table, triggered=partial(table.configureFilters, track))
+        configurefilter = QAction(
+            "Configure Filters...", table,
+            triggered=partial(table.configureFilters, track))
 
-        importfilters = QAction("Load Filters...",
-                        table, triggered=partial(table.importFilterChain, track))
+        importfilters = QAction(
+            "Load Filters...", table,
+            triggered=partial(table.importFilterChain, track))
 
-        exportfilters = QAction("Save Filters...",
-                        table, triggered=partial(table.exportFilterChain, track))
+        exportfilters = QAction(
+            "Save Filters...", table,
+            triggered=partial(table.exportFilterChain, track))
 
         if isinstance(track, OutputTrack):
-            configureencoder = QAction("Configure Encoder...",
-                         table, triggered=partial(table.configureEncoder, track.encoder))
+            configureencoder = QAction(
+                "Configure Encoder...", table,
+                triggered=partial(table.configureEncoder, track.encoder))
 
         else:
             configureencoder = QAction("Configure Encoder...", table)
-
 
         configurefilter.setDisabled(track is None or track.encoder is None)
         importfilters.setDisabled(track is None or track.encoder is None)
@@ -89,8 +92,10 @@ class BaseOutputTrackCol(object):
         delete = QAction("Delete selected...",
                          table, triggered=partial(table.askDeleteSelected))
 
-
-        if len(selected) == 0 or any(not isinstance(index.data(Qt.UserRole), BaseReader) for index in selected):
+        if (len(selected) == 0
+                or any(
+                    not isinstance(index.data(Qt.UserRole), BaseReader)
+                    for index in selected)):
             delete.setDisabled(True)
 
         menu.addAction(delete)
@@ -169,7 +174,8 @@ class QCodecSelection(QWidget):
     def encoderSelectionComboBoxChanged(self, value):
         data = self.encoderSelectionComboBox.currentData()
 
-        if (id(self.track), data) not in self.savedencoders and data is not None:
+        if ((id(self.track), data) not in self.savedencoders
+                and data is not None):
             self.savedencoders[id(self.track),
                                data] = createCodecConfigObj(data)
 
@@ -180,7 +186,8 @@ class QCodecSelection(QWidget):
         encoder = self.savedencoders[id(self.track), data]
 
         dlg = encoder.copy().QtDlg(self)
-        if hasattr(dlg, "settingsApplied") and isinstance(dlg.settingsApplied, pyqtBoundSignal):
+        if (hasattr(dlg, "settingsApplied")
+                and isinstance(dlg.settingsApplied, pyqtBoundSignal)):
             dlg.settingsApplied.connect(self.contentsModified)
 
         if dlg is not None and dlg.exec_():
@@ -223,8 +230,9 @@ class CodecDelegate(QItemDelegate):
     def createEditor(self, parent, option, index):
         track = index.data(Qt.UserRole)
         editor = QCodecSelection(track, self.savedencoders, parent)
-        editor.encoderSelectionComboBox.currentIndexChanged.connect(partial(self.setModelData, editor=editor,
-                                                                            model=index.model(), index=index))
+        editor.encoderSelectionComboBox.currentIndexChanged.connect(
+            partial(self.setModelData, editor=editor, model=index.model(),
+                    index=index))
         editor.contentsModified.connect(self.contentsModified)
         return editor
 
@@ -291,7 +299,8 @@ class FiltersDelegate(QItemDelegate):
 class TitleCol(BaseOutputTrackCol):
     headerdisplay = "Track"
     width = 256
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEditable
+             | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled)
 
     def __init__(self, input_files, filters, output_file):
         super().__init__(input_files, filters, output_file, "name")
@@ -339,7 +348,8 @@ class TitleCol(BaseOutputTrackCol):
 class MapCol(BaseOutputTrackCol):
     width = 72
     headerdisplay = "Source"
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsEditable
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEnabled
+             | Qt.ItemIsDragEnabled | Qt.ItemIsEditable)
 
     def __init__(self, input_files, filters, output_file):
         super().__init__(input_files, filters, output_file, "source")
@@ -358,13 +368,15 @@ class MapCol(BaseOutputTrackCol):
     tooltip = display
 
     def itemDelegate(self, parent):
-        return InputDelegate(self.filters.config.input_files, self.filters, parent)
+        return InputDelegate(
+            self.filters.config.input_files, self.filters, parent)
 
 
 class OutputLangCol(BaseOutputTrackCol):
     width = 120
     headerdisplay = "Language"
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEditable
+             | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled)
 
     def __init__(self, input_files, filters, output_file):
         super().__init__(input_files, filters, output_file, "language")
@@ -385,7 +397,8 @@ class OutputLangCol(BaseOutputTrackCol):
 
 class OutputCodecCol(BaseOutputTrackCol):
     headerdisplay = "Codec"
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEditable
+             | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled)
     width = 256
 
     def __init__(self, input_files, filters, output_file):
@@ -443,7 +456,8 @@ class FiltersCol(BaseOutputTrackCol):
 
     def flags(self, index, track):
         if track.encoder is not None:
-            return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+            return (Qt.ItemIsSelectable | Qt.ItemIsEditable
+                    | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled)
 
         return Qt.ItemIsSelectable | Qt.ItemIsDragEnabled
 
@@ -472,7 +486,8 @@ class DelayDelegate(QItemDelegate):
 class DelayCol(BaseOutputTrackCol):
     headerdisplay = "Delay"
     width = 128
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEditable
+             | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled)
 
     def __init__(self, input_files, filters, output_file):
         super().__init__(input_files, filters, output_file, "delay")
@@ -545,7 +560,8 @@ class OutputFileNode(Node):
     def canDropChildren(self, model, parent, items, row, action):
         if action == Qt.CopyAction:
             for item in items:
-                if not isinstance(item.value, (InputTrack, BaseFilter, BaseReader)):
+                if not isinstance(item.value,
+                                  (InputTrack, BaseFilter, BaseReader)):
                     return False
 
         elif action == Qt.MoveAction:
@@ -563,22 +579,23 @@ class OutputFileNode(Node):
                 if isinstance(item.value, BaseReader):
                     for track in item.value.tracks:
                         encoder = self.autoselectEncoder(track)
-                        newtrack = self.value.createTrack(track,
-                                                         name=track.name, language=track.language,
-                                                         encoder=encoder)
+                        newtrack = self.value.createTrack(
+                            track, name=track.name, language=track.language,
+                            encoder=encoder)
 
                         newtracks.append(newtrack)
 
                 elif isinstance(item.value, BaseFilter):
                     encoder = self.autoselectEncoder(item.value)
-                    newtrack = self.value.createTrack(item.value, encoder=encoder)
+                    newtrack = self.value.createTrack(
+                        item.value, encoder=encoder)
                     newtracks.append(newtrack)
 
                 else:
                     encoder = self.autoselectEncoder(item.value)
-                    newtrack = self.value.createTrack(item.value,
-                                                     name=item.value.name, language=item.value.language,
-                                                     encoder=encoder)
+                    newtrack = self.value.createTrack(
+                        item.value, name=item.value.name,
+                        language=item.value.language, encoder=encoder)
 
                     newtracks.append(newtrack)
 
@@ -627,10 +644,12 @@ class OutputFileNode(Node):
                 return encoders.get("ac3")(bitrate=128)
 
     def canDropItems(self, model, parent, items, action):
-        return self.canDropChildren(model, parent, items, len(self.children), action)
+        return self.canDropChildren(model, parent, items,
+                                    len(self.children), action)
 
     def dropItems(self, model, parent, items, action):
-        return self.dropChildren(model, parent, items, len(self.children), action)
+        return self.dropChildren(model, parent, items,
+                                 len(self.children), action)
 
 
 class OutputTrackNodes(ChildNodes):
@@ -653,15 +672,14 @@ class OutputTrackNodes(ChildNodes):
 class OutputTrackList(QTreeView):
     contentsModified = pyqtSignal()
     _deletetitle = "Delete track(s)"
-    _deletemsg = "Do you wish to delete the selected track(s)? All settings, filters, and encoders associated with selected track(s) will be lost!"
+    _deletemsg = ("Do you wish to delete the selected track(s)? All settings,"
+                  " filters, and encoders associated with selected track(s)"
+                  " will be lost!")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFont(QFont("DejaVu Serif", 8))
         self.setMinimumWidth(640)
-
-        # self.setEditTriggers(QTreeView.SelectedClicked |
-                            # QTreeView.EditKeyPressed)
 
         self.setDragDropMode(QTreeView.DragDrop)
         self.setDefaultDropAction(Qt.MoveAction)
@@ -699,7 +717,8 @@ class OutputTrackList(QTreeView):
                 DelayCol(input_files, filters, output_file)
             ]
 
-            if hasattr(output_file, "trackCols") and callable(output_file.trackCols):
+            if (hasattr(output_file, "trackCols")
+                    and callable(output_file.trackCols)):
                 for col in output_file.trackCols():
                     cols.append(col(input_files, filters, output_file))
 
@@ -743,7 +762,8 @@ class OutputTrackList(QTreeView):
         dlg.exec_()
 
     def exportFilterChain(self, track):
-        filefilters = "Filterchains (*.filterchain *.filterchain.gz *.filterchain.bz2 *.filterchain.xz)"
+        filefilters = ("Filterchains (*.filterchain *.filterchain.gz"
+                       " *.filterchain.bz2 *.filterchain.xz)")
 
         defaultname = "untitled.filterchain.xz"
         fileName, _ = QFileDialog.getSaveFileName(self, "Save File",
@@ -757,7 +777,8 @@ class OutputTrackList(QTreeView):
                 self._handleException(*sys.exc_info())
 
     def importFilterChain(self, track):
-        filefilters = "Filterchains (*.filterchain *.filterchain.gz *.filterchain.bz2 *.filterchain.xz)"
+        filefilters = ("Filterchains (*.filterchain *.filterchain.gz"
+                       " *.filterchain.bz2 *.filterchain.xz)")
 
         defaultname = "untitled.filterchain.xz"
         fileName, _ = QFileDialog.getOpenFileName(self, "Save File",
@@ -771,6 +792,9 @@ class OutputTrackList(QTreeView):
                 self._handleException(*sys.exc_info())
 
             if not track.filters or QMessageBox.question(
-            self, "Replace Filters", "Do you wish to replace the current filters for the selected track? Current filters associated with selected track will be lost!", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+                    self, "Replace Filters", "Do you wish to replace the"
+                    " current filters for the selected track? Current filters"
+                    " associated with selected track will be lost!",
+                    QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
                 track.filters = filters
                 self.contentsModified.emit()

@@ -107,7 +107,6 @@ class TreeView(QTreeView):
     def keyPressEvent(self, event):
         key = event.key()
         modifiers = event.modifiers()
-        idx = self.currentIndex()
 
         if (key == Qt.Key_Delete
                 and modifiers == Qt.NoModifier

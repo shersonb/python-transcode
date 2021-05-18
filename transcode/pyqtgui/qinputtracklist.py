@@ -1,7 +1,7 @@
 from PyQt5.QtCore import (Qt, pyqtSignal, QFileInfo, QModelIndex)
-from PyQt5.QtWidgets import (QLabel, QMessageBox, QPushButton, QFileDialog, QWidget,
-                             QTreeView, QProgressDialog, QFileIconProvider, QVBoxLayout,
-                             QHBoxLayout, QMenu, QAction)
+from PyQt5.QtWidgets import (QLabel, QMessageBox, QPushButton, QFileDialog,
+                             QWidget, QProgressDialog, QFileIconProvider,
+                             QVBoxLayout, QHBoxLayout, QMenu, QAction)
 from PyQt5.QtGui import (QFont, QIcon, QBrush)
 
 from .qitemmodel import QItemModel, Node, ChildNodes
@@ -40,7 +40,7 @@ class BaseInputCol(object):
         return getattr(obj, self.attrname)
 
     def seteditdata(self, index, obj, data):
-        setattr(obj, attrname, data)
+        setattr(obj, self.attrname, data)
 
     def font(self, index, obj):
         if isinstance(obj, BaseReader):
@@ -58,7 +58,9 @@ class BaseInputCol(object):
 
         selected = table.selectedIndexes()
 
-        if len(selected) == 0 or any(not isinstance(index.data(Qt.UserRole), BaseReader) for index in selected):
+        if (len(selected) == 0
+                or any(not isinstance(index.data(Qt.UserRole), BaseReader)
+                       for index in selected)):
             delete.setDisabled(True)
 
         menu.addAction(delete)
@@ -271,7 +273,8 @@ class MediaLoad(QProgressDialog):
         try:
             self.input_file = transcode.open(self.fileName)
 
-            if hasattr(self.input_file, "scan") and callable(self.input_file.scan):
+            if (hasattr(self.input_file, "scan")
+                    and callable(self.input_file.scan)):
                 self.input_file.scan(self.progressStarted,
                                      self.packetRead, self.progressComplete)
 
@@ -280,7 +283,7 @@ class MediaLoad(QProgressDialog):
         except SystemExit:
             return
 
-        except BaseException as exc:
+        except Exception:
             self.exceptionCaptured.emit(*sys.exc_info())
 
     def exec_(self):
@@ -394,10 +397,12 @@ class InputFilesRoot(Node):
         return True
 
     def canDropItems(self, model, parent, items, action):
-        return self.canDropChildren(model, parent, items, len(self.children), action)
+        return self.canDropChildren(model, parent, items,
+                                    len(self.children), action)
 
     def dropItems(self, model, parent, items, action):
-        return self.dropChildren(model, parent, items, len(self.children), action)
+        return self.dropChildren(model, parent, items,
+                                 len(self.children), action)
 
 
 class InputFilesNodes(ChildNodes):
@@ -414,8 +419,8 @@ class InputFileNode(Node):
 class QInputTrackList(QTreeView):
     contentsModified = pyqtSignal()
     _deletetitle = "Confirm delete input file(s)"
-    _deletemsg = "Do you wish to delete the selected input file(s)? "\
-                                "All references to selected file(s) will be broken."
+    _deletemsg = ("Do you wish to delete the selected input file(s)? "
+                  "All references to selected file(s) will be broken.")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -448,7 +453,7 @@ class QInputTrackList(QTreeView):
 
     def addFile(self, row_id=-1):
         if (isinstance(self.input_files, InputFileList)
-            and isinstance(self.input_files.config, Config)):
+                and isinstance(self.input_files.config, Config)):
             path = os.path.abspath(self.input_files.config.workingdir)
 
         else:
@@ -467,8 +472,8 @@ class QInputTrackList(QTreeView):
 
         filters.insert(0, f"All supported files ({' '.join(allExts)})")
 
-        fileNames, _ = QFileDialog.getOpenFileNames(self, "Open File(s)",
-                                                  path, ";;".join(filters))
+        fileNames, _ = QFileDialog.getOpenFileNames(
+            self, "Open File(s)", path, ";;".join(filters))
 
         if fileNames:
             newfiles = []

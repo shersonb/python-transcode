@@ -35,7 +35,9 @@ class Slider(QSlider):
             w = sr.height()
             x = event.y()
 
-        return self.minimum() + int(float(self.maximum() - self.minimum())*(x - w/2)/(W - w)/ti + 0.5)*ti
+        return (self.minimum()
+                + int(float(self.maximum() - self.minimum())
+                      * (x - w/2)/(W - w)/ti + 0.5)*ti)
 
     def mousePressEvent(self, event):
         opt = QStyleOptionSlider()
@@ -94,7 +96,8 @@ class Slider(QSlider):
         p = 2
         angle = event.angleDelta().y()/120
 
-        while len(self._angleHistory) and self._angleHistory[0] < (T - 0.25, 0):
+        while (len(self._angleHistory)
+               and self._angleHistory[0] < (T - 0.25, 0)):
             del self._angleHistory[0]
 
         lastAngleSum = sum([a for t, a in self._angleHistory])
@@ -117,7 +120,8 @@ class Slider(QSlider):
                     snapIndex = len([n for n in self._snapValues if n < x])
 
                 else:
-                    snapIndex = len([n for n in self._snapValues if n <= x]) - 1
+                    snapIndex = len(
+                        [n for n in self._snapValues if n <= x]) - 1
 
                 newSnapIndex = max(
                     0, min(snapIndex + int(dn), len(self._snapValues) - 1))

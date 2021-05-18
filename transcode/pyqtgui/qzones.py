@@ -1,10 +1,9 @@
-from PyQt5.QtGui import QPixmap, QFont, QIcon
+from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QTime, pyqtSignal, pyqtSlot
-from PyQt5.QtWidgets import (QAction, QDialog, QVBoxLayout, QHBoxLayout, QScrollArea,
-                             QPushButton, QLabel, QWidget, QGridLayout, QComboBox, QMessageBox)
+from PyQt5.QtWidgets import (QAction, QVBoxLayout, QHBoxLayout, QScrollArea,
+                             QPushButton, QLabel, QWidget, QGridLayout,
+                             QComboBox, QMessageBox)
 
-from itertools import islice
-from more_itertools import peekable
 from numpy import concatenate
 
 from .qframeselect import QFrameSelect
@@ -144,7 +143,8 @@ class ZoneDlg(QFilterConfig):
     def _createZoneControls(self, layout=None, index=None):
         pass
 
-    def _createZoneButtons(self, layout=None, index=None, layoutcls=QHBoxLayout):
+    def _createZoneButtons(self, layout=None,
+                           index=None, layoutcls=QHBoxLayout):
         self.applyZoneBtn = QPushButton("Apply Zone Settings", self)
         self.resetZoneBtn = QPushButton("Reset Zone Settings", self)
 
@@ -226,7 +226,8 @@ class ZoneDlg(QFilterConfig):
     def _createGlobalControls(self, layout=None, index=None):
         pass
 
-    def _createDlgButtons(self, layout=None, index=None, layoutcls=QHBoxLayout):
+    def _createDlgButtons(self, layout=None,
+                          index=None, layoutcls=QHBoxLayout):
         if layout is None:
             layout = self.layout()
 
@@ -353,7 +354,8 @@ class ZoneDlg(QFilterConfig):
             if n > self.zone.prev_start:
                 if isinstance(self.filtercopy.prev, BaseFilter):
                     if n > 0:
-                        m = self.filtercopy.prev.cumulativeIndexReverseMap[n-1] + 1
+                        m = (self.filtercopy.prev.cumulativeIndexReverseMap
+                             [n-1] + 1)
 
                     else:
                         m = self.filtercopy.prev.cumulativeIndexReverseMap[n]
@@ -431,7 +433,8 @@ class ZoneDlg(QFilterConfig):
                 self.toggleZoneBtn.setText(f"&Remove {self.zonename} Here")
 
         elif self._mode == 1:
-            frame = next(self.filtercopy.prev.iterFrames(n, whence="framenumber"))
+            frame = next(self.filtercopy.prev.iterFrames(
+                n, whence="framenumber"))
 
             if n > self.zone.prev_start:
                 self.toggleZoneBtn.setText(f"&Insert {self.zonename} Here")
@@ -459,7 +462,8 @@ class ZoneDlg(QFilterConfig):
             return next(self.zonecopy.iterFrames(n))
 
         except StopIteration:
-            return VideoFrame(width=self.filtercopy.width, height=self.filtercopy.height)
+            return VideoFrame(
+                width=self.filtercopy.width, height=self.filtercopy.height)
 
     @pyqtSlot()
     def applyZone(self):
@@ -520,11 +524,12 @@ class ZoneDlg(QFilterConfig):
         super().closeEvent(event)
 
     def askApplyZone(self):
-        return QMessageBox.question(self, "Apply zone settings?",
-                                    "Do you wish to apply zone settings?",
-                                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+        return QMessageBox.question(
+            self, "Apply zone settings?",
+            "Do you wish to apply zone settings?",
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
 
     def askRemoveZone(self):
-        return QMessageBox.question(self, "Remove?",
-                                    "Are you sure you wish to remove zone?",
-                                    QMessageBox.Yes | QMessageBox.No)
+        return QMessageBox.question(
+            self, "Remove?", "Are you sure you wish to remove zone?",
+            QMessageBox.Yes | QMessageBox.No)

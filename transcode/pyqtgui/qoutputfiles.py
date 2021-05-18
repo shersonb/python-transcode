@@ -1,8 +1,8 @@
 from PyQt5.QtCore import Qt, QModelIndex, pyqtSignal, QFileInfo
-from PyQt5.QtGui import QFont, QBrush, QColor, QPainter
-from PyQt5.QtWidgets import (QTreeView, QAbstractItemView, QWidget, QVBoxLayout,
-                             QMenu, QAction, QMessageBox, QFileIconProvider, QToolButton,
-                             QWidgetAction, QLabel, QHBoxLayout)
+from PyQt5.QtGui import QFont, QBrush
+from PyQt5.QtWidgets import (QAbstractItemView, QWidget, QVBoxLayout, QMenu,
+                             QAction, QFileIconProvider, QToolButton,
+                             QHBoxLayout)
 
 from .qitemmodel import QItemModel, Node
 from .treeview import TreeView as QTreeView
@@ -37,11 +37,12 @@ class OutputFilesRoot(Node):
         return True
 
     def canDropItems(self, model, parent, items, action):
-        return self.canDropChildren(model, parent, items, len(self.children), action)
+        return self.canDropChildren(model, parent, items,
+                                    len(self.children), action)
 
     def dropItems(self, model, parent, items, action):
-        return self.dropChildren(model, parent, items, len(self.children), action)
-
+        return self.dropChildren(model, parent, items,
+                                 len(self.children), action)
 
 
 class OutputFilesModel(QItemModel):
@@ -79,12 +80,19 @@ class OutputFileCol(object):
         menu.addMenu(insertSubMenu)
 
         for clsname, writer in sorted(writers.items()):
-            item = QAction(f"{writer.fmtname} ({', '.join(writer.extensions)}) [{clsname[len('transcode.containers.'):]}]",
-                           table, triggered=partial(table.addFile, cls=writer))
+            item = QAction(
+                f"{writer.fmtname} ({', '.join(writer.extensions)})"
+                f" [{clsname[len('transcode.containers.'):]}]",
+                table, triggered=partial(table.addFile, cls=writer))
+
             newAtBottomSubMenu.addAction(item)
 
-            item = QAction(f"{writer.fmtname} ({', '.join(writer.extensions)}) [{clsname[len('transcode.containers.'):]}]",
-                           table, triggered=partial(table.addFile, cls=writer, row_id=index.row()))
+            item = QAction(
+                f"{writer.fmtname} ({', '.join(writer.extensions)})"
+                f" [{clsname[len('transcode.containers.'):]}]",
+                table, triggered=partial(
+                    table.addFile, cls=writer, row_id=index.row()))
+
             insertSubMenu.addAction(item)
 
         delete = QAction("Delete selected...",
@@ -99,6 +107,8 @@ class OutputFileCol(object):
 
 class QOutputFileList(QTreeView):
     contentsModified = pyqtSignal()
+    _deletetitle = "Confirm delete output file(s)"
+    _deletemsg = "Do you wish to delete the selected output file(s)?"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -123,11 +133,8 @@ class QOutputFileList(QTreeView):
                 OutputFileCol(output_files),
             ]
 
-            self.setModel(OutputFilesModel(OutputFilesRoot(output_files), cols))
-            #self.model().dataChanged.connect(self.contentsModified)
-            #self.model().rowsInserted.connect(self.contentsModified)
-            #self.model().rowsMoved.connect(self.contentsModified)
-            #self.model().rowsRemoved.connect(self.contentsModified)
+            self.setModel(OutputFilesModel(
+                OutputFilesRoot(output_files), cols))
 
             for k, col in enumerate(cols):
                 if hasattr(col, "width"):
@@ -138,22 +145,6 @@ class QOutputFileList(QTreeView):
 
         else:
             self.setModel(QItemModel(Node(None), []))
-
-    def askDeleteSelected(self):
-        model = self.model()
-        selected = {model.getNode(index)
-                    for index in self.selectedIndexes()}
-
-        if len(selected) == 1:
-            answer = QMessageBox.question(self, "Confirm delete output file",
-                                          "Do you wish to delete the selected output file?", QMessageBox.Yes | QMessageBox.No)
-
-        elif len(selected) > 1:
-            answer = QMessageBox.question(self, "Confirm delete output files",
-                                          "Do you wish to delete the selected output files?", QMessageBox.Yes | QMessageBox.No)
-
-        if answer == QMessageBox.Yes:
-            self.deleteSelected()
 
     def addFile(self, cls, row_id=-1):
         model = self.model()
@@ -193,8 +184,11 @@ class QOutputFiles(QWidget):
         self.addBtn.setMenu(addMenu)
 
         for clsname, writer in sorted(writers.items()):
-            item = QAction(f"{writer.fmtname} ({', '.join(writer.extensions)}) [{clsname[len('transcode.containers.'):]}]",
-                           self, triggered=partial(self.outputFileList.addFile, cls=writer))
+            item = QAction(
+                f"{writer.fmtname} ({', '.join(writer.extensions)})"
+                f" [{clsname[len('transcode.containers.'):]}]",
+                self, triggered=partial(
+                    self.outputFileList.addFile, cls=writer))
             addMenu.addAction(item)
 
         btnlayout.addWidget(self.addBtn)

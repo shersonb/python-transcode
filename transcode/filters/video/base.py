@@ -1,11 +1,12 @@
 from ...util import cached, search, ValidationException
-from ..base import BaseFilter, notifyIterate, FilterChain
+from ..base import BaseFilter, notifyIterate
 import numpy
 from itertools import count
 
 
 class InvalidType(ValidationException):
     pass
+
 
 class BaseVideoFilter(BaseFilter):
     allowedtypes = ("video",)
@@ -60,22 +61,6 @@ class BaseVideoFilter(BaseFilter):
     def format(self):
         if self.prev:
             return self.prev.format
-
-    #@property
-    #def prev(self):
-        #if isinstance(self.parent, FilterChain):
-            #return self._prev or self.parent.prev
-
-        #return self._prev or self._source
-
-    #@prev.setter
-    #def prev(self, value):
-        #if value is not None and value.type and value.type != "video":
-            #raise ValueError(
-                #f"Invalid media source for Video filter: {value.type}")
-
-        #self._prev = value
-        #self.reset_cache()
 
     def reset_cache(self, start=0, end=None):
         try:
@@ -144,7 +129,8 @@ class BaseVideoFilter(BaseFilter):
     @cached
     def durations(self):
         if self.framecount is not None and self.defaultDuration is not None:
-            return numpy.ones(self.framecount, dtype=numpy.int0)*int(self.defaultDuration)
+            return (numpy.ones(self.framecount, dtype=numpy.int0)
+                    * int(self.defaultDuration))
 
     def frameIndexFromPts(self, pts, dir="+"):
         return search(self.pts, pts, dir)
@@ -154,7 +140,8 @@ class BaseVideoFilter(BaseFilter):
 
     @cached
     def cumulativeIndexMap(self):
-        if hasattr(self.prev, "cumulativeIndexMap") and self.prev.cumulativeIndexMap is not None:
+        if (hasattr(self.prev, "cumulativeIndexMap")
+                and self.prev.cumulativeIndexMap is not None):
             n = self.prev.cumulativeIndexMap
 
         elif self.prev is not None and self.prev.framecount is not None:
@@ -172,7 +159,8 @@ class BaseVideoFilter(BaseFilter):
     @cached
     def cumulativeIndexReverseMap(self):
         n = self.reverseIndexMap
-        if hasattr(self.prev, "cumulativeIndexReverseMap") and self.prev.cumulativeIndexReverseMap is not None:
+        if (hasattr(self.prev, "cumulativeIndexReverseMap")
+                and self.prev.cumulativeIndexReverseMap is not None):
             n = self.prev.cumulativeIndexReverseMap[n]
 
         return n
@@ -238,7 +226,8 @@ class BaseVideoFilter(BaseFilter):
         else:
             prev_end = None
 
-        iterable = self.prev.iterFrames(prev_start, prev_end, whence="framenumber")
+        iterable = self.prev.iterFrames(
+            prev_start, prev_end, whence="framenumber")
 
         for frame in self.processFrames(iterable):
             k = self.frameIndexFromPts(frame.pts)
@@ -264,7 +253,7 @@ class BaseVideoFilter(BaseFilter):
     def keyframes(self):
         prev = self.prev_keyframes
         kf = set(self.indexMap[numpy.int0(list(prev))])
-        return self.new_keyframes.union(prev)
+        return self.new_keyframes.union(kf)
 
     @property
     def new_keyframes(self):

@@ -2,8 +2,10 @@ import ciqueue
 import threading
 import psutil
 
+
 class ThreadPool(object):
-    def __init__(self, nthreads=psutil.cpu_count(), qcls=ciqueue.Queue, qmaxsize=4):
+    def __init__(self, nthreads=psutil.cpu_count(),
+                 qcls=ciqueue.Queue, qmaxsize=4):
         self._threadPool = []
         self._inputQueue = qcls(qmaxsize)
 

@@ -35,7 +35,7 @@ class ChildNodes(ChildList):
         self.extend(map(self._wrap, items))
 
     def _append(self, value):
-        self.parent.value.append(node.value)
+        self.parent.value.append(value)
 
     def _insert(self, index, value):
         self.parent.value.insert(index, value)
@@ -195,10 +195,12 @@ class QItemModel(QAbstractItemModel):
         if index.isValid():
             node = index.internalPointer()
 
-            if node is None or node.parent is None or node.parent.parent is None:
+            if (node is None or node.parent is None
+                    or node.parent.parent is None):
                 return QModelIndex()
 
-            return self.createIndex(node.parent.parent.index(node.parent), 0, node.parent)
+            return self.createIndex(
+                node.parent.parent.index(node.parent), 0, node.parent)
 
         return QModelIndex()
 
@@ -217,11 +219,11 @@ class QItemModel(QAbstractItemModel):
         if role == Qt.UserRole:
             return obj
 
-        row_index = index.row()
         col_index = index.column()
         col_obj = self.columns[col_index]
 
-        if role in self.ROLEMAPPING.keys() and hasattr(col_obj, self.ROLEMAPPING[role]):
+        if (role in self.ROLEMAPPING.keys()
+                and hasattr(col_obj, self.ROLEMAPPING[role])):
             role_obj = getattr(col_obj, self.ROLEMAPPING[role])
 
             if callable(role_obj):
@@ -234,7 +236,6 @@ class QItemModel(QAbstractItemModel):
 
     def setData(self, index, data, role=Qt.EditRole):
         if index.isValid():
-            row_index = index.row()
             obj = index.data(role=Qt.UserRole)
             col_index = index.column()
             col_obj = self.columns[col_index]
@@ -243,10 +244,11 @@ class QItemModel(QAbstractItemModel):
                     hasattr(col_obj, "set"+self.ROLEMAPPING[role]):
                 role_obj = getattr(col_obj, "set"+self.ROLEMAPPING[role])
 
-                if callable(role_obj) and self._callsafe(role_obj, index, obj, data):
+                if (callable(role_obj)
+                        and self._callsafe(role_obj, index, obj, data)):
                     idx1 = self.index(0, 0, index.parent())
-                    idx2 = self.index(self.rowCount()-1,
-                                      self.columnCount()-1, index.parent())
+                    idx2 = self.index(self.rowCount() - 1,
+                                      self.columnCount() - 1, index.parent())
                     self.dataChanged.emit(idx1, idx2)
                     return True
 
@@ -259,7 +261,8 @@ class QItemModel(QAbstractItemModel):
 
             col_obj = self.columns[index]
 
-            if role in self.ROLEMAPPING.keys() and hasattr(col_obj, "header"+self.ROLEMAPPING[role]):
+            if (role in self.ROLEMAPPING.keys()
+                    and hasattr(col_obj, "header" + self.ROLEMAPPING[role])):
                 role_obj = getattr(col_obj, "header" + self.ROLEMAPPING[role])
 
                 if callable(role_obj):
@@ -315,15 +318,16 @@ class QItemModel(QAbstractItemModel):
     def appendRow(self, row, parent=QModelIndex()):
         self.insertRow(self.rowCount(parent), row, parent)
 
-    def moveRow(self, position, newposition, srcparent=QModelIndex(), destparent=QModelIndex()):
+    def moveRow(self, position, newposition,
+                srcparent=QModelIndex(), destparent=QModelIndex()):
         srcnode = self.getNode(srcparent)
         destnode = self.getNode(destparent)
 
-        if self.beginMoveRows(srcparent, position, position, destparent, newposition):
+        if self.beginMoveRows(srcparent, position, position,
+                              destparent, newposition):
             if srcnode is destnode and newposition > position:
                 newposition -= 1
 
-            value = srcnode.children[position].value
             node = srcnode.children.pop(position)
             destnode.children.insert(newposition, node)
             self.endMoveRows()
@@ -351,19 +355,16 @@ class QItemModel(QAbstractItemModel):
 
         return True
 
-    def setRow(self, position, row, parent=QModelIndex()):
-        node = self.getNode(parent)
-        node.children.setValue(position, value)
-        self.emitDataChanged(parent)
-
     def insertColumn(self, col_id, col, parent=QModelIndex()):
         self.beginInsertColumns(parent, col_id, col_id)
         self.columns.insert(col_id, col)
         self.endInsertColumns()
         return True
 
-    def moveColumn(self, position, newposition, srcparent=QModelIndex(), destparent=QModelIndex()):
-        if self.beginMoveColumns(srcparent, position, position, destparent, newposition):
+    def moveColumn(self, position, newposition,
+                   srcparent=QModelIndex(), destparent=QModelIndex()):
+        if self.beginMoveColumns(srcparent, position,
+                                 position, destparent, newposition):
             if newposition > position:
                 newposition -= 1
 
@@ -376,8 +377,10 @@ class QItemModel(QAbstractItemModel):
 
         return True
 
-    def moveColumns(self, start, end, newposition, srcparent=QModelIndex(), destparent=QModelIndex()):
-        if self.beginMoveColumns(srcparent, start, end - 1, destparent, newposition):
+    def moveColumns(self, start, end, newposition,
+                    srcparent=QModelIndex(), destparent=QModelIndex()):
+        if self.beginMoveColumns(srcparent, start, end - 1,
+                                 destparent, newposition):
             if newposition > start:
                 newposition -= end - start
 
@@ -402,7 +405,6 @@ class QItemModel(QAbstractItemModel):
 
     def flags(self, index=QModelIndex()):
         if index.isValid():
-            row_index = index.row()
             obj = index.data(role=Qt.UserRole)
             col_index = index.column()
             col_obj = self.columns[col_index]
@@ -435,7 +437,8 @@ class QItemModel(QAbstractItemModel):
 
             return QModelIndex()
 
-        return self.index(node.parent.index(node), 0, self.findIndex(node.parent))
+        return self.index(node.parent.index(node),
+                          0, self.findIndex(node.parent))
 
     def getCookie(self, index):
         item = index.internalPointer()
@@ -486,14 +489,20 @@ class QItemModel(QAbstractItemModel):
         col_obj = self.columns[col_index]
 
         if row == -1:
-            if hasattr(col_obj, "dropItems") and callable(col_obj.dropItems) and self._callsafe(col_obj.dropItems, self, obj, items, action):
+            if (hasattr(col_obj, "dropItems")
+                    and callable(col_obj.dropItems)
+                    and self._callsafe(col_obj.dropItems,
+                                       self, obj, items, action)):
                 return True
 
             if hasattr(node, "dropItems") and callable(node.dropChildren):
-                return bool(self._callsafe(node.dropItems, self, parent, items, action))
+                return bool(self._callsafe(node.dropItems,
+                                           self, parent, items, action))
 
-        elif row >= 0 and hasattr(node, "dropChildren") and callable(node.dropChildren):
-            return bool(self._callsafe(node.dropChildren, self, parent, items, row, action))
+        elif (row >= 0 and hasattr(node, "dropChildren")
+              and callable(node.dropChildren)):
+            return bool(self._callsafe(node.dropChildren,
+                                       self, parent, items, row, action))
 
         return False
 
@@ -525,7 +534,9 @@ class QItemModel(QAbstractItemModel):
 
         if row == -1:
             if hasattr(col_obj, "canDropItems"):
-                if callable(col_obj.canDropItems) and self._callsafe(col_obj.canDropItems, parent, obj, items, action):
+                if (callable(col_obj.canDropItems)
+                        and self._callsafe(col_obj.canDropItems,
+                                           parent, obj, items, action)):
                     return True
 
                 if col_obj.canDropItems:
@@ -533,7 +544,8 @@ class QItemModel(QAbstractItemModel):
 
             if hasattr(node, "canDropItems"):
                 if callable(node.canDropItems):
-                    return bool(self._callsafe(node.canDropItems, self, parent, items, action))
+                    return bool(self._callsafe(node.canDropItems,
+                                               self, parent, items, action))
 
                 return bool(node.canDropItems)
 
@@ -541,7 +553,8 @@ class QItemModel(QAbstractItemModel):
 
         if hasattr(node, "canDropChildren"):
             if callable(node.canDropChildren):
-                return bool(self._callsafe(node.canDropChildren, self, parent, items, row, action))
+                return bool(self._callsafe(node.canDropChildren,
+                                           self, parent, items, row, action))
 
             return bool(node.canDropChildren)
 
@@ -625,7 +638,8 @@ class QIntegerModel(QAbstractItemModel):
         col_index = index.column()
         col_obj = self.columns[col_index]
 
-        if role in self.ROLEMAPPING.keys() and hasattr(col_obj, self.ROLEMAPPING[role]):
+        if (role in self.ROLEMAPPING.keys()
+                and hasattr(col_obj, self.ROLEMAPPING[role])):
             role_obj = getattr(col_obj, self.ROLEMAPPING[role])
 
             if callable(role_obj):
@@ -646,7 +660,8 @@ class QIntegerModel(QAbstractItemModel):
                     hasattr(col_obj, "set"+self.ROLEMAPPING[role]):
                 role_obj = getattr(col_obj, "set"+self.ROLEMAPPING[role])
 
-                if callable(role_obj) and self._callsafe(role_obj, index, row_index, data):
+                if (callable(role_obj)
+                        and self._callsafe(role_obj, index, row_index, data)):
                     idx1 = self.index(0, 0, index.parent())
                     idx2 = self.index(self.rowCount()-1,
                                       self.columnCount()-1, index.parent())
@@ -662,7 +677,8 @@ class QIntegerModel(QAbstractItemModel):
 
             col_obj = self.columns[index]
 
-            if role in self.ROLEMAPPING.keys() and hasattr(col_obj, "header"+self.ROLEMAPPING[role]):
+            if (role in self.ROLEMAPPING.keys()
+                    and hasattr(col_obj, "header"+self.ROLEMAPPING[role])):
                 role_obj = getattr(col_obj, "header" + self.ROLEMAPPING[role])
 
                 if callable(role_obj):
@@ -697,7 +713,7 @@ class QIntegerModel(QAbstractItemModel):
 
         elif rowcount > self._rowcount:
             self.beginInsertRows(parent, self._rowcount, rowcount - 1)
-            self._rowcount = rowCount
+            self._rowcount = rowcount
             self.endInsertRows()
 
     def insertColumn(self, col_id, col, parent=QModelIndex()):
@@ -715,8 +731,10 @@ class QIntegerModel(QAbstractItemModel):
         self.endInsertColumns()
         return True
 
-    def moveColumn(self, position, newposition, srcparent=QModelIndex(), destparent=QModelIndex()):
-        if self.beginMoveColumns(srcparent, position, position, destparent, newposition):
+    def moveColumn(self, position, newposition,
+                   srcparent=QModelIndex(), destparent=QModelIndex()):
+        if self.beginMoveColumns(srcparent, position,
+                                 position, destparent, newposition):
             if newposition > position:
                 newposition -= 1
 
@@ -729,8 +747,10 @@ class QIntegerModel(QAbstractItemModel):
 
         return True
 
-    def moveColumns(self, start, end, newposition, srcparent=QModelIndex(), destparent=QModelIndex()):
-        if self.beginMoveColumns(srcparent, start, end - 1, destparent, newposition):
+    def moveColumns(self, start, end, newposition,
+                    srcparent=QModelIndex(), destparent=QModelIndex()):
+        if self.beginMoveColumns(srcparent, start,
+                                 end - 1, destparent, newposition):
             if newposition > start:
                 newposition -= end - start
 

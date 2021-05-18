@@ -2,13 +2,11 @@ from PyQt5.QtGui import (QColor, QValidator)
 from PyQt5.QtCore import Qt, QRegExp
 from PyQt5.QtWidgets import (QItemDelegate, QLineEdit, QAction, QMessageBox,
                              QVBoxLayout, QHBoxLayout, QLabel)
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QRegExpValidator
 from fractions import Fraction as QQ
 import regex
 from functools import partial
 
-from . import Zone
 from transcode.pyqtgui.qzones import ZoneDlg
 from transcode.pyqtgui.qframetablecolumn import ZoneCol
 
@@ -40,15 +38,16 @@ class PatternValidator(QValidator):
             odds_start = min(odds.replace("*", ""))
             odds_end = max(odds.replace("*", ""))
 
-            old_blksize = len(value)//2
             new_blksize = min(ord(evens_end) - ord(evens_start) +
                               1, ord(odds_end) - ord(odds_start) + 1)
 
-            for char in range(ord(evens_start), ord(evens_start) + new_blksize):
+            for char in range(
+                    ord(evens_start), ord(evens_start) + new_blksize):
                 if chr(char) not in evens:
                     return QValidator.Invalid, value, offset
 
-            for char in range(ord(odds_start), ord(odds_start) + new_blksize):
+            for char in range(
+                    ord(odds_start), ord(odds_start) + new_blksize):
                 if chr(char) not in odds:
                     return QValidator.Invalid, value, offset
 
@@ -151,7 +150,8 @@ class BaseFrameRateCol(ZoneCol):
     fgcoloralt = QColor(160, 160, 160)
 
     @staticmethod
-    def setZoneValues(table, zone, src_fps=QQ(24000, 1001), pulldown=None, pulldownoffset=0):
+    def setZoneValues(table, zone, src_fps=QQ(24000, 1001),
+                      pulldown=None, pulldownoffset=0):
         zone.src_fps = src_fps
         zone.pulldown = pulldown
         zone.pulldownoffset = pulldownoffset
@@ -162,46 +162,90 @@ class BaseFrameRateCol(ZoneCol):
         menu.addSeparator()
         J, zone = self.filter.zoneAt(obj)
 
-        menu.addAction(QAction("&AA (24000/1001)", table,
-                               triggered=partial(self.setZoneValues, table=table, zone=zone)))
-        menu.addAction(QAction("AA (&30000/1001)", table,
-                               triggered=partial(self.setZoneValues, table=table, zone=zone, src_fps=QQ(30000, 1001))))
-        menu.addAction(QAction("A&B (24000/1001)", table, triggered=partial(
-            self.setZoneValues, table=table, zone=zone, pulldown="AB")))
+        menu.addAction(QAction(
+            "&AA (24000/1001)", table,
+            triggered=partial(self.setZoneValues, table=table, zone=zone)))
+
+        menu.addAction(QAction(
+            "AA (&30000/1001)", table,
+            triggered=partial(
+                self.setZoneValues, table=table, zone=zone,
+                src_fps=QQ(30000, 1001))))
+
+        menu.addAction(QAction(
+            "A&B (24000/1001)", table,
+            triggered=partial(
+                self.setZoneValues, table=table, zone=zone, pulldown="AB")))
+
         menu.addSeparator()
-        menu.addAction(QAction("AAABBCCCDD(&0) (30000/1001)", table,
-                               triggered=partial(self.setZoneValues, table=table, zone=zone, src_fps=QQ(30000, 1001),
-                                                 pulldown="AAABBCCCDD", pulldownoffset=(zone.src_start - obj) % 5)))
-        menu.addAction(QAction("AAABBCCCDD(&1) (30000/1001)", table,
-                               triggered=partial(self.setZoneValues, table=table, zone=zone, src_fps=QQ(30000, 1001),
-                                                 pulldown="AAABBCCCDD", pulldownoffset=(1 + zone.src_start - obj) % 5)))
-        menu.addAction(QAction("AAABBCCCDD(&2) (30000/1001)", table,
-                               triggered=partial(self.setZoneValues, table=table, zone=zone, src_fps=QQ(30000, 1001),
-                                                 pulldown="AAABBCCCDD", pulldownoffset=(2 + zone.src_start - obj) % 5)))
-        menu.addAction(QAction("AAABBCCCDD(&3) (30000/1001)", table,
-                               triggered=partial(self.setZoneValues, table=table, zone=zone, src_fps=QQ(30000, 1001),
-                                                 pulldown="AAABBCCCDD", pulldownoffset=(3 + zone.src_start - obj) % 5)))
-        menu.addAction(QAction("AAABBCCCDD(&4) (30000/1001)", table,
-                               triggered=partial(self.setZoneValues, table=table, zone=zone, src_fps=QQ(30000, 1001),
-                                                 pulldown="AAABBCCCDD", pulldownoffset=(4 + zone.src_start - obj) % 5)))
+
+        menu.addAction(QAction(
+            "AAABBCCCDD(&0) (30000/1001)", table,
+            triggered=partial(
+                self.setZoneValues, table=table, zone=zone,
+                src_fps=QQ(30000, 1001), pulldown="AAABBCCCDD",
+                pulldownoffset=(zone.src_start - obj) % 5)))
+
+        menu.addAction(QAction(
+            "AAABBCCCDD(&1) (30000/1001)", table,
+            triggered=partial(
+                self.setZoneValues, table=table, zone=zone,
+                src_fps=QQ(30000, 1001), pulldown="AAABBCCCDD",
+                pulldownoffset=(1 + zone.src_start - obj) % 5)))
+
+        menu.addAction(QAction(
+            "AAABBCCCDD(&2) (30000/1001)", table,
+            triggered=partial(
+                self.setZoneValues, table=table, zone=zone,
+                src_fps=QQ(30000, 1001), pulldown="AAABBCCCDD",
+                pulldownoffset=(2 + zone.src_start - obj) % 5)))
+
+        menu.addAction(QAction(
+            "AAABBCCCDD(&3) (30000/1001)", table,
+            triggered=partial(
+                self.setZoneValues, table=table, zone=zone,
+                src_fps=QQ(30000, 1001), pulldown="AAABBCCCDD",
+                pulldownoffset=(3 + zone.src_start - obj) % 5)))
+
+        menu.addAction(QAction(
+            "AAABBCCCDD(&4) (30000/1001)", table,
+            triggered=partial(
+                self.setZoneValues, table=table, zone=zone,
+                src_fps=QQ(30000, 1001), pulldown="AAABBCCCDD",
+                pulldownoffset=(4 + zone.src_start - obj) % 5)))
+
         menu.addSeparator()
-        menu.addAction(QAction("AAABBCC&DDD (30000/1001)", table,
-                               triggered=partial(self.setZoneValues, table=table, zone=zone, src_fps=QQ(30000, 1001),
-                                                 pulldown="AAABBCCDDD", pulldownoffset=0)))
-        menu.addAction(QAction("AAABBCCDD&E (30000/1001)", table,
-                               triggered=partial(self.setZoneValues, table=table, zone=zone, src_fps=QQ(30000, 1001),
-                                                 pulldown="AAABBCCDDE", pulldownoffset=0)))
+
+        menu.addAction(QAction(
+            "AAABBCC&DDD (30000/1001)", table,
+            triggered=partial(
+                self.setZoneValues, table=table, zone=zone,
+                src_fps=QQ(30000, 1001), pulldown="AAABBCCDDD",
+                pulldownoffset=0)))
+
+        menu.addAction(QAction(
+            "AAABBCCDD&E (30000/1001)", table,
+            triggered=partial(
+                self.setZoneValues, table=table, zone=zone,
+                src_fps=QQ(30000, 1001), pulldown="AAABBCCDDE",
+                pulldownoffset=0)))
+
         menu.addSeparator()
-        menu.addAction(QAction("Auto Frame Rate", table,
-                               triggered=partial(self.autoFrameRate, table=table)))
+
+        menu.addAction(QAction(
+            "Auto Frame Rate", table,
+            triggered=partial(self.autoFrameRate, table=table)))
         return menu
 
     def autoFrameRate(self, table):
-        isdefault = len(self.filter) == 1 and self.filter.start.src_fps == QQ(
-            24000, 1001) and self.filter.start.pulldown is None
+        isdefault = (len(self.filter) == 1
+                     and self.filter.start.src_fps == QQ(24000, 1001)
+                     and self.filter.start.pulldown is None)
 
-        if isdefault or QMessageBox.question(table, "Auto Frame Rate",
-                                             "Current zone settings will be lost! Do you wish to proceed?", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+        if isdefault or QMessageBox.question(
+                table, "Auto Frame Rate",
+                "Current zone settings will be lost! Do you wish to proceed?",
+                QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
             self.filter.autoframerate()
             table.contentsModified.emit()
 
@@ -252,8 +296,11 @@ class YBlendCheckCol(BaseFrameRateCol):
     def flags(self, index, obj):
         K, zone = self.filter.zoneAt(obj)
 
-        if zone.pulldown is not None and "A" in zone.pulldown[:2] and zone.dest_fps != zone.src_fps:
-            return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
+        if (zone.pulldown is not None
+                and "A" in zone.pulldown[:2]
+                and zone.dest_fps != zone.src_fps):
+            return (Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                    | Qt.ItemIsUserCheckable)
 
         return Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
 
@@ -284,8 +331,11 @@ class UVBlendCheckCol(BaseFrameRateCol):
     def flags(self, index, obj):
         K, zone = self.filter.zoneAt(obj)
 
-        if zone.pulldown is not None and "A" in zone.pulldown[:2] and zone.dest_fps != zone.src_fps:
-            return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
+        if (zone.pulldown is not None
+                and "A" in zone.pulldown[:2]
+                and zone.dest_fps != zone.src_fps):
+            return (Qt.ItemIsEnabled | Qt.ItemIsSelectable
+                    | Qt.ItemIsUserCheckable)
 
         return Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
 
@@ -380,7 +430,8 @@ class TCPatternOffsetCol(BaseFrameRateCol):
         if zone.pulldown is None:
             return "-"
 
-        return "%d" % ((obj - zone.prev_start + zone.pulldownoffset) % zone.old_blksize)
+        return str((obj - zone.prev_start + zone.pulldownoffset)
+                   % zone.old_blksize)
 
     def flags(self, index, obj):
         K, zone = self.filter.zoneAt(obj)

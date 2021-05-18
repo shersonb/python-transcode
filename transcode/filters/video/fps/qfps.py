@@ -1,9 +1,8 @@
-from PyQt5.QtCore import Qt, pyqtSlot, QRegExp, QTime
-from PyQt5.QtGui import QRegExpValidator, QPen, QColor
-from PyQt5.QtWidgets import (QAction, QLabel, QSpinBox, QGridLayout, QVBoxLayout,
-                             QHBoxLayout, QLineEdit, QScrollArea, QWidget, QComboBox)
+from PyQt5.QtCore import Qt, pyqtSlot, QRegExp
+from PyQt5.QtGui import QRegExpValidator
+from PyQt5.QtWidgets import (QLabel, QVBoxLayout, QHBoxLayout, QLineEdit,
+                             QWidget)
 
-from functools import partial
 from fractions import Fraction as QQ
 from transcode.pyqtgui.qfilterconfig import QFilterConfig
 from . import Fps
@@ -57,7 +56,7 @@ class FpsDlg(QFilterConfig):
         if regex.match(r"^\d+/\d+$", value):
             value = QQ(value)
 
-        elif regex.match(r"^\d+$", sar):
+        elif regex.match(r"^\d+$", value):
             value = int(value)
 
         else:

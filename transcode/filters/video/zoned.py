@@ -2,7 +2,6 @@ from .base import BaseVideoFilter
 from ...util import cached, llist, applyState
 import numpy
 from itertools import chain, islice, count
-import time
 from copy import deepcopy
 from more_itertools import peekable
 
@@ -24,7 +23,8 @@ class Zone(object):
         self._duration = None
 
     def __repr__(self):
-        return "%s(src_start=%s, src_end=%s)" % (type(self).__name__, self.src_start, self.src_end)
+        return (f"{type(self).__name__}(src_start={self.src_start}, "
+                f"src_end={self.src_end})")
 
     def __reduce__(self):
         state = self.__getstate__()
@@ -54,15 +54,12 @@ class Zone(object):
 
     @cached
     def pts_time_local(self):
-        return self.parent.prev.pts_time[self.prev_start:self.prev_end] - self.start_pts_time
+        return (self.parent.prev.pts_time[self.prev_start:self.prev_end]
+                - self.start_pts_time)
 
     @pts_time_local.deleter
     def pts_time_local(self):
         del self.pts_time
-
-    @cached
-    def start_pts_time(self):
-        return self.parent.prev.pts_time[self.prev_start]
 
     @cached
     def pts_time(self):
@@ -267,11 +264,13 @@ class Zone(object):
             prev_start = self.parent.prev.frameIndexFromPts(frames.peek().pts)
             framecount = self.prev_end - prev_start
 
-            for frame in self.processFrames(islice(frames, int(framecount)), prev_start):
+            for frame in self.processFrames(
+                    islice(frames, int(framecount)), prev_start):
                 if frame.pts < self.pts[start - self.dest_start]:
                     continue
 
-                if end < self.dest_end and frame.pts < self.pts[end - self.dest_start]:
+                if (end < self.dest_end
+                        and frame.pts < self.pts[end - self.dest_start]):
                     break
 
                 yield frame
@@ -298,11 +297,13 @@ class Zone(object):
 class ZonedFilter(llist, BaseVideoFilter):
     zoneclass = None
 
-    def __init__(self, zones=[], prev=None, next=None, notify_input=None, notify_output=None):
+    def __init__(self, zones=[], prev=None, next=None,
+                 notify_input=None, notify_output=None):
         self.zone_indices = set()
         llist.__init__(self, zones)
         BaseVideoFilter.__init__(
-            self, prev=prev, next=next, notify_input=notify_input, notify_output=notify_output)
+            self, prev=prev, next=next, notify_input=notify_input,
+            notify_output=notify_output)
 
         if not zones:
             self.insertZoneAt(0)
@@ -481,10 +482,13 @@ class ZonedFilter(llist, BaseVideoFilter):
         k = 0
         K = len(self) - 1
 
-        if self[k].src_start <= n and (self[k].src_end is None or n < self[k].src_end):
+        if (self[k].src_start <= n
+                and (self[k].src_end is None or n < self[k].src_end)):
             return k, self[k]
 
-        if (self[K].src_end is None and self[K].src_start <= n) or self[K].src_start <= n < self[K].src_end:
+        if ((self[K].src_end is None
+             and self[K].src_start <= n)
+                or self[K].src_start <= n < self[K].src_end):
             return K, self[K]
 
         while k < K - 1:
@@ -510,7 +514,9 @@ class ZonedFilter(llist, BaseVideoFilter):
         if self[k].dest_start <= m < self[k].dest_end:
             return k, self[k]
 
-        if (self[K].dest_end is None and self[K].dest_start <= m) or self[K].dest_start <= m < self[K].dest_end:
+        if ((self[K].dest_end is None
+             and self[K].dest_start <= m)
+                or self[K].dest_start <= m < self[K].dest_end):
             return K, self[K]
 
         while k < K - 1:
@@ -533,7 +539,9 @@ class ZonedFilter(llist, BaseVideoFilter):
         if self[k].prev_start <= m < self[k].prev_end:
             return k, self[k]
 
-        if (self[K].prev_end is None and self[K].prev_start <= m) or self[K].prev_start <= m < self[K].prev_end:
+        if ((self[K].prev_end is None
+             and self[K].prev_start <= m)
+                or self[K].prev_start <= m < self[K].prev_end):
             return K, self[K]
 
         while k < K - 1:
@@ -681,4 +689,5 @@ class ZonedFilter(llist, BaseVideoFilter):
         return ZoneDlg
 
     def __repr__(self):
-        return f"<{self.__class__.__name__} filter ({len(self)} zones) at 0x{id(self):012x}>"
+        return (f"<{self.__class__.__name__} filter "
+                f"({len(self)} zones) at 0x{id(self):012x}>")

@@ -1,24 +1,19 @@
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, pyqtSlot, QSize, QRect, QPoint
-from PyQt5.QtGui import QImage, QPainter, QPalette, QPixmap, QColor, QFont, QBrush, QPen
-from PyQt5.QtWidgets import (QAction, QApplication, QFileDialog, QLabel, QFrame,
-                             QMainWindow, QMenu, QMessageBox, QGridLayout, QScrollArea, QSizePolicy, QWidget,
-                             QSpinBox, QDoubleSpinBox, QCheckBox, QPushButton, QTableWidget, QTableWidgetItem,
-                             QAbstractItemView, QHeaderView, QProgressBar, QStatusBar, QTabWidget, QVBoxLayout,
-                             QHBoxLayout, QComboBox, QSizePolicy, QFileDialog)
-from av import VideoFrame
-from PIL.Image import Image
-from fractions import Fraction as QQ
-import av
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QSize, QRect, QPoint
+from PyQt5.QtGui import (QImage, QPainter, QPalette, QPixmap, QColor, QFont,
+                         QBrush, QPen)
+from PyQt5.QtWidgets import (QAction, QMenu, QSizePolicy, QWidget,
+                             QVBoxLayout, QHBoxLayout, QFileDialog)
+# from av import VideoFrame
+# from PIL.Image import Image
+# from fractions import Fraction as QQ
 import sys
 import traceback
 from ass.line import Dialogue
-import regex as re
 
 
 class QImageView(QWidget):
     mousePressed = pyqtSignal(float, float)
     mouseDoubleClicked = pyqtSignal(float, float)
-    #frameUpdated = pyqtSignal(QPixmap)
 
     def __init__(self, sizehint=None, *args, **kwargs):
         super(QImageView, self).__init__(*args, **kwargs)
@@ -34,7 +29,8 @@ class QImageView(QWidget):
         self._sar = 1
         self._painthook = None
         # self.frameUpdated.connect(self.setFrame)
-        #self.frameUpdated[QPixmap, str, QPoint].connect(self.setFrameAndTextSub)
+        # self.frameUpdated[QPixmap, str, QPoint].connect(
+        #     self.setFrameAndTextSub)
 
     def _setPixmap(self, pixmap):
         oldimh = self._pixmap.height()
@@ -63,14 +59,14 @@ class QImageView(QWidget):
 
     # @pyqtSlot(QPixmap, QPoint)
     # def setSubtitlePixmap(self, pixmap, pos):
-        #self._subtitle = pixmap
-        #self._subpos = pos
-        # self.repaint()
+    #     self._subtitle = pixmap
+    #     self._subpos = pos
+    #     self.repaint()
 
     # def clearSubtitle(self):
-        #self._subtitle = pixmap
-        #self._subpos = pos
-        # self.repaint()
+    #     self._subtitle = pixmap
+    #     self._subpos = pos
+    #     self.repaint()
 
     def setPaintHook(self, hook):
         self._painthook = hook
@@ -192,26 +188,26 @@ class QImageView(QWidget):
 
             painter.drawPixmap(rect, pixmap)
 
-    def _paintPixmapSubtitle(self, event, painter):
-        subtitle = self.subtitle()
-        subpos = self.subtitlePos()
+    # def _paintPixmapSubtitle(self, event, painter):
+    #     subtitle = self.subtitle()
+    #     subpos = self.subtitlePos()
 
-        (rectx, recty, rectw, recth) = (
-            rect.x(), rect.y(), rect.width(), rect.height())
-        (subx, suby) = (subpos.x(), subpos.y())
-        (subw, subh) = (subtitle.width(), subtitle.height())
+    #     (rectx, recty, rectw, recth) = (
+    #         rect.x(), rect.y(), rect.width(), rect.height())
+    #     (subx, suby) = (subpos.x(), subpos.y())
+    #     (subw, subh) = (subtitle.width(), subtitle.height())
 
-        if imw > 0 and imh > 0 and subw > 0 and subh > 0:
-            X = rectx + subx*rectw/imw
-            Y = recty + suby*recth/imh
+    #     if imw > 0 and imh > 0 and subw > 0 and subh > 0:
+    #         X = rectx + subx*rectw/imw
+    #         Y = recty + suby*recth/imh
 
-            W = subw*rectw/imw
-            H = subh*recth/imh
-            rect = QRect(QPoint(X, Y), QSize(W, H))
+    #         W = subw*rectw/imw
+    #         H = subh*recth/imh
+    #         rect = QRect(QPoint(X, Y), QSize(W, H))
 
-            subtitle = subtitle.scaled(
-                W, H, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-            painter.drawPixmap(rect, subtitle)
+    #         subtitle = subtitle.scaled(
+    #             W, H, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+    #         painter.drawPixmap(rect, subtitle)
 
     def _paintSSASubtitle(self, event, painter):
         pass
@@ -287,9 +283,6 @@ class QMultiImageView(QWidget):
         thumblayout.addWidget(self.imthumb3)
         thumblayout.addWidget(self.imthumb4)
         layout.addLayout(thumblayout)
-        #layout.setStretch(0, 10)
-        #layout.setStretch(1, 1)
-        #thumblayout.setStretch(1, 1)
         self.setLayout(layout)
 
         self.imwins = (self.imthumb1, self.imthumb2,
@@ -310,8 +303,8 @@ class QMultiImageView(QWidget):
         self.subtitlesource = subtitlesource
 
     def setFrameOffset(self, n):
-        subpos = QPoint()
-        subpixmap = QPixmap()
+        # subpos = QPoint()
+        # subpixmap = QPixmap()
 
         if self.framesource is not None:
             emptyframe = QPixmap(self.framesource.width,
@@ -343,35 +336,40 @@ class QMultiImageView(QWidget):
             frames.extend([emptyframe]*(5 - len(frames)))
 
             # TODO: Reimplement subtitles (both pgssub and ass)
-            # if self.subtitlesource is not None and n < self.framesource.framecount:
-            #pts_time = float(self.framesource.pts[n]*self.framesource.time_base)
-            #idx = self.subtitlesource.index_from_pts(int(pts_time/self.subtitlesource.time_base + 0.5))
+            # if (self.subtitlesource is not None
+            #         and n < self.framesource.framecount):
+            #     pts_time = float(
+            #         self.framesource.pts[n]*self.framesource.time_base)
+            #     idx = (self.subtitlesource.index_from_pts(
+            #            int(pts_time/self.subtitlesource.time_base + 0.5)))
 
             # if pts_time >= self.subtitlesource.pts_time[idx]:
-            #pkt = next(self.subtitlesource.iterPackets(idx))
+            #     pkt = next(self.subtitlesource.iterPackets(idx))
 
-            # try:
-            #sub = pgssub.pgspacketcodec.decode(pkt.to_bytes())
+            #     try:
+            #         sub = pgssub.pgspacketcodec.decode(pkt.to_bytes())
 
-            # except codecfactory.exc.ExcessData:
-            # pass
+            #     except codecfactory.exc.ExcessData:
+            #         pass
 
-            # except codecfactory.exc.UnexpectedEndOfData:
-            # pass
+            #     except codecfactory.exc.UnexpectedEndOfData:
+            #         pass
 
-            # else:
-            #image = sub.image
+            #     else:
+            #        image = sub.image
 
-            # if image is not None and sub.x is not None and sub.y is not None:
-            #subpixmap = image.toqpixmap()
-            #subpos = QPoint(sub.x, sub.y)
+            #     if (image is not None
+            #             and sub.x is not None
+            #             and sub.y is not None):
+            #         subpixmap = image.toqpixmap()
+            #         subpos = QPoint(sub.x, sub.y)
 
         else:
             emptyframe = QPixmap()
             frames = [emptyframe]*5
 
         self.setframes.emit(*frames[:5])
-        #self.setsubtitle.emit(subpixmap, subpos)
+        # self.setsubtitle.emit(subpixmap, subpos)
 
     @pyqtSlot(*[QPixmap]*5)
     def setFrames(self, *pixmaps):

@@ -1,19 +1,20 @@
 from .qframetable import FrameTable
 from .qimageview import QMultiImageView
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QBoxLayout, QMenu, QAction,
-                             QFileDialog, QGridLayout, QLabel, QSplitter, QTreeView, QMessageBox)
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QBoxLayout,
+                             QMenu, QAction, QFileDialog, QGridLayout, QLabel,
+                             QSplitter)
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QModelIndex, Qt, QTime
 from PyQt5.QtGui import QFont
 from .qitemmodel import QItemModel, Node, ChildNodes, NoChildren
 from transcode.filters.video import filters
 from transcode.filters.video.base import BaseVideoFilter
 from transcode.filters.base import BaseFilter, FilterChain
-from transcode.config.ebml.filterchains import FilterElement, FilterChainElement, FilterChains
+from transcode.config.ebml.filterchains import (FilterChainElement,
+                                                FilterChains)
 from transcode.config.obj import FilterList
 from .qfilterconfig import QFilterConfig
 from .qframeselect import QFrameSelect
 import sys
-import traceback
 from fractions import Fraction as QQ
 from .qavailablefilters import QAvailableFilters
 from .treeview import TreeView as QTreeView
@@ -28,7 +29,8 @@ class CurrentFiltersModel(QItemModel):
     def canDropItems(self, items, action, row, column, parent):
         if action == Qt.CopyAction:
             for item in items:
-                if not (isinstance(item.value, type) and issubclass(item.value, BaseVideoFilter)):
+                if not (isinstance(item.value, type)
+                        and issubclass(item.value, BaseVideoFilter)):
                     return False
 
         elif action == Qt.MoveAction:
@@ -131,21 +133,24 @@ class CurrentFiltersCol(object):
         filters = [item.data(Qt.UserRole) for item in selected]
         filter = current.data(Qt.UserRole)
 
-        configurefilter = QAction("Configure Filter...",
-                        table, triggered=partial(table.configureFilter, filter))
+        configurefilter = QAction(
+            "Configure Filter...", table,
+            triggered=partial(table.configureFilter, filter))
 
-        configurefilter.setDisabled(isinstance(filter, BaseFilter) and filter.hasQtDlg())
+        configurefilter.setDisabled(isinstance(
+            filter, BaseFilter) and filter.hasQtDlg())
 
-        importfilters = QAction("Import Filter(s)...",
-                        table, triggered=table.importFilters)
+        importfilters = QAction(
+            "Import Filter(s)...", table, triggered=table.importFilters)
 
-        exportfilters = QAction("Export Selected Filter(s)...",
-                        table, triggered=partial(table.exportFilters, filters))
+        exportfilters = QAction(
+            "Export Selected Filter(s)...", table,
+            triggered=partial(table.exportFilters, filters))
 
         exportfilters.setEnabled(len(filters) > 0)
 
         exportfilterchain = QAction("Export Filterchain...",
-                        table, triggered=table.exportFilterChain)
+                                    table, triggered=table.exportFilterChain)
 
         menu.addAction(configurefilter)
         menu.addAction(importfilters)
@@ -155,15 +160,12 @@ class CurrentFiltersCol(object):
         delete = QAction("Delete selected...",
                          table, triggered=partial(table.askDeleteSelected))
 
-
         if len(selected) == 0:
             delete.setDisabled(True)
 
         menu.addAction(delete)
 
-
         return menu
-
 
 
 class CurrentFiltersListView(QTreeView):
@@ -171,6 +173,10 @@ class CurrentFiltersListView(QTreeView):
     filterMoved = pyqtSignal(int, int)
     filterInserted = pyqtSignal(int)
     filterRemoved = pyqtSignal(int)
+    _deletetitle = "Delete filters"
+    _deletemsg = ("Do you wish to delete the selected filters? All encoder"
+                  " and settings associated with selected filters"
+                  " will be lost!")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -189,7 +195,7 @@ class CurrentFiltersListView(QTreeView):
             root = CurrentFiltersRoot(filters)
             model = CurrentFiltersModel(root, [CurrentFiltersCol()])
             self.setModel(model)
-            #model.dataChanged.connect(self.contentsModified)
+            # model.dataChanged.connect(self.contentsModified)
             model.rowsMoved.connect(self._emitFilterMoved)
             model.rowsInserted.connect(self._emitFilterInserted)
             model.rowsRemoved.connect(self._emitFilterRemoved)
@@ -209,38 +215,6 @@ class CurrentFiltersListView(QTreeView):
         self.filterRemoved.emit(start)
         self.contentsModified.emit()
 
-    def keyPressEvent(self, event):
-        key = event.key()
-        modifiers = event.modifiers()
-        idx = self.currentIndex()
-        row = idx.row()
-        col = idx.column()
-        model = self.model()
-
-        selected = sorted(idx.row()
-                          for idx in self.selectionModel().selectedRows())
-
-        if key == Qt.Key_Delete and modifiers == Qt.NoModifier and len(self.selectionModel().selectedRows()):
-            self.askDeleteSelected()
-
-        super().keyPressEvent(event)
-
-    def askDeleteSelected(self):
-        answer = QMessageBox.question(
-            self, "Delete filters", "Do you wish to delete the selected filters? All encoder and settings associated with selected filters will be lost!", QMessageBox.Yes | QMessageBox.No)
-
-        if answer == QMessageBox.Yes:
-            self.deleteSelected()
-
-    #def deleteSelected(self):
-        #selected = sorted(idx.row()
-                          #for idx in self.selectionModel().selectedRows())
-
-        #for k, row in enumerate(selected):
-            #self.model().removeRow(row - k)
-
-        #self.contentsModified.emit()
-
     def mouseDoubleClickEvent(self, event):
         idx = self.indexAt(event.pos())
         filter = idx.data(Qt.UserRole)
@@ -254,18 +228,12 @@ class CurrentFiltersListView(QTreeView):
                 dlg.exec_()
 
             except Exception:
-                (cls, exc, tb) = sys.exc_info()
-                excmsg = QMessageBox(self)
-                excmsg.setWindowTitle("Error")
-                excmsg.setText("An exception was encountered\n\n%s" %
-                               "".join(traceback.format_exception(cls, exc, tb)))
-                excmsg.setStandardButtons(QMessageBox.Ok)
-                excmsg.setIcon(QMessageBox.Critical)
-                excmsg.exec_()
+                self._handleException(*sys.exc_info())
 
     def exportFilters(self, filters):
         fl = FilterList(deepcopy(filters))
-        filefilters = "Filters (*.filters *.filters.gz *.filters.bz2 *.filters.xz)"
+        filefilters = ("Filters (*.filters *.filters.gz "
+                       "*.filters.bz2 *.filters.xz)")
 
         defaultname = "untitled.filters.xz"
         fileName, _ = QFileDialog.getSaveFileName(self, "Save File",
@@ -279,7 +247,8 @@ class CurrentFiltersListView(QTreeView):
                 self._handleException(*sys.exc_info())
 
     def exportFilterChain(self):
-        filefilters = "Filterchains (*.filterchain *.filterchain.gz *.filterchain.bz2 *.filterchain.xz)"
+        filefilters = ("Filterchains (*.filterchain *.filterchain.gz "
+                       "*.filterchain.bz2 *.filterchain.xz)")
 
         defaultname = "untitled.filterchain.xz"
         fileName, _ = QFileDialog.getSaveFileName(self, "Save File",
@@ -294,7 +263,8 @@ class CurrentFiltersListView(QTreeView):
 
     def importFilters(self):
         model = self.model()
-        filefilters = "Filters (*.filters *.filters.gz *.filters.bz2 *.filters.xz)"
+        filefilters = ("Filters (*.filters *.filters.gz "
+                       "*.filters.bz2 *.filters.xz)")
 
         defaultname = "untitled.filters.xz"
         fileName, _ = QFileDialog.getOpenFileName(self, "Save File",
@@ -309,16 +279,6 @@ class CurrentFiltersListView(QTreeView):
 
             for filter in filters:
                 model.appendRow(filter, QModelIndex())
-
-    #def _handleException(self, cls, exc, tb):
-        #print("\n".join(traceback.format_exception(cls, exc, tb)), file=sys.stderr)
-        #excmsg = QMessageBox(self)
-        #excmsg.setWindowTitle("Error")
-        #excmsg.setText("An exception was encountered\n\n%s" %
-                       #"".join(traceback.format_exception(cls, exc, tb)))
-        #excmsg.setStandardButtons(QMessageBox.Ok)
-        #excmsg.setIcon(QMessageBox.Critical)
-        #excmsg.exec_()
 
 
 class QCurrentFilters(QWidget):
@@ -368,18 +328,13 @@ class VFrameView(QWidget):
         super().resizeEvent(event)
 
     def updateChildGeometry(self, size):
-        W = size.width()
-        H = size.height()
-
-        fsH = max(self.inputFrameSelect.sizeHint().height(),
-                  self.outputFrameSelect.sizeHint().height())
-
-        if self.inputPreviewWindow.framesource is not None and \
-                self.outputPreviewWindow.framesource is not None:
+        if (self.inputPreviewWindow.framesource is not None
+                and self.outputPreviewWindow.framesource is not None):
             inputDar = self.inputPreviewWindow.dar
             outputDar = self.outputPreviewWindow.dar
 
-            if isinstance(inputDar, (QQ, int)) and isinstance(outputDar, (QQ, int)):
+            if (isinstance(inputDar, (QQ, int))
+                    and isinstance(outputDar, (QQ, int))):
                 ratio = QQ(inputDar, outputDar)
                 self.layout().setColumnStretch(0, ratio.numerator)
                 self.layout().setColumnStretch(1, ratio.denominator)

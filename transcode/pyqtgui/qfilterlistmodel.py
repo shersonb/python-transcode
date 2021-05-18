@@ -39,10 +39,12 @@ class FiltersRoot(Node):
         return True
 
     def canDropItems(self, model, parent, items, action):
-        return self.canDropChildren(model, parent, items, len(self.children), action)
+        return self.canDropChildren(model, parent,
+                                    items, len(self.children), action)
 
     def dropItems(self, model, parent, items, action):
-        return self.dropChildren(model, parent, items, len(self.children), action)
+        return self.dropChildren(model, parent,
+                                 items, len(self.children), action)
 
 
 class Filters(ChildNodes):

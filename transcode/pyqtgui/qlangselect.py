@@ -18,8 +18,9 @@ class LanguageDelegate(QItemDelegate):
         editor.addItem("Unknown (und)", None)
         editor.insertSeparator(editor.count())
 
-        common_langs = ["eng", "deu", "ita", "spa", "fra", "por", "nld", "swe", "nor",
-                        "fin", "pol", "ron", "rus", "tur", "vie", "kor", "arz", "pes", "hin", "zho", "jpn"]
+        common_langs = ["eng", "deu", "ita", "spa", "fra", "por", "nld",
+                        "swe", "nor", "fin", "pol", "ron", "rus", "tur",
+                        "vie", "kor", "arz", "pes", "hin", "zho", "jpn"]
 
         for key in common_langs:
             lang = LANGUAGES[key]

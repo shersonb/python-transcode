@@ -52,7 +52,8 @@ class FrameNumberCol(BaseColumn):
     def display(self, index, obj):
         n = index.row()
 
-        if isinstance(self.srcstream, Track) and self.srcstream.pts[n] in set(self.srcstream.index[:, 0]):
+        if (isinstance(self.srcstream, Track)
+                and self.srcstream.pts[n] in set(self.srcstream.index[:, 0])):
             return f"{index.row()} (K)"
 
         return f"{index.row()}"
@@ -126,14 +127,16 @@ class ZoneCol(BaseColumn):
 
         next_index = zone.next.src_start if zone.next is not None else None
 
-        move_to_prev = QAction(f"Move to &previous {self.zonestring}", table, triggered=partial(
-            table.goto, row=prev_index))
+        move_to_prev = QAction(
+            f"Move to &previous {self.zonestring}", table,
+            triggered=partial(table.goto, row=prev_index))
         menu.addAction(move_to_prev)
         if prev_index is None:
             move_to_prev.setDisabled(True)
 
-        move_to_next = QAction(f"Move to &next {self.zonestring}", table, triggered=partial(
-            table.goto, row=next_index))
+        move_to_next = QAction(
+            f"Move to &next {self.zonestring}", table,
+            triggered=partial(table.goto, row=next_index))
         menu.addAction(move_to_next)
         if next_index is None:
             move_to_next.setDisabled(True)
@@ -142,16 +145,18 @@ class ZoneCol(BaseColumn):
 
         n = index.row()
         J, zone = self.filter.zoneAt(n)
-        # {scene.src_start for scene in self.filter}
+
         zones = set(self.filter.zone_indices)
         thiszone = set(range(zone.src_start, zone.src_end))
 
-        filterzones = QAction(f"&Show {self.zonestring} cuts", table, triggered=partial(
-            self.setFilter, table=table, filter=zones))
+        filterzones = QAction(
+            f"&Show {self.zonestring} cuts", table,
+            triggered=partial(self.setFilter, table=table, filter=zones))
         menu.addAction(filterzones)
 
-        filterzones = QAction(f"&Show this {self.zonestring}", table, triggered=partial(
-            self.setFilter, table=table, filter=thiszone))
+        filterzones = QAction(
+            f"&Show this {self.zonestring}", table,
+            triggered=partial(self.setFilter, table=table, filter=thiszone))
         menu.addAction(filterzones)
 
         showall = QAction("Show &all rows", table,
@@ -160,10 +165,12 @@ class ZoneCol(BaseColumn):
 
         menu.addSeparator()
 
-        checkallselected = QAction("&Check all selected", table,
-                                   triggered=partial(self.checkSelected, table=table, check=True))
-        uncheckallselected = QAction("&Uncheck all selected", table,
-                                     triggered=partial(self.checkSelected, table=table, check=False))
+        checkallselected = QAction(
+            "&Check all selected", table,
+            triggered=partial(self.checkSelected, table=table, check=True))
+        uncheckallselected = QAction(
+            "&Uncheck all selected", table,
+            triggered=partial(self.checkSelected, table=table, check=False))
 
         menu.addAction(checkallselected)
         menu.addAction(uncheckallselected)
@@ -201,7 +208,8 @@ class ZoneCol(BaseColumn):
             S = {k for k in filter if k <= n}
             if len(S):
                 m = max(S)
-                selected = table.model().sourceModel().index(m, selected.column())
+                selected = table.model().sourceModel().index(
+                    m, selected.column())
 
         table.model().setFilterFunc(filter)
 
@@ -228,7 +236,6 @@ class ZoneCol(BaseColumn):
         table.model().setFilterFunc(None)
         QApplication.processEvents()
 
-        #selected = table.currentIndex()
         selected = table.model().mapFromSource(selected)
 
         sm = table.selectionModel()

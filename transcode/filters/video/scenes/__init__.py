@@ -1,7 +1,7 @@
 from .. import zoned
 from ..base import BaseVideoFilter
 from ...base import BaseFilter
-from transcode.util import cached, numpify
+from transcode.util import cached
 from itertools import count
 import numpy
 from collections import OrderedDict
@@ -10,12 +10,14 @@ import threading
 
 
 class Scene(zoned.Zone):
-    def __init__(self, src_start, start_pts=None, prev=None, next=None, parent=None):
-        super().__init__(src_start=src_start, prev=prev, next=next, parent=parent)
+    def __init__(self, src_start, start_pts=None, prev=None,
+                 next=None, parent=None):
+        super().__init__(src_start=src_start, prev=prev,
+                         next=next, parent=parent)
         self.start_pts_time = start_pts
 
     def __repr__(self):
-        return "Scene({self.src_start}, {self.src_end}, {self._framecount})".format(self=self)
+        return f"Scene({self.src_start}, {self.src_end})"
 
     def reset_cache_full(self, notify_parent=True):
         del self.start_pts_time
@@ -48,7 +50,9 @@ class Scene(zoned.Zone):
             except Exception:
                 return
 
-        if self.parent is not None and self.parent.prev_pts_time is not None and self.parent.src_pts_time is not None:
+        if (self.parent is not None
+                and self.parent.prev_pts_time is not None
+                and self.parent.src_pts_time is not None):
             if self.prev_end == self.prev_start:
                 if self.next is not None:
                     return self.next.start_pts_time
@@ -83,7 +87,8 @@ class Scene(zoned.Zone):
                 and self.parent.prev is not None
                 and self.parent.prev.duration is not None
                 and self.parent.prev_pts_time is not None):
-            return self.parent.prev.duration - self.parent.prev_pts_time[self.prev_start]
+            return (self.parent.prev.duration
+                    - self.parent.prev_pts_time[self.prev_start])
 
         elif self.next is not None and self.next.start_pts_time is not None:
             return self.next.start_pts_time - self.start_pts_time
@@ -94,10 +99,12 @@ class Scene(zoned.Zone):
             return
 
         if not self.parent.fixpts:
-            return self.parent.prev.pts_time[self.prev_start:self.prev_end] - self.parent.prev.pts_time[self.prev_start]
+            return (self.parent.prev.pts_time[self.prev_start:self.prev_end]
+                    - self.parent.prev.pts_time[self.prev_start])
 
-        t = self.parent.prev_pts_time[self.prev_start:self.prev_end][:self.framecount] - \
-            self.parent.prev_pts_time[self.prev_start]
+        t = (self.parent.prev_pts_time[
+            self.prev_start:self.prev_end][:self.framecount]
+            - self.parent.prev_pts_time[self.prev_start])
         return t
 
     @pts_time_local.deleter
@@ -131,12 +138,17 @@ class Scene(zoned.Zone):
         diff = self.start_pts_time - self.parent.prev.pts_time[self.prev_start]
 
         for k in count(self.prev_framecount, -1):
-            if k == 0 or self.parent.prev.pts_time[self.prev_start + k - 1] + diff < cutoff:
+            if (k == 0
+                    or self.parent.prev.pts_time[self.prev_start + k - 1]
+                    + diff < cutoff):
                 return int(k)
 
     @zoned.Zone.indexMapLocal.getter
     def indexMapLocal(self):
-        return numpy.concatenate([numpy.arange(self.framecount, dtype=numpy.int0), -numpy.ones(self.prev_framecount - self.framecount, dtype=numpy.int0)])
+        return numpy.concatenate([
+            numpy.arange(self.framecount, dtype=numpy.int0),
+            -numpy.ones(self.prev_framecount - self.framecount,
+                        dtype=numpy.int0)])
 
     def getIterStart(self, start):
         return self.reverseIndexMap[start - self.dest_start]
@@ -278,7 +290,8 @@ class Scenes(zoned.ZonedFilter):
     def __next__(self):
         pass
 
-    def analyze(self, start=0, end=None, notify_iter=None, notify_complete=None):
+    def analyze(self, start=0, end=None,
+                notify_iter=None, notify_complete=None):
         t = AnalysisThread(self, start, end, notify_iter, notify_complete)
         t.start()
         return t
@@ -332,7 +345,8 @@ class Scenes(zoned.ZonedFilter):
         return QScenes
 
     def QtTableColumns(self):
-        from .qscenes import SceneCol, ContentCol, DeltaHueCol, DeltaSatCol, DeltaLumCol
+        from .qscenes import (SceneCol, ContentCol, DeltaHueCol,
+                              DeltaSatCol, DeltaLumCol)
         col1 = SceneCol(self)
         col2 = ContentCol(self)
         col3 = DeltaHueCol(self)
@@ -342,7 +356,8 @@ class Scenes(zoned.ZonedFilter):
 
 
 class AnalysisThread(threading.Thread):
-    def __init__(self, scenes, start, end, notify_iter=None, notify_complete=None):
+    def __init__(self, scenes, start, end,
+                 notify_iter=None, notify_complete=None):
         self._start = start
 
         if end is None:
@@ -378,10 +393,10 @@ class AnalysisThread(threading.Thread):
 
             return (False, None)
 
-        pts = frame.pts
-        m, ms = divmod(pts, 60000)
-        s = ms/1000
-        h, m = divmod(m, 60)
+        # pts = frame.pts
+        # m, ms = divmod(pts, 60000)
+        # s = ms/1000
+        # h, m = divmod(m, 60)
 
         if frame.format.name != "rgb24":
             frame = frame.to_rgb()
@@ -415,12 +430,14 @@ class AnalysisThread(threading.Thread):
                 self.scenes.stats = newstats
 
             if isinstance(self.scenes.prev, BaseFilter):
-                start = self.scenes.prev.cumulativeIndexReverseMap[self._start + 1]
+                start = self.scenes.prev.cumulativeIndexReverseMap[
+                    self._start + 1]
 
             else:
                 start = self._start
 
-            if self._end >= self.scenes.prev.framecount or not isinstance(self.scenes.prev, BaseFilter):
+            if (self._end >= self.scenes.prev.framecount
+                    or not isinstance(self.scenes.prev, BaseFilter)):
                 end = self.scenes.source.framecount
 
             else:
@@ -435,7 +452,8 @@ class AnalysisThread(threading.Thread):
 
                 if n > 0:
                     self.scenes.stats[m-1] = stats.get_metrics(
-                        n - self._start, ["content_val", "delta_hue", "delta_sat", "delta_lum"])
+                        n - self._start, ["content_val", "delta_hue",
+                                          "delta_sat", "delta_lum"])
 
                 else:
                     self.scenes.stats[m-1] = numpy.nan

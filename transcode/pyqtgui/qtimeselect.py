@@ -70,7 +70,8 @@ class QTimeSelect(QDoubleSpinBox):
         else:
             h = m = s = ""
 
-        if event.key() == Qt.Key_Right and event.modifiers() == Qt.ControlModifier:
+        if (event.key() == Qt.Key_Right
+                and event.modifiers() == Qt.ControlModifier):
             if currentPosition <= len(h):
                 self.selectMinutes()
 
@@ -79,7 +80,8 @@ class QTimeSelect(QDoubleSpinBox):
 
             return
 
-        if event.key() == Qt.Key_Left and event.modifiers() == Qt.ControlModifier:
+        if (event.key() == Qt.Key_Left
+                and event.modifiers() == Qt.ControlModifier):
             if currentPosition >= len(f"{h}:{m}:"):
                 self.selectMinutes()
 
@@ -101,14 +103,16 @@ class QTimeSelect(QDoubleSpinBox):
                 nextColon = textAfterCursor.find(":", 1)
 
                 if nextColon >= 0:
-                    self.lineEdit().setSelection(len(textBeforeCursor) + 1, nextColon - 1)
+                    self.lineEdit().setSelection(
+                        len(textBeforeCursor) + 1, nextColon - 1)
 
                 else:
-                    self.lineEdit().setSelection(len(textBeforeCursor) + 1, len(textAfterCursor) - 1)
+                    self.lineEdit().setSelection(
+                        len(textBeforeCursor) + 1, len(textAfterCursor) - 1)
 
             return
 
-        ret = super().keyPressEvent(event)
+        super().keyPressEvent(event)
 
         maxhours = int(self.maximum()//3600)
         maxhourdigits = 1

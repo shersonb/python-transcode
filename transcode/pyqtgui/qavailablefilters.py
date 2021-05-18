@@ -1,8 +1,7 @@
 from .qitemmodel import QItemModel, Node
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QTreeView)
-from PyQt5.QtGui import QFont, QIcon
-
+from PyQt5.QtGui import QFont
 
 
 class AvailableFiltersModel(QItemModel):

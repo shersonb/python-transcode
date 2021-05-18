@@ -1,5 +1,6 @@
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import (QGridLayout, QHBoxLayout, QPushButton, QDialog, QWidget)
+from PyQt5.QtWidgets import (QGridLayout, QHBoxLayout, QPushButton,
+                             QDialog, QWidget)
 import abc
 from transcode.containers.basereader import Track
 from transcode.filters.base import FilterChain
@@ -104,14 +105,17 @@ class QFilterConfig(QDialog):
         sourceSelection.setSources(self.inputFiles, self.availableFilters)
 
     def _showSourceControls(self, value):
-        if hasattr(self, "sourceWidget") and isinstance(self.sourceWidget, QWidget):
+        if (hasattr(self, "sourceWidget")
+                and isinstance(self.sourceWidget, QWidget)):
             self.sourceWidget.setHidden(not value)
 
     def _resetSourceControls(self):
         self._showSourceControls(self.inputFiles or self.availableFilters)
 
-        if hasattr(self, "sourceSelection") and isinstance(self.sourceSelection, QInputSelection):
-            self._setSourceSelection(self.sourceSelection, self.filtercopy.source)
+        if (hasattr(self, "sourceSelection")
+                and isinstance(self.sourceSelection, QInputSelection)):
+            self._setSourceSelection(
+                self.sourceSelection, self.filtercopy.source)
 
     def _setSourceSelection(self, sourceSelection, source):
         if isinstance(source, Track) and self.inputFiles and \
@@ -199,7 +203,8 @@ class QFilterConfig(QDialog):
         self.apply()
         self.done(1)
 
-    def _prepareDlgButtons(self, layout=None, index=None, layoutcls=QHBoxLayout):
+    def _prepareDlgButtons(self, layout=None, index=None,
+                           layoutcls=QHBoxLayout):
         if layout is None:
             layout = self.layout()
 

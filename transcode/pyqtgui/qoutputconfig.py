@@ -1,10 +1,11 @@
 from .qoutputtracklist import OutputTrackList
 from transcode.containers.basewriter import BaseWriter
 
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
-                             QLineEdit, QFileDialog, QDialog, QCheckBox, QDoubleSpinBox)
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton,
+                             QLabel, QLineEdit, QFileDialog, QDialog,
+                             QCheckBox, QDoubleSpinBox)
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtGui import QIcon, QPainter, QColor
+from PyQt5.QtGui import QIcon
 
 import os
 
@@ -112,7 +113,8 @@ class QOutputConfig(QWidget):
         self.targetSizeSpinBox.setVisible(flag)
 
         if flag:
-            self.output_file.targetsize = self.targetSizeSpinBox.value()*1024**2
+            self.output_file.targetsize = (self.targetSizeSpinBox.value()
+                                           * 1024**2)
 
         else:
             self.output_file.targetsize = None
@@ -120,7 +122,8 @@ class QOutputConfig(QWidget):
         self.isModified()
 
     def execBrowseDlg(self):
-        filters = f"{self.output_file.fmtname} Files ({' '.join(f'*{ext}' for ext in self.output_file.extensions)})"
+        exts = ' '.join(f'*{ext}' for ext in self.output_file.extensions)
+        filters = (f"{self.output_file.fmtname} Files ({exts})")
 
         if self.output_file.config and self.output_file.config.workingdir:
             fileName = os.path.join(
@@ -133,18 +136,21 @@ class QOutputConfig(QWidget):
                                                   fileName, filters)
 
         if fileName:
-            if self.output_file.config and self.output_file.config.workingdir:
+            if (self.output_file.config
+                    and self.output_file.config.workingdir):
                 fileName = os.path.join(
                     self.output_file.config.workingdir, fileName)
 
-                if not os.path.relpath(fileName, self.output_file.config.workingdir).startswith("../"):
+                if not os.path.relpath(
+                        fileName,
+                        self.output_file.config.workingdir).startswith("../"):
                     fileName = os.path.relpath(
                         fileName, self.output_file.config.workingdir)
 
             self.fileEdit.setText(fileName)
-
             self.isModified()
             return True
+
         return False
 
     def isModified(self):
@@ -152,7 +158,8 @@ class QOutputConfig(QWidget):
         self.contentsModified.emit()
 
     def _resetMinimumSize(self):
-        self.targetSizeSpinBox.setMinimum(self.output_file.minimumSize()/1024**2)
+        self.targetSizeSpinBox.setMinimum(
+            self.output_file.minimumSize()/1024**2)
 
     def notModified(self):
         self._modified = False
@@ -163,7 +170,8 @@ class QOutputConfig(QWidget):
     def updateOutputPath(self):
         self.fileEdit.blockSignals(True)
 
-        if isinstance(self.output_file, BaseWriter) and self.output_file.outputpathrel:
+        if (isinstance(self.output_file, BaseWriter)
+                and self.output_file.outputpathrel):
             self.fileEdit.setText(self.output_file.outputpathrel or "")
 
         else:
@@ -232,11 +240,11 @@ class QOutputConfig(QWidget):
             dlg.settingsApplied.connect(self.contentsModified)
             dlg.exec_()
             self._resetMinimumSize()
-            #self.targetSizeSpinBox.setMinimum(self.output_file.minimumSize()/1024**2)
 
 
 class QOutputConfigDlg(QDialog):
-    def __init__(self, input_files, filters, output_file=None, *args, **kwargs):
+    def __init__(self, input_files, filters, output_file=None,
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
         layout = QVBoxLayout()
         self.setLayout(layout)
@@ -265,4 +273,5 @@ class QOutputConfigDlg(QDialog):
 
     def updateTitle(self):
         self.setWindowTitle(
-            f"Configure — {self.widget._output_file_copy.title} [{self.widget._output_file_copy.outputpathrel}]")
+            f"Configure — {self.widget._output_file_copy.title}"
+            f" [{self.widget._output_file_copy.outputpathrel}]")

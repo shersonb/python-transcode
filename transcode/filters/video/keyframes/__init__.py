@@ -2,10 +2,6 @@
 from ..base import BaseVideoFilter
 from transcode.util import cached
 import numpy
-import fractions
-import itertools
-from av.video import VideoFrame
-import sys
 
 
 class KeyFrames(BaseVideoFilter, set):

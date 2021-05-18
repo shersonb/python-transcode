@@ -6,7 +6,6 @@ import numpy
 from fractions import Fraction as QQ
 import itertools
 from av.video import VideoFrame
-import sys
 from collections import OrderedDict
 
 
@@ -14,8 +13,11 @@ class Zone(zoned.Zone):
     getinitkwargs = ["src_start", "src_fps", "pulldown",
                      "pulldownoffset", "yblend", "uvblend"]
 
-    def __init__(self, src_start, src_fps=QQ(24000, 1001), pulldown=None, pulldownoffset=0, yblend=False, uvblend=False, prev=None, next=None, framecount=None, parent=None):
-        super().__init__(src_start=src_start, prev=prev, next=next, parent=parent)
+    def __init__(self, src_start, src_fps=QQ(24000, 1001), pulldown=None,
+                 pulldownoffset=0, yblend=False, uvblend=False,
+                 prev=None, next=None, framecount=None, parent=None):
+        super().__init__(src_start=src_start,
+                         prev=prev, next=next, parent=parent)
         self.src_fps = src_fps
         self.yblend = bool(yblend)
         self.uvblend = bool(uvblend)
@@ -75,18 +77,24 @@ class Zone(zoned.Zone):
     @cached
     def framecount(self):
         prev_framecount = self.prev_framecount
+
         if prev_framecount is None:
             return None
+
         if self.pulldown is not None:
             q, r = divmod(self.pulldownoffset +
                           prev_framecount - 1, self.old_blksize)
-            return int(q*self.new_blksize + self._pattern_int[r].min() + 1 - self.new_offset)
+            return int(
+                q*self.new_blksize + self._pattern_int[r].min() + 1
+                - self.new_offset)
+
         else:
             return int(prev_framecount)
 
     def _translate_fields(self, N):
         if self.pulldown is not None:
             q, r = divmod(self.pulldownoffset + N, self.old_blksize)
+
             M = numpy.moveaxis(q*self.new_blksize + numpy.moveaxis(
                 self._pattern_int[r], N.ndim, 0) - self.new_offset, 0, N.ndim)
 
@@ -119,22 +127,34 @@ class Zone(zoned.Zone):
         if self.pulldown is not None:
             q, s = divmod(M + self.new_offset, self.new_blksize)
 
-            rlookup = (q*self.old_blksize + self._pattern_int_rlookup[:, :, s] - self.pulldownoffset).clip(
-                min=0, max=self.prev_framecount)
-            same_frame_possible = (
-                rlookup[0, 1] >= rlookup[1, 0])*(rlookup[1, 1] >= rlookup[0, 0])
+            rlookup = (q*self.old_blksize + self._pattern_int_rlookup[:, :, s]
+                       - self.pulldownoffset).clip(
+                           min=0, max=self.prev_framecount)
+
+            same_frame_possible = ((rlookup[0, 1] >= rlookup[1, 0])
+                                   * (rlookup[1, 1] >= rlookup[0, 0]))
+
             if isinstance(M, numpy.ndarray):
                 N = numpy.zeros(M.shape+(2,), dtype=numpy.int0)
-                N[~same_frame_possible, 0] = rlookup[0, 0][~same_frame_possible]
-                N[~same_frame_possible, 1] = rlookup[1, 0][~same_frame_possible]
+
+                N[~same_frame_possible, 0] = rlookup[0, 0][
+                    ~same_frame_possible]
+
+                N[~same_frame_possible, 1] = rlookup[1, 0][
+                    ~same_frame_possible]
+
                 N[same_frame_possible, 0] = numpy.maximum(
-                    rlookup[0, 0][same_frame_possible], rlookup[1, 0][same_frame_possible])
+                    rlookup[0, 0][same_frame_possible],
+                    rlookup[1, 0][same_frame_possible])
+
                 N[same_frame_possible, 1] = numpy.maximum(
-                    rlookup[0, 0][same_frame_possible], rlookup[1, 0][same_frame_possible])
+                    rlookup[0, 0][same_frame_possible],
+                    rlookup[1, 0][same_frame_possible])
                 return N
             else:
                 if same_frame_possible:
-                    return numpy.array((numpy.maximum(rlookup[0, 0], rlookup[1, 0]),)*2)
+                    return numpy.array(
+                        (numpy.maximum(rlookup[0, 0], rlookup[1, 0]),)*2)
                 else:
                     return rlookup[:, 0]
         else:
@@ -175,19 +195,24 @@ class Zone(zoned.Zone):
     @zoned.Zone.reverseIndexMapLocal.getter
     def reverseIndexMapLocal(self):
         M = numpy.arange(0, self.framecount)
+
         if self.pulldown is not None:
             q, s = divmod(M + self.new_offset, self.new_blksize)
 
-            rlookup = (q*self.old_blksize + self._pattern_int_rlookup[:, :, s] - self.pulldownoffset).clip(
-                min=0, max=self.prev_framecount)
-            same_frame_possible = (
-                rlookup[0, 1] >= rlookup[1, 0])*(rlookup[1, 1] >= rlookup[0, 0])
+            rlookup = (q*self.old_blksize + self._pattern_int_rlookup[:, :, s]
+                       - self.pulldownoffset).clip(
+                           min=0, max=self.prev_framecount)
+
+            same_frame_possible = ((rlookup[0, 1] >= rlookup[1, 0])
+                                   * (rlookup[1, 1] >= rlookup[0, 0]))
 
             if isinstance(M, numpy.ndarray):
                 N = numpy.zeros(M.shape, dtype=numpy.int0)
                 N[~same_frame_possible] = rlookup[0, 0][~same_frame_possible]
+
                 N[same_frame_possible] = numpy.maximum(
-                    rlookup[0, 0][same_frame_possible], rlookup[1, 0][same_frame_possible])
+                    rlookup[0, 0][same_frame_possible],
+                    rlookup[1, 0][same_frame_possible])
 
             else:
                 if same_frame_possible:
@@ -220,9 +245,13 @@ class Zone(zoned.Zone):
             if end > self.dest_end - self.new_blksize_tail:
                 return self.prev_end
 
-            q, s = divmod(end + self.new_blksize - 1 -
-                          (self.dest_start + self.new_blksize_head), self.new_blksize)
-            return self.prev_start + self.old_blksize_head + q*self.old_blksize + 1
+            q, s = divmod(
+                end + self.new_blksize - 1
+                - (self.dest_start + self.new_blksize_head),
+                self.new_blksize)
+
+            return (self.prev_start + self.old_blksize_head
+                    + q*self.old_blksize + 1)
 
         else:
             return self.reverseIndexMap[end - self.dest_start]
@@ -287,11 +316,13 @@ class Zone(zoned.Zone):
 
             if "A" not in value[:2]:
                 raise ValueError(
-                    "Telecine pattern contain 'A' in position 0 or position 1.")
+                    "Telecine pattern contains 'A' "
+                    "in position 0 or position 1.")
 
             if (self.yblend or self.uvblend) and not value.startswith("AA"):
                 raise ValueError(
-                    "Telecine pattern must begin with AA if either yblend or uvblend is set.")
+                    "Telecine pattern must begin with AA "
+                    "if either yblend or uvblend is set.")
 
             if hasattr(self, "_pattern") and value != self._pattern:
                 self.reset_cache_full()
@@ -306,17 +337,22 @@ class Zone(zoned.Zone):
 
             self._old_blksize = len(value)//2
             self._new_blksize = min(
-                ord(evens_end) - ord(evens_start) + 1, ord(odds_end) - ord(odds_start) + 1)
+                ord(evens_end) - ord(evens_start) + 1,
+                ord(odds_end) - ord(odds_start) + 1)
 
-            for char in range(ord(evens_start), ord(evens_start) + self.new_blksize):
+            for char in range(
+                    ord(evens_start), ord(evens_start) + self.new_blksize):
                 if chr(char) not in self.evens:
                     raise ValueError(
-                        "Invalid telecine pattern. Hint: Missing '%s' from evens." % chr(char))
+                        f"Invalid telecine pattern. Hint: "
+                        f"Missing '{chr(char)}' from evens.")
 
-            for char in range(ord(odds_start), ord(odds_start) + self.new_blksize):
+            for char in range(
+                    ord(odds_start), ord(odds_start) + self.new_blksize):
                 if chr(char) not in self.odds:
                     raise ValueError(
-                        "Invalid telecine pattern. Hint: Missing '%s' from odds." % chr(char))
+                        f"Invalid telecine pattern. Hint: "
+                        f"Missing '{chr(char)}' from odds.")
 
             self._pattern = value
             self._pattern_int = numpy.array(
@@ -327,16 +363,32 @@ class Zone(zoned.Zone):
             self._pattern_int_rlookup = numpy.array(
                 [
                     (
-                        [self._evens.find(chr((ord(alpha) - ord(self._evens[0])) % self.new_blksize + ord(self._evens[0]))) +
-                            (ord(alpha) - ord(self._evens[0]))//self.new_blksize*self.old_blksize for alpha in alphabet],
-                        [self._evens.rfind(chr((ord(alpha) - ord(self._evens[0])) % self.new_blksize + ord(self._evens[0]))) +
-                            (ord(alpha) - ord(self._evens[0]))//self.new_blksize*self.old_blksize for alpha in alphabet],
+                        [self._evens.find(
+                            chr((ord(alpha) - ord(self._evens[0]))
+                                % self.new_blksize + ord(self._evens[0])))
+                         + (ord(alpha) - ord(self._evens[0]))
+                         // self.new_blksize*self.old_blksize
+                         for alpha in alphabet],
+                        [self._evens.rfind(
+                            chr((ord(alpha) - ord(self._evens[0]))
+                                % self.new_blksize + ord(self._evens[0])))
+                         + (ord(alpha) - ord(self._evens[0]))
+                         // self.new_blksize*self.old_blksize
+                         for alpha in alphabet],
                     ),
                     (
-                        [self._odds.find(chr((ord(alpha) - ord(self._odds[0])) % self.new_blksize + ord(self._odds[0]))) +
-                            (ord(alpha) - ord(self._odds[0]))//self.new_blksize*self.old_blksize for alpha in alphabet],
-                        [self._odds.rfind(chr((ord(alpha) - ord(self._odds[0])) % self.new_blksize + ord(self._odds[0]))) +
-                            (ord(alpha) - ord(self._odds[0]))//self.new_blksize*self.old_blksize for alpha in alphabet],
+                        [self._odds.find(
+                            chr((ord(alpha) - ord(self._odds[0]))
+                                % self.new_blksize + ord(self._odds[0])))
+                         + (ord(alpha) - ord(self._odds[0]))
+                         // self.new_blksize*self.old_blksize
+                         for alpha in alphabet],
+                        [self._odds.rfind(
+                            chr((ord(alpha) - ord(self._odds[0]))
+                                % self.new_blksize + ord(self._odds[0])))
+                         + (ord(alpha) - ord(self._odds[0]))
+                         // self.new_blksize*self.old_blksize
+                         for alpha in alphabet],
                     )
                 ])
         else:
@@ -546,16 +598,20 @@ class Zone(zoned.Zone):
             cutoff_columns = self._pattern_int[cutoff_rows].min()
             partials = self._pattern_int[cutoff_rows].max() - cutoff_columns
             M = M[cutoff_rows:, cutoff_columns:]
-            return numpy.array(((M.transpose()*M)**-1*M.transpose())[partials:])
+            return numpy.array(
+                ((M.transpose()*M)**-1*M.transpose())[partials:])
 
     @cached
     def reverse_matrix_blended_tail(self):
         if self.pulldown is None:
             return
 
-        M = self.forward_matrix_blended[:self.old_blksize_tail,
-                                        :self._pattern_int[self.old_blksize_tail-1].max()+1]
-        return numpy.array(((M.transpose()*M)**-1*M.transpose())[:self.new_blksize_tail])
+        M = self.forward_matrix_blended[
+            :self.old_blksize_tail, :self._pattern_int[
+                self.old_blksize_tail - 1].max() + 1]
+
+        return numpy.array(
+            ((M.transpose()*M)**-1*M.transpose())[:self.new_blksize_tail])
 
     def _copyFrames(self, iterable, prev_start):
         dest_index = itertools.count(
@@ -655,9 +711,11 @@ class Zone(zoned.Zone):
             next_start = self.prev_start + self.old_blksize_head
 
         else:
-            q, r = divmod(prev_start - (self.prev_start +
-                                        self.old_blksize_head), self.old_blksize)
-            blk_start = self.prev_start + self.old_blksize_head + q*self.old_blksize
+            q, r = divmod(prev_start
+                          - (self.prev_start + self.old_blksize_head),
+                          self.old_blksize)
+            blk_start = (self.prev_start + self.old_blksize_head
+                         + q*self.old_blksize)
             next_start = min(self.prev_end, blk_start + self.old_blksize)
 
         for k in range(blk_start, next_start):
@@ -682,7 +740,8 @@ class Zone(zoned.Zone):
                 Iterator, max(0, fl - len(frames)))]
             frames.extend(new_frames)
             frames_yuv.extend([frame.reformat(format="yuv420p").to_ndarray()
-                               if frame.format.name != "yuv420p" else frame.to_ndarray()
+                               if frame.format.name != "yuv420p"
+                               else frame.to_ndarray()
                                for frame in new_frames])
 
             if blk_start == self.prev_start:
@@ -707,7 +766,8 @@ class Zone(zoned.Zone):
                 M = self.reverse_matrix_blended
                 fields = self.reverse_mapping
 
-            for newframe in self._pullupBlock(frames, frames_yuv, M, dest_index, fields):
+            for newframe in self._pullupBlock(
+                    frames, frames_yuv, M, dest_index, fields):
                 yield newframe
 
             del frames[:next_start - blk_start]
@@ -731,9 +791,11 @@ class ZonedPullup(zoned.ZonedFilter):
     time_base = CacheResettingProperty("time_base")
     start_pts_time = CacheResettingProperty("start_pts_time")
 
-    def __init__(self, zones=[], time_base=QQ(1, 10**9), start_pts_time=0, prev=None, next=None, notify_input=None, notify_output=None):
+    def __init__(self, zones=[], time_base=QQ(1, 10**9), start_pts_time=0,
+                 prev=None, next=None, notify_input=None, notify_output=None):
         super().__init__(zones=zones, prev=prev, next=next,
-                         notify_input=notify_input, notify_output=notify_output)
+                         notify_input=notify_input,
+                         notify_output=notify_output)
         self.time_base = time_base
         self._start_pts_time = start_pts_time
         self._columns = None
@@ -792,16 +854,18 @@ class ZonedPullup(zoned.ZonedFilter):
 
     def final_fields(self, n):
         m = self.translate_fields(n)
-        #m = self.indexMap_cumulative
         filter = self.next
+
         while filter is not None:
             mm = m.copy()
             filt = (m >= 0)*(m < filter.framecount)
+
             if filt.any():
                 mm[filt] = filter.indexMap[m[filt]]
-                #mm[filt] = filter._translate_index(m[filt])
+
             filter = filter.next
             m = mm
+
         return m
 
     def autoframerate(self):
@@ -825,7 +889,8 @@ class ZonedPullup(zoned.ZonedFilter):
 
                 n += 2
 
-                while n < len(dt) - 1 and abs(dt[n:n+2] - numpy.array([50, 33])).max() <= 1:
+                while (n < len(dt) - 1
+                       and abs(dt[n:n+2] - numpy.array([50, 33])).max() <= 1):
                     n += 2
 
             elif abs(dt[n] - 33) <= 1:
@@ -883,8 +948,9 @@ class ZonedPullup(zoned.ZonedFilter):
         return self._calc_pts()
 
     def QtTableColumns(self):
-        from .qpullup import (FrameRateCheckCol, FrameRateCol, TCPatternCol, TCPatternOffsetCol,
-                            YBlendCheckCol, UVBlendCheckCol, FrameRateECol, FrameRateOCol)
+        from .qpullup import (FrameRateCheckCol, FrameRateCol, TCPatternCol,
+                              TCPatternOffsetCol, YBlendCheckCol,
+                              UVBlendCheckCol, FrameRateECol, FrameRateOCol)
         return [
             FrameRateCheckCol(self),
             FrameRateCol(self),
@@ -899,4 +965,4 @@ class ZonedPullup(zoned.ZonedFilter):
     @staticmethod
     def QtDlgClass():
         from .qpullup import QPullup
-        #return QPullup # Need to finish this...
+        # return QPullup # Need to finish this...

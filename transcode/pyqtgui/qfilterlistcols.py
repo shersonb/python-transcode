@@ -37,10 +37,10 @@ class BaseFilterCol(object):
 
     def createContextMenu(self, table, index, obj):
         menu = QMenu(table)
-        input_files = self.filters.config.input_files
 
-        editfilter = QAction(f"Configure filter...", table,
-                             triggered=partial(self.configureFilter, obj, table))
+        editfilter = QAction(
+            "Configure filter...", table,
+            triggered=partial(self.configureFilter, obj, table))
 
         editfilter.setEnabled(isinstance(obj, BaseFilter) and obj.hasQtDlg())
 
@@ -52,7 +52,8 @@ class BaseFilterCol(object):
         dlg = filter.QtDlg(parent)
         dlg.setSources(self.filters.config.input_files, self.filters)
 
-        if hasattr(parent, "contentsModified") and isinstance(parent.contentsModified, pyqtBoundSignal):
+        if (hasattr(parent, "contentsModified")
+                and isinstance(parent.contentsModified, pyqtBoundSignal)):
             dlg.settingsApplied.connect(parent.contentsModified)
 
         dlg.exec_()
@@ -61,7 +62,8 @@ class BaseFilterCol(object):
 class FilterNameCol(BaseFilterCol):
     headerdisplay = "Filter"
     width = 240
-    flags = Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsEditable
+    flags = (Qt.ItemIsSelectable | Qt.ItemIsEnabled
+             | Qt.ItemIsDragEnabled | Qt.ItemIsEditable)
 
     def __init__(self, filters):
         super().__init__(filters, "name")
@@ -84,7 +86,6 @@ class FilterNameCol(BaseFilterCol):
         if obj is None or not obj.name:
             return f"{k}: {obj.__class__.__name__}"
 
-        __name__ = obj.__name__
         return f"{k}: {obj.name} ({obj.__class__.__name__})"
 
     def tooltip(self, index, obj):
@@ -124,8 +125,9 @@ class SourceCol(BaseFilterCol):
                 return ""
 
             if isinstance(source, Track):
-
-                return f"input:{self.filters.config.input_files.index(source.container)}:{source.track_index} ()"
+                file_index = self.filters.config.input_files.index(
+                    source.container)
+                return f"input:{file_index}:{source.track_index} ()"
 
             elif isinstance(source, BaseFilter) and source in self.filters:
                 name = source.name or source.__class__.__name__

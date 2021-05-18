@@ -1,13 +1,14 @@
 #!/usr/bin/python
-from PyQt5.QtCore import (Qt, QModelIndex, pyqtSignal, QModelIndex, QItemSelectionModel,
-                          QSortFilterProxyModel, pyqtSlot)
-from PyQt5.QtWidgets import (QApplication, QMenu, QAbstractItemView, QItemDelegate,
-                             QTableView)
+from PyQt5.QtCore import (Qt, pyqtSignal, QModelIndex, QItemSelectionModel,
+                          QSortFilterProxyModel)
+from PyQt5.QtWidgets import (QApplication, QMenu, QAbstractItemView,
+                             QItemDelegate, QTableView)
 import sys
 import traceback
 
 from .qitemmodel import QIntegerModel
-from .qframetablecolumn import *
+from .qframetablecolumn import (FrameNumberCol, TimeStampCol,
+                                NewFrameNumberCol, NewTimeStampCol, DiffCol)
 
 
 class FrameTable(QTableView):
@@ -21,11 +22,13 @@ class FrameTable(QTableView):
         self.setModel(model)
         self.setFilters(None)
         self.setMinimumHeight(240)
-        self.verticalHeader().setDefaultSectionSize(self.fontMetrics().height())
+        self.verticalHeader().setDefaultSectionSize(
+            self.fontMetrics().height())
 
     def setFont(self, font):
         super().setFont(font)
-        self.verticalHeader().setDefaultSectionSize(self.fontMetrics().height())
+        self.verticalHeader().setDefaultSectionSize(
+            self.fontMetrics().height())
 
     def _initCols(self):
         self.idcol = FrameNumberCol(None)
@@ -64,46 +67,15 @@ class FrameTable(QTableView):
                     newfiltercols.extend(filtercols)
                     self.columns_by_filter.append(filtercols)
 
-            #"""Compare new filter column list to old."""
-            # for col in self.filter_columns.copy():
-                # if col not in newfiltercols:
-                    #"""Old column does not appear in newfiltercols, so it is removed from the model."""
-                    # self.filter_columns.remove(col)
-
-                    # if col in self.datamodel.columns:
-                    #m = self.datamodel.columns.index(col)
-                    # self.datamodel.removeColumn(m)
-                    #del headersizes[m]
-
-            #"""Insert new columns, move existing columns."""
-            # for n, col in enumerate(newfiltercols, len(self.colsleft)):
-                # if col in self.datamodel.columns:
-                    #"""Column exists in model, so it will just be moved."""
-                    #m = self.datamodel.columns.index(col)
-
-                    # if m > n: # Should never have m < n.
-                    #self.datamodel.moveColumn(m, n)
-                    #size = headersizes.pop(m)
-                    #headersizes.insert(n, size)
-
-                # else:
-                    #"""Column is new."""
-                    #self.datamodel.insertColumn(n, col)
-
-                    # if hasattr(col, "width"):
-                    #headersizes.insert(n, col.width)
-
-                    # else:
-                    #headersizes.insert(n, None)
-
-            self.datamodel = QIntegerModel(filters.prev.framecount,
-                                           self.colsleft + newfiltercols + self.colsright, self)
+            self.datamodel = QIntegerModel(
+                filters.prev.framecount,
+                self.colsleft + newfiltercols + self.colsright, self)
             self.model().setSourceModel(self.datamodel)
 
-            #headersizes = [self.columnWidth(k) for k in range(self.datamodel.columnCount())]
-
-            for n, col in enumerate(self.colsleft + newfiltercols + self.colsright):
-                if hasattr(col, "itemdelegate") and isinstance(col.itemdelegate, QItemDelegate):
+            for n, col in enumerate(
+                    self.colsleft + newfiltercols + self.colsright):
+                if (hasattr(col, "itemdelegate")
+                        and isinstance(col.itemdelegate, QItemDelegate)):
                     self.setItemDelegateForColumn(n, col.itemdelegate)
 
                 if hasattr(col, "width") and col.width is not None:
@@ -123,7 +95,7 @@ class FrameTable(QTableView):
 
     def setCurrentCell(self, row, col):
         current = self.currentIndex()
-        current = current.sibling(row, col)
+        idx = current.sibling(row, col)
         self.setCurrentIndex(idx)
 
     def keyPressEvent(self, event):
@@ -133,7 +105,6 @@ class FrameTable(QTableView):
         row = idx.row()
         col = idx.column()
         model = self.model()
-        selectionModel = self.selectionModel()
         keypressfunc = model.data(self.currentIndex(), Qt.UserRole + 2)
 
         if key in (Qt.Key_Return, Qt.Key_Enter):
@@ -141,7 +112,7 @@ class FrameTable(QTableView):
                 for k in range(1, model.rowCount()):
                     q, r = divmod(row - k, model.rowCount())
 
-                    if self.isRowHidden(r) == False:
+                    if not self.isRowHidden(r):
                         p = (col + q) % model.columnCount()
                         sibling = idx.sibling(r, p)
                         self.setCurrentIndex(sibling)
@@ -151,7 +122,7 @@ class FrameTable(QTableView):
                 for k in range(1, model.rowCount()):
                     q, r = divmod(row + k, model.rowCount())
 
-                    if self.isRowHidden(r) == False:
+                    if not self.isRowHidden(r):
                         p = (col + q) % model.columnCount()
                         sibling = idx.sibling(r, p)
                         self.setCurrentIndex(sibling)
@@ -174,7 +145,8 @@ class FrameTable(QTableView):
                 elif idx.row() < model.rowCount() - 1:
                     self.setCurrentCell(idx.row()+1, 0)
 
-        elif self.state() == QAbstractItemView.EditingState and key == Qt.Key_Escape:
+        elif (self.state() == QAbstractItemView.EditingState
+              and key == Qt.Key_Escape):
             self.closeEditor()
 
         elif callable(keypressfunc) and keypressfunc(self, event):
@@ -238,7 +210,6 @@ class FrameTable(QTableView):
         self.setCurrentIndex(newindex)
         sm = self.selectionModel()
         sm.setCurrentIndex(newindex, QItemSelectionModel.ClearAndSelect)
-        #sm.currentChanged.emit(newindex, current)
 
         self.setCurrentIndex(newindex)
         self.scrollTo(newindex, QAbstractItemView.PositionAtCenter)
@@ -313,10 +284,12 @@ class FrameTable(QTableView):
             self.columns_by_filter.insert(index, filtercols)
 
             for n, col in enumerate(filtercols, K + M):
-                if hasattr(col, "width") and isinstance(col.width, (int, float)):
+                if (hasattr(col, "width")
+                        and isinstance(col.width, (int, float))):
                     self.setColumnWidth(n, col.width)
 
-                if hasattr(col, "itemdelegate") and isinstance(col.itemdelegate, QItemDelegate):
+                if (hasattr(col, "itemdelegate")
+                        and isinstance(col.itemdelegate, QItemDelegate)):
                     self.setItemDelegateForColumn(n, col.itemdelegate)
 
 

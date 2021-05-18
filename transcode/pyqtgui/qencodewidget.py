@@ -2,7 +2,7 @@
 from PyQt5.QtCore import Qt, pyqtSignal, QRect
 from PyQt5.QtGui import (QPainter, QPixmap, QColor, QFont, QBrush, QPen, QIcon,
                          QFontMetrics, QPainterPath)
-from PyQt5.QtWidgets import (QLabel, QMessageBox, QGridLayout, QScrollArea, QWidget,
+from PyQt5.QtWidgets import (QLabel, QMessageBox, QScrollArea, QWidget,
                              QCheckBox, QPushButton, QProgressBar, QVBoxLayout,
                              QGridLayout, QHBoxLayout, QDialog)
 from PyQt5.QtCore import pyqtSlot
@@ -19,6 +19,8 @@ import transcode.util
 import types
 import traceback
 import io
+import regex
+
 
 av.logging.set_level(av.logging.ERROR)
 
@@ -85,7 +87,6 @@ class Graph(QWidget):
         painter = QPainter(self)
         painter.setFont(self.font)
         blackpen = QPen(Qt.black, 1)
-        redpen = QPen(Qt.red, 1)
         greypen = QPen(Qt.gray, 1)
         painter.setPen(blackpen)
         fill = QBrush(QColor(255, 255, 255))
@@ -128,8 +129,6 @@ class Graph(QWidget):
 
                 painter.setPen(blackpen)
                 sw = metrics.width(str(y))
-                #u = (w - fw)*(x - Xmin)/(Xmax - Xmin) + fw
-                # if u - sw//2 > fw and u + sw//2 < w:
                 painter.drawText(fw - sw - 4, v + ascent/3, str(y))
 
             for pen, row in zip(self.pens, self.A):
@@ -139,7 +138,6 @@ class Graph(QWidget):
 
                 painter.setPen(pen)
                 path = QPainterPath()
-                # painter.begin(self)
                 painter.setRenderHint(QPainter.Antialiasing)
                 path.moveTo(U[0], V[0])
 
@@ -153,7 +151,9 @@ class Graph(QWidget):
 
 
 class TrackStats(QWidget):
-    def __init__(self, duration, title="Untitled", framecount=None, time_base=QQ(1/1000), keep=7200, font=QFont("DejaVu Serif", 8), parent=None):
+    def __init__(self, duration, title="Untitled", framecount=None,
+                 time_base=QQ(1/1000), keep=7200,
+                 font=QFont("DejaVu Serif", 8), parent=None):
         super(TrackStats, self).__init__(parent)
         self.setHidden(True)
         self.framecount = framecount
@@ -211,7 +211,8 @@ class TrackStats(QWidget):
         self.sizeLabel.setText(transcode.util.h(self.byteswritten))
         self.packetsreceived += 1
 
-        if len(self.timestamps) >= 2 and self.timestamps[-1] - self.timestamps[0] > 0:
+        if (len(self.timestamps) >= 2
+                and self.timestamps[-1] - self.timestamps[0] > 0):
             rate = (len(self.timestamps) - 1) / \
                 (self.timestamps[-1] - self.timestamps[0])
 
@@ -220,7 +221,8 @@ class TrackStats(QWidget):
 
         if rate and self.framecount is not None:
             self.frameCountLabel.setText(
-                f"{self.packetsreceived:,d}/{self.framecount:,d} ({rate:,.2f} fps)")
+                f"{self.packetsreceived:,d}/{self.framecount:,d} "
+                f"({rate:,.2f} fps)")
             timeleft = int((self.framecount - self.packetsreceived)/rate)
             m, s = divmod(timeleft, 60)
             h, m = divmod(m, 60)
@@ -272,7 +274,8 @@ class QEncodeDialog(QDialog):
     encodeinterrupted = pyqtSignal()
     encodeerror = pyqtSignal(BaseException, types.TracebackType)
 
-    def __init__(self, output_file, pass_=None, encoderoverrides=[], logfile=None, *args, **kwargs):
+    def __init__(self, output_file, pass_=None, encoderoverrides=[],
+                 logfile=None, *args, **kwargs):
         super(QEncodeDialog, self).__init__(*args, **kwargs)
         self.packetreceived.connect(self.packetReceived)
         self.encodefinished.connect(self.encodeFinished)
@@ -287,25 +290,24 @@ class QEncodeDialog(QDialog):
         self.encoderoverrides = encoderoverrides
         self.setWindowTitle(output_file.title)
 
-        try:
-            if hasattr(output_file, "attachments") and output_file.attachments:
-                for attachment in output_file.attachments:
+        if hasattr(output_file, "attachments") and output_file.attachments:
+            for attachment in output_file.attachments:
+                if regex.match(
+                        r"^(?:cover|poster|fanart|backdrop)\d*\.(?:png|jpg)$",
+                        attachment.fileName, flags=regex.I):
                     try:
-                        if attachment.fileName.lower() in ("cover.png", "cover.jpg"):
-                            bytesio = io.BytesIO()
-                            bytesio.write(attachment.fileData)
-                            bytesio.seek(0)
-                            qim = Image.open(bytesio).convert("RGBA").toqpixmap()
-                            icon = QIcon(qim)
-                            self.setWindowIcon(icon)
-                            bytesio.close()
-                            break
+                        bytesio = io.BytesIO()
+                        bytesio.write(attachment.fileData)
+                        bytesio.seek(0)
+                        qim = Image.open(bytesio).convert(
+                            "RGBA").toqpixmap()
+                        icon = QIcon(qim)
+                        self.setWindowIcon(icon)
+                        bytesio.close()
+                        break
 
                     except Exception:
                         pass
-
-        except Exception:
-            pass
 
         fonthead = QFont("DejaVu Serif", 10, QFont.Bold, italic=True)
         fonttotal = QFont("DejaVu Serif", 8, italic=True)
@@ -363,8 +365,6 @@ class QEncodeDialog(QDialog):
         self.trackinfo = []
         self.encodeThread = None
 
-        videofound = False
-
         for k, track in enumerate(output_file.tracks):
             lang = track.language if track.language is not None else "und"
 
@@ -375,10 +375,11 @@ class QEncodeDialog(QDialog):
                 title = track.name
 
             title = f"{k}: {title} ({lang})"
-            time_base = track.time_base
 
-            trackinfo = TrackStats(duration=min(track.duration, track.container.duration), title=title,
-                                   framecount=track.framecount, time_base=track.time_base, keep=7200, parent=self)
+            trackinfo = TrackStats(
+                duration=min(track.duration, track.container.duration),
+                title=title, framecount=track.framecount,
+                time_base=track.time_base, keep=7200, parent=self)
 
             self.trackinfo.append(trackinfo)
             self._gridlayout.addWidget(trackinfo.titleLabel, k+1, 0)
@@ -387,8 +388,10 @@ class QEncodeDialog(QDialog):
             self._gridlayout.addWidget(trackinfo.sizeLabel, k+1, 3)
             self._gridlayout.addWidget(trackinfo.bitrateLabel, k+1, 4)
 
-        self.totalinfo = TrackStats(None, title="Total", framecount=sum(track.framecount for track in output_file.tracks),
-                                    keep=7200, font=fonttotal, parent=self)
+        self.totalinfo = TrackStats(
+            None, title="Total",
+            framecount=sum(track.framecount for track in output_file.tracks),
+            keep=7200, font=fonttotal, parent=self)
         self._gridlayout.addWidget(
             self.totalinfo.titleLabel, len(output_file.tracks) + 2, 0)
         self._gridlayout.addWidget(
@@ -429,7 +432,8 @@ class QEncodeDialog(QDialog):
             self._stats.addWidget(self._etaTextLabel)
             self._etaTextLabel.setFont(font)
 
-            etaLabel = self.trackinfo[self.output_file.vtrack.track_index].etaLabel
+            etaLabel = self.trackinfo[
+                self.output_file.vtrack.track_index].etaLabel
             etaLabel.setHidden(False)
             self._stats.addWidget(etaLabel)
 
@@ -491,7 +495,9 @@ class QEncodeDialog(QDialog):
                 if self.vhist is not None and self.vhist.ndim:
                     if len(self.vhist) >= 2:
                         self.graph.addPoints(
-                            [(k, self.vhist[-2, k]), (k, self.vhist[-1, k]), (k, size)])
+                            [(k, self.vhist[-2, k]),
+                             (k, self.vhist[-1, k]),
+                             (k, size)])
 
                     elif len(self.vhist) == 1:
                         self.graph.addPoints(
@@ -509,7 +515,7 @@ class QEncodeDialog(QDialog):
             info.packetsreceived for info in self.trackinfo if info.framecount)
         self.progressBar.setValue(framesdone)
 
-    @pyqtSlot(numpy.ndarray)
+    @ pyqtSlot(numpy.ndarray)
     def statsLoaded(self, stats):
         self.vhist = stats
 
@@ -532,18 +538,23 @@ class QEncodeDialog(QDialog):
         self.totalinfo.reset()
         self.vhist = None
 
-        self.encodeThread = self.output_file.createTranscodeThread(pass_=self.pass_, logfile=self.logfile,
-                                                                   encoderoverrides=self.encoderoverrides, notifyvencode=self.framesenttoencoder.emit,
-                                                                   notifymux=self.packetreceived.emit, notifypaused=self.encodepaused.emit,
-                                                                   notifyerror=self.encodeerror.emit, notifyfinish=self.encodefinished.emit,
-                                                                   notifycancelled=self.encodeinterrupted.emit,
-                                                                   notifystats=self.statsloaded.emit, autostart=False)
+        self.encodeThread = self.output_file.createTranscodeThread(
+            pass_=self.pass_, logfile=self.logfile,
+            encoderoverrides=self.encoderoverrides,
+            notifyvencode=self.framesenttoencoder.emit,
+            notifymux=self.packetreceived.emit,
+            notifypaused=self.encodepaused.emit,
+            notifyerror=self.encodeerror.emit,
+            notifyfinish=self.encodefinished.emit,
+            notifycancelled=self.encodeinterrupted.emit,
+            notifystats=self.statsloaded.emit, autostart=False)
 
         self.encodeThread.start()
         self.pauseBtn.setEnabled(True)
 
     def closeEvent(self, event):
-        if self.output_file.transcode_started and self.cancelEncodeDlg.exec_() == QMessageBox.No:
+        if (self.output_file.transcode_started
+                and self.cancelEncodeDlg.exec_() == QMessageBox.No):
             event.ignore()
             return
 
@@ -563,22 +574,23 @@ class QEncodeDialog(QDialog):
     def encodeInterrupted(self):
         self.autoClose.setEnabled(False)
 
-    @pyqtSlot(BaseException, types.TracebackType)
+    @ pyqtSlot(Exception, types.TracebackType)
     def encodeError(self, exc, tb):
         message = "".join(traceback.format_exception(type(exc), exc, tb))
         self.pauseBtn.setEnabled(False)
         self.cancelBtn.setText("&Close")
         errorDlg = QMessageBox(self)
         errorDlg.setWindowTitle("Encoding Error")
-        errorDlg.setText("The following exception was encountered while encoding \"%s\":\n\n%s" % (
-            self.output_file.title, message))
+        errorDlg.setText("The following exception was encountered while "
+                         f"encoding \"{self.output_file.title}\":\n\n"
+                         f"{message}")
         errorDlg.setStandardButtons(QMessageBox.Ok)
         errorDlg.setDefaultButton(QMessageBox.Ok)
         errorDlg.setIcon(QMessageBox.Critical)
         errorDlg.exec_()
         self.autoClose.setEnabled(False)
 
-    @pyqtSlot(str)
+    @ pyqtSlot(str)
     def encodePaused(self, message="Encoding Paused"):
         self.pauseBtn.setText("&Resume")
         pausedDlg = QMessageBox(self)

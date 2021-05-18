@@ -1,9 +1,6 @@
 from ..base import BaseVideoFilter
-from ...base import CacheResettingProperty
-from fractions import Fraction as QQ
-from numpy import arange, moveaxis, float, zeros, uint8, float64, array
+from numpy import moveaxis, zeros, uint8, float64
 from numpy import min as npmin
-from transcode.util import cached
 from transcode.avarrays import toNDArray, toVFrame
 
 
@@ -62,7 +59,8 @@ class HSLAdjust(BaseVideoFilter):
             SL = zeros(A.shape[:2], dtype=float64)
 
             case5 = (L > 0)*(L < 1)
-            SL[case5] = (V[case5] - L[case5])/npmin((L[case5], 1-L[case5]), axis=0)
+            SL[case5] = ((V[case5] - L[case5])
+                         / npmin((L[case5], 1-L[case5]), axis=0))
 
             # --- Adjustments to HSL go here ---
 
