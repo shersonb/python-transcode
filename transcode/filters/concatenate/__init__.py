@@ -537,7 +537,8 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                 if item.codec != codec:
                     return False
 
-                if item.extradata != extradata:
+                if (self.type in ("video", "audio")
+                        and item.extradata != extradata):
                     return False
 
         return True
