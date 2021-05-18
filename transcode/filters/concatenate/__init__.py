@@ -519,3 +519,25 @@ class Concatenate(BaseVideoFilter, BaseAudioFilter):
                         f"({j}) and '{source2.layout}' ({k}).", self))
 
         return exceptions
+
+    @property
+    def canIterPackets(self):
+        if len(self) == 0:
+            return False
+
+        for k, item in enumerate(self):
+            if not item.canIterPackets:
+                return False
+
+            if k == 0:
+                codec = item.codec
+                extradata = item.extradata
+
+            else:
+                if item.codec != codec:
+                    return False
+
+                if item.extradata != extradata:
+                    return False
+
+        return True
