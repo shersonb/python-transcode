@@ -13,8 +13,6 @@ from ebml.ndarray import EBMLNDArray
 import abc
 from fractions import Fraction as QQ
 from copy import deepcopy
-from .basereader import BaseReader
-from ..filters.base import BaseFilter
 from ..encoders import vencoders, sencoders, aencoders
 from transcode.avarrays import toNDArray, toAFrame
 import socket
